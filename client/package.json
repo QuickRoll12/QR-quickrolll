@@ -28,14 +28,16 @@
     "styled-components": "^6.0.7",
     "react-icons": "^4.10.1",
     "framer-motion": "^11.0.0",
-    "qrcode.react": "^3.1.0"
+    "qrcode": "^1.5.3",
+    "react-qr-code": "^2.0.15"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:production": "REACT_APP_ENVIRONMENT=production react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "dev": "nodemon server/index.js"
+    "analyze": "npm run build && npx serve -s build"
   },
   "eslintConfig": {
     "extends": [

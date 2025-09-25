@@ -226,6 +226,8 @@
 .qr-code {
     display: block;
     border-radius: 10px;
+    width: 280px !important;
+    height: 280px !important;
 }
 
 .qr-refresh-indicator {

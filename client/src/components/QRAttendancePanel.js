@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode.react';
+import QRCode from 'react-qr-code';
 import '../styles/QRAttendancePanel.css';
 
 const QRAttendancePanel = ({ 
@@ -184,13 +184,15 @@ const QRAttendancePanel = ({
                         </div>
                         
                         <div className="qr-code-wrapper">
-                            <QRCode 
-                                value={qrData.token}
-                                size={280}
-                                level="M"
-                                includeMargin={true}
-                                className="qr-code"
-                            />
+                            <div className="qr-code">
+                                <QRCode 
+                                    value={qrData.token}
+                                    size={280}
+                                    style={{ height: "280px", width: "280px" }}
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                />
+                            </div>
                             <div className="qr-refresh-indicator">
                                 <div className="refresh-pulse"></div>
                             </div>
