@@ -1,0 +1,772 @@
+.past-attendance-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  color: #1a237e;
+  margin: 0;
+}
+
+.back-button {
+  background-color: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.3s;
+}
+
+.back-button:hover {
+  background-color: #e0e0e0;
+}
+
+.back-arrow {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.filters-container {
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.filters-container h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #1a237e;
+  font-size: 18px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #555;
+}
+
+.filter-group input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 180px;
+}
+
+.reset-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  height: 36px;
+  transition: background-color 0.3s;
+}
+
+.reset-button:hover {
+  background-color: #d32f2f;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 18px;
+  color: #3f51b5;
+  gap: 10px;
+}
+
+.no-records {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.no-records i {
+  font-size: 48px;
+  color: #9e9e9e;
+  margin-bottom: 16px;
+}
+
+.no-records p {
+  margin: 5px 0;
+  color: #616161;
+  font-size: 16px;
+}
+
+.attendance-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.attendance-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.attendance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.attendance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.attendance-title h3 {
+  margin: 0 0 8px 0;
+  color: #1a237e;
+  font-size: 20px;
+}
+
+.attendance-date {
+  color: #757575;
+  font-size: 14px;
+}
+
+.attendance-stats {
+  display: flex;
+  gap: 16px;
+  background-color: #f5f5f5;
+  padding: 10px 16px;
+  border-radius: 6px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.stat-label {
+  color: #616161;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-weight: bold;
+  color: #333;
+  font-size: 18px;
+}
+
+.attendance-details {
+  margin-bottom: 16px;
+}
+
+.student-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.present-list, .absent-list {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.present-list h4, .absent-list h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.present-list h4 {
+  color: #2e7d32;
+}
+
+.present-list h4::before {
+  content: "✓";
+  display: inline-block;
+  margin-right: 8px;
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+.absent-list h4 {
+  color: #c62828;
+}
+
+.absent-list h4::before {
+  content: "✗";
+  display: inline-block;
+  margin-right: 8px;
+  font-weight: bold;
+  color: #c62828;
+}
+
+.roll-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.roll-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.roll-badge.present {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.roll-badge.absent {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.empty-message {
+  color: #9e9e9e;
+  font-style: italic;
+  margin: 0;
+}
+
+.attendance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 15px;
+  justify-content: center;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+  border-radius: 0 0 8px 8px;
+}
+
+.download-button, .email-button, .copy-button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.download-button {
+  background-color: #1a237e;
+  color: white;
+}
+
+.download-button:hover {
+  background-color: #0e1442;
+}
+
+.email-button {
+  background-color: #4caf50;
+  color: white;
+}
+
+.email-button:hover {
+  background-color: #388e3c;
+}
+
+.copy-button {
+  background-color: #ff9800;
+  color: white;
+}
+
+.copy-button:hover {
+  background-color: #f57c00;
+}
+
+.copy-present {
+  background-color: #4caf50;
+  color: white;
+}
+
+.copy-present:hover {
+  background-color: #388e3c;
+}
+
+.copy-absent {
+  background-color: #f44336;
+  color: white;
+}
+
+.copy-absent:hover {
+  background-color: #d32f2f;
+}
+
+.success-message, .error-message {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 4px;
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.success-message {
+  background-color: #4caf50;
+}
+
+.error-message {
+  background-color: #f44336;
+}
+
+.success-message.show, .error-message.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .attendance-actions {
+    flex-direction: column;
+  }
+  
+  .download-button, .email-button, .copy-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .success-message, .error-message {
+    left: 20px;
+    right: 20px;
+    text-align: center;
+  }
+}
+
+.roll-numbers::-webkit-scrollbar {
+  width: 6px;
+}
+
+.roll-numbers::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.roll-numbers::-webkit-scrollbar-thumb {
+  background: #bdbdbd;
+  border-radius: 10px;
+}
+
+.roll-numbers::-webkit-scrollbar-thumb:hover {
+  background: #9e9e9e;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .attendance-header {
+    flex-direction: column;
+  }
+  
+  .attendance-stats {
+    width: 100%;
+    margin-top: 12px;
+  }
+  
+  .student-lists {
+    grid-template-columns: 1fr;
+  }
+  
+  .attendance-actions {
+    flex-direction: column;
+  }
+  
+  .download-button, .email-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.edit-button {
+  background-color: #4a6da7;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.3s;
+}
+
+.edit-button:hover {
+  background-color: #3a5a8f;
+}
+
+.edit-button i {
+  font-size: 14px;
+}
+
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.edit-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+.edit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.edit-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.edit-modal-content {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.record-info {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.record-info p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.edit-error {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  animation: fadeIn 0.3s ease;
+}
+
+.edit-success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  animation: fadeIn 0.3s ease;
+}
+
+.add-roll-number {
+  margin-bottom: 20px;
+}
+
+.add-roll-number h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #333;
+}
+
+.add-roll-form {
+  display: flex;
+  gap: 10px;
+}
+
+.add-roll-form input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.add-roll-form button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0 15px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.add-roll-form button:hover {
+  background-color: #388e3c;
+}
+
+.edit-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .edit-lists {
+    grid-template-columns: 1fr;
+  }
+}
+
+.edit-present-list, .edit-absent-list {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 15px;
+}
+
+.edit-present-list h4, .edit-absent-list h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-roll-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.edit-roll-badge {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.edit-roll-badge.present {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.edit-roll-badge.absent {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+.edit-roll-badge span {
+  margin: 0 5px;
+}
+
+.badge-actions {
+  display: flex;
+  align-items: center;
+  margin-left: 5px;
+}
+
+.edit-roll-badge button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+  opacity: 0.7;
+}
+
+.edit-roll-badge:hover button {
+  opacity: 1;
+}
+
+.edit-roll-badge button.remove-btn {
+  margin-left: 2px;
+}
+
+.edit-roll-badge.present button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.edit-roll-badge.absent button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.edit-roll-badge button.remove-btn:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+.edit-modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background-color: #f8f9fa;
+  border-radius: 0 0 8px 8px;
+}
+
+.cancel-button {
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.cancel-button:hover {
+  background-color: #e0e0e0;
+}
+
+.save-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.3s;
+}
+
+.save-button:hover {
+  background-color: #388e3c;
+}
+
+.save-button:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
+}
+
+.empty-message {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

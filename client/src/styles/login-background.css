@@ -1,0 +1,188 @@
+/* Animated Background for Login Page */
+
+/* Main container for the login background */
+.login-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  
+  /* Particles.js container */
+  #particles-js {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* Behind the glow effects but above the background */
+  }
+  
+  /* Network of connecting dots - hiding the old animation */
+  .network {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: none; /* Hide the old animation */
+  }
+  
+  /* Individual dots that will be connected */
+  .dot {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+  
+  .dot:nth-child(1) { top: 10%; left: 20%; animation: float-dot 20s infinite ease-in-out; }
+  .dot:nth-child(2) { top: 20%; left: 80%; animation: float-dot 25s infinite ease-in-out 1s; }
+  .dot:nth-child(3) { top: 30%; left: 45%; animation: float-dot 15s infinite ease-in-out 2s; }
+  .dot:nth-child(4) { top: 40%; left: 15%; animation: float-dot 22s infinite ease-in-out 3s; }
+  .dot:nth-child(5) { top: 50%; left: 70%; animation: float-dot 18s infinite ease-in-out 4s; }
+  .dot:nth-child(6) { top: 60%; left: 35%; animation: float-dot 24s infinite ease-in-out 5s; }
+  .dot:nth-child(7) { top: 70%; left: 65%; animation: float-dot 21s infinite ease-in-out 6s; }
+  .dot:nth-child(8) { top: 80%; left: 30%; animation: float-dot 19s infinite ease-in-out 7s; }
+  .dot:nth-child(9) { top: 90%; left: 50%; animation: float-dot 23s infinite ease-in-out 8s; }
+  .dot:nth-child(10) { top: 15%; left: 40%; animation: float-dot 17s infinite ease-in-out 9s; }
+  .dot:nth-child(11) { top: 25%; left: 60%; animation: float-dot 26s infinite ease-in-out 10s; }
+  .dot:nth-child(12) { top: 35%; left: 25%; animation: float-dot 16s infinite ease-in-out 11s; }
+  .dot:nth-child(13) { top: 45%; left: 85%; animation: float-dot 27s infinite ease-in-out 12s; }
+  .dot:nth-child(14) { top: 55%; left: 10%; animation: float-dot 14s infinite ease-in-out 13s; }
+  .dot:nth-child(15) { top: 65%; left: 75%; animation: float-dot 28s infinite ease-in-out 14s; }
+  .dot:nth-child(16) { top: 75%; left: 45%; animation: float-dot 19s infinite ease-in-out 15s; }
+  .dot:nth-child(17) { top: 85%; left: 15%; animation: float-dot 23s infinite ease-in-out 16s; }
+  .dot:nth-child(18) { top: 95%; left: 90%; animation: float-dot 18s infinite ease-in-out 17s; }
+  .dot:nth-child(19) { top: 5%; left: 55%; animation: float-dot 22s infinite ease-in-out 18s; }
+  .dot:nth-child(20) { top: 38%; left: 60%; animation: float-dot 20s infinite ease-in-out 19s; }
+  
+  /* Lines connecting dots */
+  .lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  
+  /* Canvas for drawing connecting lines */
+  .lines-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.2;
+  }
+  
+  /* Subtle pulse effect */
+  .pulse-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+    opacity: 0;
+    animation: pulse-effect 8s infinite ease-in-out;
+  }
+  
+  /* Glowing effect */
+  .glow {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
+    pointer-events: none;
+    opacity: 0.3;
+    mix-blend-mode: overlay;
+  }
+  
+  .glow-1 {
+    top: 20%;
+    left: 30%;
+    animation: pulse 12s infinite alternate;
+  }
+  
+  .glow-2 {
+    bottom: 10%;
+    right: 20%;
+    width: 400px;
+    height: 400px;
+    animation: pulse 15s infinite alternate-reverse;
+  }
+  
+  /* Animations */
+  @keyframes float-dot {
+    0%, 100% {
+      transform: translate(0, 0);
+    }
+    25% {
+      transform: translate(15px, -15px);
+    }
+    50% {
+      transform: translate(-10px, 10px);
+    }
+    75% {
+      transform: translate(5px, 5px);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.3;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.5;
+    }
+  }
+  
+  @keyframes pulse-effect {
+    0%, 100% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.2);
+    }
+  }
+  
+  /* Media query for smaller screens */
+  @media (max-width: 768px) {
+    .dot {
+      opacity: 0.4;
+    }
+    
+    .glow {
+      opacity: 0.2;
+    }
+  }
+  
+  /* Overlay to create depth */
+  .overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 100%);
+    pointer-events: none;
+  }
+  
+  /* JavaScript for connecting dots */
+  .js-connect-dots {
+    display: none;
+  }

@@ -1,0 +1,92 @@
+/* Grid Hover Card Styles */
+.grid-cell {
+  position: relative;
+  /* No display: inline-block to maintain original grid layout */
+}
+
+.student-info-card {
+  position: absolute; /* Changed to absolute positioning */
+  top: 0;
+  left: 100%; /* Position to the right of the cell */
+  width: 250px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 15px;
+  z-index: 1000; /* Increased z-index to ensure it's on top */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
+  margin-left: 10px; /* Add some spacing between cell and hover card */
+}
+
+.grid-cell:hover .student-info-card {
+  opacity: 1;
+  visibility: visible;
+}
+
+.student-info-content {
+  color: #333;
+}
+
+.student-info-content h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #2196f3;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.student-info-content p {
+  margin: 5px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.student-info-content .verified {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+/* Adjust position for cells on the right side of the grid */
+.grid-cell:nth-child(10n+8) .student-info-card,
+.grid-cell:nth-child(10n+9) .student-info-card,
+.grid-cell:nth-child(10n+10) .student-info-card {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 10px;
+}
+
+.student-info-content {
+  color: #333;
+}
+
+.student-info-content h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #2196f3;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.student-info-content p {
+  margin: 5px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.student-info-content .verified {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+/* Adjust position for cells on the right edge of the grid */
+.grid-cell:nth-child(12n+10) .student-info-card,
+.grid-cell:nth-child(12n+11) .student-info-card,
+.grid-cell:nth-child(12n+12) .student-info-card,
+.grid-cell:nth-child(12n+13) .student-info-card {
+  left: auto;
+  right: 100%;
+}
