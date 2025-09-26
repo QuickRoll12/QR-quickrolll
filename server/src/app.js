@@ -569,13 +569,22 @@ io.on('connection', (socket) => {
             // Emit to faculty
             socket.emit('qr-sessionStarted', result);
 
-            // Notify all students in this section
+            // Notify all students in this section with standardized format
             const roomName = `${data.department}-${data.semester}-${data.section}`;
-            socket.to(roomName).emit('qr-sessionAvailable', {
+            const sessionStatusData = {
                 sessionId: result.sessionId,
+                status: 'created',
+                canJoin: true,
+                canScanQR: false,
                 facultyName: socket.user.name,
-                canJoin: true
-            });
+                department: data.department,
+                semester: data.semester,
+                section: data.section,
+                message: 'New session started - you can join now!'
+            };
+            
+            socket.to(roomName).emit('qr-sessionStarted', sessionStatusData);
+            socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
 
             console.log(`📱 QR Session started by ${socket.user.name}: ${result.sessionId}`);
 
@@ -806,23 +815,20 @@ io.on('connection', (socket) => {
                 finalStats: result.finalStats
             });
 
-            // Emit to faculty
-            socket.emit('qr-sessionEnded', result);
-
             // Emit standardized event for mobile app
-            const sectionRoom = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
+            const sectionRoom = `${result.finalStats.department}-${result.finalStats.semester}-${result.finalStats.section}`;
             const sessionStatusData = {
-                sessionId: result.sessionData.sessionId,
+                sessionId: data.sessionId,
                 status: 'ended',
                 canJoin: false,
                 canScanQR: false,
-                facultyName: result.sessionData.facultyName,
-                department: result.sessionData.department,
-                semester: result.sessionData.semester,
-                section: result.sessionData.section
+                facultyName: socket.user.name,
+                department: result.finalStats.department,
+                semester: result.finalStats.semester,
+                section: result.finalStats.section,
+                message: 'Attendance session has ended'
             };
             
-            socket.to(sectionRoom).emit('qr-sessionEnded', sessionStatusData);
             socket.to(sectionRoom).emit('sessionStatusUpdate', sessionStatusData);
 
             console.log(`🎯 QR Session ended: ${data.sessionId}`);
@@ -965,8 +971,10 @@ io.on('connection', (socket) => {
     // Handle session status requests (for mobile app)
     socket.on('getSessionStatus', async () => {
         try {
+            // Only handle for students - faculty doesn't need this
             if (socket.user.role !== 'student') {
-                throw new Error('Only students can request session status');
+                console.log(`Faculty ${socket.user.name} requested session status - ignoring`);
+                return; // Just ignore, don't throw error
             }
 
             const sessionStatus = await qrSessionService.getStudentSessionStatus(
