@@ -8,6 +8,7 @@ const QRAttendancePanel = ({
     onLockSession, 
     onStartAttendance, 
     onEndSession,
+    onQRTokenRefresh,
     socket 
 }) => {
     const [timeLeft, setTimeLeft] = useState(5);
@@ -42,52 +43,50 @@ const QRAttendancePanel = ({
         }
         
         return () => {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-            }
+            clearInterval(timerRef.current);
         };
     }, [qrData, sessionData?.status]);
 
-    // Socket event listeners for real-time updates
+    // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
         const handleStudentJoined = (data) => {
             setStudentsJoined(prev => [...prev, data]);
-            updateLiveStats(studentsJoined.length + 1, studentsPresent.length);
+            setLiveStats(prev => ({
+                ...prev,
+                totalJoined: prev.totalJoined + 1
+            }));
         };
 
         const handleAttendanceUpdate = (data) => {
             setStudentsPresent(prev => [...prev, data]);
-            updateLiveStats(studentsJoined.length, studentsPresent.length + 1);
+            setLiveStats(prev => ({
+                ...prev,
+                totalPresent: prev.totalPresent + 1,
+                presentPercentage: ((prev.totalPresent + 1) / studentsJoined.length) * 100
+            }));
         };
 
-        const handleQRRefresh = (newQRData) => {
-            setTimeLeft(5); // Reset timer on QR refresh
+        const handleQRTokenRefresh = (newQRData) => {
+            // Update QR data with new token
+            if (onQRTokenRefresh) {
+                onQRTokenRefresh(newQRData);
+            }
+            // Reset timer
+            setTimeLeft(5);
         };
 
         socket.on('qr-studentJoined', handleStudentJoined);
         socket.on('qr-attendanceUpdate', handleAttendanceUpdate);
-        socket.on('qr-tokenRefreshed', handleQRRefresh);
+        socket.on('qr-tokenRefresh', handleQRTokenRefresh);
 
         return () => {
             socket.off('qr-studentJoined', handleStudentJoined);
             socket.off('qr-attendanceUpdate', handleAttendanceUpdate);
-            socket.off('qr-tokenRefreshed', handleQRRefresh);
+            socket.off('qr-tokenRefresh', handleQRTokenRefresh);
         };
-    }, [socket, studentsJoined.length, studentsPresent.length]);
-
-    const updateLiveStats = (joined, present) => {
-        const percentage = sessionData?.totalStudents > 0 
-            ? Math.round((present / sessionData.totalStudents) * 100) 
-            : 0;
-        
-        setLiveStats({
-            totalJoined: joined,
-            totalPresent: present,
-            presentPercentage: percentage
-        });
-    };
+    }, [socket, studentsJoined.length, onQRTokenRefresh]);
 
     const getStatusColor = (status) => {
         switch (status) {

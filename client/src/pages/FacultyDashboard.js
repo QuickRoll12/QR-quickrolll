@@ -309,6 +309,11 @@ const FacultyDashboard = () => {
         socket.emit('qr-endSession', { sessionId });
     };
 
+    const handleQRTokenRefresh = (newQRData) => {
+        // Update the QR data state with the new token
+        setQrData(newQRData);
+    };
+
     const endSession = () => {
         if (!selectedDepartment || !selectedSemester || !selectedSection) {
             showErrorMessage('Please select department, semester, and section');
@@ -768,6 +773,7 @@ const FacultyDashboard = () => {
                         onLockSession={handleLockSession}
                         onStartAttendance={handleStartAttendance}
                         onEndSession={handleEndSession}
+                        onQRTokenRefresh={handleQRTokenRefresh}
                         socket={socket}
                     />
                 )}

@@ -19,6 +19,7 @@ const photoVerificationRoutes = require('./routes/photoVerificationRoutes');
 const facultyAssignmentRoutes = require('./routes/facultyAssignmentRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
+const qrSessionService = require('./services/qrSessionService');
 const path = require('path');
 const photoVerificationService = require('./services/photoVerificationService'); // Import photoVerificationService
 
@@ -63,6 +64,9 @@ app.use((req, res, next) => {
 const io = new Server(server, {
     cors: corsOptions
 });
+
+// Initialize QR session service with socket.io instance
+qrSessionService.setSocketIO(io);
 
 // Sample course data (you can replace this with database queries)
 const courses = [
@@ -157,6 +161,11 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
     console.log('👤 User connected:', socket.user.name);
+
+    // Join faculty to their specific room for QR token updates
+    if (socket.user.role === 'faculty') {
+        socket.join(`faculty-${socket.user.facultyId}`);
+    }
 
     // Send available courses and sections to client
     socket.emit('courseData', { courses, sections });
@@ -535,8 +544,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty members can start QR sessions');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
-            
             const sessionData = {
                 department: data.department,
                 semester: data.semester,
@@ -578,7 +585,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty members can lock QR sessions');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
             const result = await qrSessionService.lockSession(data.sessionId, socket.user.facultyId);
 
             // Emit to faculty
@@ -606,7 +612,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty members can start QR attendance');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
             const result = await qrSessionService.startAttendance(data.sessionId, socket.user.facultyId);
 
             // Emit to faculty with QR data
@@ -634,8 +639,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only students can join QR sessions');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
-            
             const studentData = {
                 studentId: socket.user.studentId,
                 name: socket.user.name,
@@ -679,8 +682,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only students can scan QR for attendance');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
-            
             const studentData = {
                 studentId: socket.user.studentId,
                 name: socket.user.name,
@@ -725,7 +726,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty members can end QR sessions');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
             const result = await qrSessionService.endSession(data.sessionId, socket.user.facultyId);
 
             // Emit to faculty
@@ -754,7 +754,6 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty can request QR refresh');
             }
 
-            const qrSessionService = require('./services/qrSessionService');
             const newQRData = await qrSessionService.refreshQRToken(data.sessionId);
 
             if (newQRData) {

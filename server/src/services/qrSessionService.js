@@ -7,6 +7,15 @@ class QRSessionService {
     constructor() {
         this.activeSessions = new Map(); // In-memory cache for active sessions
         this.qrRefreshIntervals = new Map(); // Store interval IDs for QR refresh
+        this.io = null; // Socket.io instance for real-time updates
+    }
+
+    /**
+     * Set the socket.io instance for real-time updates
+     * @param {Object} io - Socket.io instance
+     */
+    setSocketIO(io) {
+        this.io = io;
     }
 
     /**
@@ -570,12 +579,20 @@ class QRSessionService {
         // Update cache
         this.activeSessions.set(sessionId, session);
 
-        return {
+        const qrData = {
             token: tokenData.token,
             expiryTime: tokenData.expiryTime,
             refreshCount: session.qrRefreshCount,
             timerSeconds: 5
         };
+
+        // Emit new QR token to connected faculty clients
+        if (this.io) {
+            const roomName = `faculty-${session.facultyId}`;
+            this.io.to(roomName).emit('qr-tokenRefresh', qrData);
+        }
+
+        return qrData;
     }
 
     /**
