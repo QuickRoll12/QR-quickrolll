@@ -640,9 +640,96 @@ class QRSessionService {
     }
 
     /**
-     * Get session by ID (with caching)
+     * Get student session status (for mobile app)
+     * @param {string} course - Student's course
+     * @param {string} semester - Student's semester  
+     * @param {string} section - Student's section
+     * @param {string} studentId - Student ID
+     * @returns {Object} - Session status data
+     */
+    async getStudentSessionStatus(course, semester, section, studentId) {
+        try {
+            // Find active session for the student's section
+            const session = await QRSession.findOne({
+                department: course,
+                semester: semester,
+                section: section,
+                status: { $in: ['created', 'locked', 'active'] }
+            }).sort({ createdAt: -1 });
+
+            if (!session) {
+                return {
+                    success: true,
+                    hasActiveSession: false,
+                    sessionId: null,
+                    status: 'ended',
+                    canJoin: false,
+                    canScanQR: false,
+                    hasJoined: false,
+                    hasMarkedAttendance: false,
+                    message: 'No active session for your section',
+                    facultyName: '',
+                    department: course,
+                    semester: semester,
+                    section: section
+                };
+            }
+
+            const hasJoined = session.hasStudentJoined(studentId);
+            const hasMarkedAttendance = session.hasStudentMarkedAttendance(studentId);
+
+            let canJoin = false;
+            let canScanQR = false;
+            let message = '';
+
+            switch (session.status) {
+                case 'created':
+                    canJoin = !hasJoined;
+                    canScanQR = false;
+                    message = hasJoined ? 'Wait for faculty to lock session' : 'Click Join to enter attendance area';
+                    break;
+                case 'locked':
+                    canJoin = false;
+                    canScanQR = false;
+                    message = hasJoined ? 'Wait for faculty to start attendance' : 'Session locked - cannot join';
+                    break;
+                case 'active':
+                    canJoin = false;
+                    canScanQR = hasJoined && !hasMarkedAttendance;
+                    message = hasMarkedAttendance ? 'Attendance marked successfully!' : 
+                             hasJoined ? 'Scan QR code to mark attendance' : 'Session active but you haven\'t joined';
+                    break;
+            }
+
+            return {
+                success: true,
+                hasActiveSession: true,
+                sessionId: session.sessionId,
+                status: session.status,
+                canJoin: canJoin,
+                canScanQR: canScanQR,
+                hasJoined: hasJoined,
+                hasMarkedAttendance: hasMarkedAttendance,
+                message: message,
+                facultyName: session.facultyName,
+                department: session.department,
+                semester: session.semester,
+                section: session.section,
+                totalStudents: session.totalStudents,
+                studentsJoined: session.studentsJoined.length,
+                studentsPresent: session.studentsPresent.length
+            };
+
+        } catch (error) {
+            console.error('Error getting student session status:', error);
+            throw new Error('Failed to get session status');
+        }
+    }
+
+    /**
+     * Get session by ID
      * @param {string} sessionId - Session ID
-     * @returns {Object} - Session object
+     * @returns {Object} - Session data
      */
     async getSessionById(sessionId) {
         // Try cache first

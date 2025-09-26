@@ -162,9 +162,15 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
     console.log('👤 User connected:', socket.user.name);
 
-    // Join faculty to their specific room for QR token updates
+    // Join users to their specific rooms
     if (socket.user.role === 'faculty') {
         socket.join(`faculty-${socket.user.facultyId}`);
+        console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
+    } else if (socket.user.role === 'student') {
+        // Students join section room for session updates
+        const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
+        socket.join(sectionRoom);
+        console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
     }
 
     // Send available courses and sections to client
@@ -590,13 +596,22 @@ io.on('connection', (socket) => {
             // Emit to faculty
             socket.emit('qr-sessionLocked', result);
 
-            // Notify all students - remove join button
+            // Notify all students - remove join button with standardized format
             const roomName = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
-            socket.to(roomName).emit('qr-sessionLocked', {
+            const sessionStatusData = {
                 sessionId: data.sessionId,
+                status: 'locked',
                 canJoin: false,
+                canScanQR: false,
+                facultyName: result.sessionData.facultyName || 'Faculty',
+                department: result.sessionData.department,
+                semester: result.sessionData.semester,
+                section: result.sessionData.section,
                 message: 'Session locked by faculty'
-            });
+            };
+            
+            socket.to(roomName).emit('qr-sessionLocked', sessionStatusData);
+            socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
 
         } catch (error) {
             console.error('QR Lock session error:', error);
@@ -615,13 +630,22 @@ io.on('connection', (socket) => {
             // Emit to faculty
             socket.emit('qr-sessionUnlocked', result);
 
-            // Notify all students - show join button again
+            // Notify all students - show join button again with standardized format
             const roomName = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
-            socket.to(roomName).emit('qr-sessionUnlocked', {
+            const sessionStatusData = {
                 sessionId: data.sessionId,
+                status: 'created',
                 canJoin: true,
+                canScanQR: false,
+                facultyName: result.sessionData.facultyName || 'Faculty',
+                department: result.sessionData.department,
+                semester: result.sessionData.semester,
+                section: result.sessionData.section,
                 message: 'Session unlocked - you can join again'
-            });
+            };
+            
+            socket.to(roomName).emit('qr-sessionUnlocked', sessionStatusData);
+            socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
 
         } catch (error) {
             console.error('QR Unlock session error:', error);
@@ -640,13 +664,22 @@ io.on('connection', (socket) => {
             // Emit to faculty with QR data
             socket.emit('qr-attendanceStarted', result);
 
-            // Notify students who joined - they can now scan QR
+            // Notify students who joined - they can now scan QR with standardized format
             const roomName = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
-            socket.to(roomName).emit('qr-attendanceActive', {
+            const sessionStatusData = {
                 sessionId: data.sessionId,
+                status: 'active',
+                canJoin: false,
                 canScanQR: true,
-                message: 'QR attendance is now active'
-            });
+                facultyName: result.sessionData.facultyName || 'Faculty',
+                department: result.sessionData.department,
+                semester: result.sessionData.semester,
+                section: result.sessionData.section,
+                message: 'Attendance started - scan QR code now!'
+            };
+            
+            socket.to(roomName).emit('qr-attendanceStarted', sessionStatusData);
+            socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
 
             console.log(`📱 QR Attendance started: ${data.sessionId}`);
 
@@ -694,17 +727,21 @@ io.on('connection', (socket) => {
             console.log(`👤 Student joined QR session: ${studentData.name} (${data.sessionId})`);
 
         } catch (error) {
-            console.error('QR Join session error:', error);
+            console.error('QR Token refresh error:', error);
             socket.emit('qr-error', { message: error.message });
         }
     });
 
-    socket.on('qr-scanAttendance', async (data) => {
+    // ========== NEW MOBILE APP SOCKET HANDLERS ==========
+
+    // Handle student joining session via socket (for mobile app)
+    socket.on('joinSession', async (data) => {
         try {
             if (socket.user.role !== 'student') {
-                throw new Error('Only students can scan QR for attendance');
+                throw new Error('Only students can join sessions');
             }
 
+            const { sessionId } = data;
             const studentData = {
                 studentId: socket.user.studentId,
                 name: socket.user.name,
@@ -726,14 +763,21 @@ io.on('connection', (socket) => {
             socket.emit('qr-attendanceMarked', result);
 
             // Notify faculty about attendance marked
-            const roomName = `${studentData.course}-${studentData.semester}-${studentData.section}`;
-            socket.to(roomName).emit('qr-attendanceUpdate', {
+            const sectionRoomName = `${studentData.course}-${studentData.semester}-${studentData.section}`;
+            
+            const attendanceUpdateData = {
                 studentName: studentData.name,
                 rollNumber: studentData.classRollNumber,
                 markedAt: result.attendanceData.markedAt,
                 totalPresent: result.sessionStats.studentsPresent,
                 presentPercentage: result.sessionStats.presentPercentage
-            });
+            };
+            
+            // Emit to section room (for other students and faculty in that section)
+            socket.to(sectionRoomName).emit('qr-attendanceUpdate', attendanceUpdateData);
+            
+            // Also emit to all faculty rooms (since we don't know which faculty is connected)
+            socket.broadcast.emit('qr-attendanceUpdate', attendanceUpdateData);
 
             console.log(`✅ QR Attendance marked: ${studentData.name} (${studentData.classRollNumber})`);
 
@@ -762,7 +806,26 @@ io.on('connection', (socket) => {
                 finalStats: result.finalStats
             });
 
-            console.log(`🏁 QR Session ended: ${data.sessionId}`);
+            // Emit to faculty
+            socket.emit('qr-sessionEnded', result);
+
+            // Emit standardized event for mobile app
+            const sectionRoom = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
+            const sessionStatusData = {
+                sessionId: result.sessionData.sessionId,
+                status: 'ended',
+                canJoin: false,
+                canScanQR: false,
+                facultyName: result.sessionData.facultyName,
+                department: result.sessionData.department,
+                semester: result.sessionData.semester,
+                section: result.sessionData.section
+            };
+            
+            socket.to(sectionRoom).emit('qr-sessionEnded', sessionStatusData);
+            socket.to(sectionRoom).emit('sessionStatusUpdate', sessionStatusData);
+
+            console.log(`🎯 QR Session ended: ${data.sessionId}`);
 
         } catch (error) {
             console.error('QR End session error:', error);
@@ -789,7 +852,139 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==================== END QR SOCKET HANDLERS ====================
+    // ==================== MOBILE APP SOCKET HANDLERS ====================
+
+    // Handle student joining session via socket (for mobile app)
+    socket.on('joinSession', async (data) => {
+        try {
+            if (socket.user.role !== 'student') {
+                throw new Error('Only students can join sessions');
+            }
+
+            const { sessionId } = data;
+            const studentData = {
+                studentId: socket.user.studentId,
+                name: socket.user.name,
+                classRollNumber: socket.user.classRollNumber,
+                email: socket.user.email,
+                course: socket.user.course,
+                semester: socket.user.semester,
+                section: socket.user.section,
+                fingerprint: data.fingerprint || 'socket-connection',
+                webRTCIPs: data.webRTCIPs || [],
+                userAgent: socket.handshake.headers['user-agent'],
+                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
+            };
+
+            const result = await qrSessionService.joinSession(sessionId, studentData);
+
+            // Send success response to student
+            socket.emit('sessionJoined', {
+                success: true,
+                message: result.message,
+                sessionData: result.sessionData
+            });
+
+            // Notify faculty about student joining
+            const facultyRoom = `faculty-${result.sessionData.facultyId}`;
+            socket.to(facultyRoom).emit('qr-studentJoined', {
+                studentName: studentData.name,
+                rollNumber: studentData.classRollNumber,
+                joinedAt: new Date(),
+                totalJoined: result.sessionData.studentsJoined
+            });
+
+            console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
+
+        } catch (error) {
+            console.error('Join session error:', error);
+            socket.emit('sessionJoinError', { message: error.message });
+        }
+    });
+
+    // Handle QR attendance marking via socket (replacing API)
+    socket.on('markAttendance', async (data) => {
+        try {
+            if (socket.user.role !== 'student') {
+                throw new Error('Only students can mark attendance');
+            }
+
+            const studentData = {
+                studentId: socket.user.studentId,
+                name: socket.user.name,
+                classRollNumber: socket.user.classRollNumber,
+                email: socket.user.email,
+                course: socket.user.course,
+                semester: socket.user.semester,
+                section: socket.user.section,
+                fingerprint: data.fingerprint || 'socket-connection',
+                webRTCIPs: data.webRTCIPs || [],
+                userAgent: socket.handshake.headers['user-agent'],
+                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address,
+                photoFilename: data.photoFilename,
+                photoCloudinaryUrl: data.photoCloudinaryUrl
+            };
+
+            const result = await qrSessionService.markAttendance(data.qrToken, studentData);
+
+            // Send success response to student
+            socket.emit('attendanceMarked', {
+                success: true,
+                message: result.message,
+                attendanceData: result.attendanceData,
+                sessionStats: result.sessionStats
+            });
+
+            // Notify faculty and other students with standardized format
+            const sectionRoom = `${studentData.course}-${studentData.semester}-${studentData.section}`;
+            
+            const attendanceUpdateData = {
+                studentName: studentData.name,
+                rollNumber: studentData.classRollNumber,
+                markedAt: result.attendanceData.markedAt,
+                totalPresent: result.sessionStats.studentsPresent,
+                presentPercentage: result.sessionStats.presentPercentage,
+                sessionId: result.attendanceData.sessionId,
+                status: 'active',
+                canJoin: false,
+                canScanQR: true
+            };
+            
+            // Emit to section room and broadcast to all connected clients
+            socket.to(sectionRoom).emit('qr-attendanceUpdate', attendanceUpdateData);
+            socket.broadcast.emit('qr-attendanceUpdate', attendanceUpdateData);
+
+            console.log(`✅ Attendance marked via socket: ${studentData.name} (${studentData.classRollNumber})`);
+
+        } catch (error) {
+            console.error('Mark attendance error:', error);
+            socket.emit('attendanceError', { message: error.message });
+        }
+    });
+
+    // Handle session status requests (for mobile app)
+    socket.on('getSessionStatus', async () => {
+        try {
+            if (socket.user.role !== 'student') {
+                throw new Error('Only students can request session status');
+            }
+
+            const sessionStatus = await qrSessionService.getStudentSessionStatus(
+                socket.user.course,
+                socket.user.semester,
+                socket.user.section,
+                socket.user.studentId
+            );
+
+            socket.emit('sessionStatusUpdate', sessionStatus);
+
+        } catch (error) {
+            console.error('Get session status error:', error);
+            socket.emit('sessionStatusError', { message: error.message });
+        }
+    });
+
+    // ==================== END MOBILE APP HANDLERS ====================
 
     socket.on('disconnect', () => {
         console.log('👋 User disconnected:', socket.user.name);

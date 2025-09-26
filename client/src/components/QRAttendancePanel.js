@@ -16,9 +16,11 @@ const QRAttendancePanel = ({
     const [studentsJoined, setStudentsJoined] = useState(sessionData?.studentsJoined || []);
     const [studentsPresent, setStudentsPresent] = useState(sessionData?.studentsPresent || []);
     const [liveStats, setLiveStats] = useState({
-        totalJoined: 0,
-        totalPresent: 0,
-        presentPercentage: 0
+        totalJoined: sessionData?.studentsJoined?.length || 0,
+        totalPresent: sessionData?.studentsPresent?.length || 0,
+        presentPercentage: sessionData?.studentsPresent?.length && sessionData?.totalStudents 
+            ? Math.round((sessionData.studentsPresent.length / sessionData.totalStudents) * 100) 
+            : 0
     });
     
     const timerRef = useRef(null);
@@ -99,6 +101,21 @@ const QRAttendancePanel = ({
         };
     }, [socket, studentsJoined.length, onQRTokenRefresh]);
 
+    // Update stats when sessionData changes
+    useEffect(() => {
+        if (sessionData) {
+            setStudentsJoined(sessionData.studentsJoined || []);
+            setStudentsPresent(sessionData.studentsPresent || []);
+            setLiveStats({
+                totalJoined: sessionData.studentsJoined?.length || 0,
+                totalPresent: sessionData.studentsPresent?.length || 0,
+                presentPercentage: sessionData.studentsPresent?.length && sessionData.totalStudents 
+                    ? Math.round((sessionData.studentsPresent.length / sessionData.totalStudents) * 100) 
+                    : 0
+            });
+        }
+    }, [sessionData]);
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'created': return '#2196f3';
@@ -137,6 +154,7 @@ const QRAttendancePanel = ({
 
             {/* Control Buttons */}
             <div className="control-buttons">
+                {/* Lock button - available when session is created */}
                 {sessionData?.status === 'created' && (
                     <button 
                         className="control-btn lock-btn"
@@ -146,6 +164,7 @@ const QRAttendancePanel = ({
                     </button>
                 )}
                 
+                {/* Unlock and Start Attendance buttons - available when session is locked */}
                 {sessionData?.status === 'locked' && (
                     <>
                         <button 

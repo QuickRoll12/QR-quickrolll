@@ -78,6 +78,12 @@ const FacultyDashboard = () => {
                 showSuccessMessage('Session locked successfully!');
             });
 
+            newSocket.on('qr-sessionUnlocked', (data) => {
+                console.log('QR Session unlocked:', data);
+                setQrSessionData(data.sessionData);
+                showSuccessMessage('Session unlocked successfully!');
+            });
+
             newSocket.on('qr-attendanceStarted', (data) => {
                 console.log('QR Attendance started:', data);
                 setQrSessionData(data.sessionData);
