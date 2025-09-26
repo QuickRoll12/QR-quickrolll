@@ -131,7 +131,51 @@ class QRSessionService {
                 studentsJoined: session.studentsJoined,
                 canLock: false,
                 canStartAttendance: true,
-                lockedAt: session.lockedAt
+            }
+        };
+    }
+
+    /**
+     * Unlock a session (Faculty clicks "Unlock Session")
+     * @param {string} sessionId - Session ID
+     * @param {string} facultyId - Faculty ID
+     * @returns {Object} - Updated session data
+     */
+    async unlockSession(sessionId, facultyId) {
+        const session = await this.getSessionById(sessionId);
+        
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        if (session.facultyId !== facultyId) {
+            throw new Error('Unauthorized: You can only unlock your own sessions');
+        }
+
+        if (session.status !== 'locked') {
+            throw new Error('Session is not locked');
+        }
+
+        // Update session status back to created
+        session.status = 'created';
+        session.lockedAt = null;
+
+        await session.save();
+
+        // Update cache
+        this.activeSessions.set(sessionId, session);
+
+        console.log(`🔓 Session unlocked: ${sessionId}`);
+
+        return {
+            success: true,
+            message: 'Session unlocked successfully',
+            sessionData: {
+                sessionId: session.sessionId,
+                status: session.status,
+                studentsJoined: session.studentsJoined.length,
+                canJoin: true,
+                canStartAttendance: false
             }
         };
     }
@@ -139,8 +183,8 @@ class QRSessionService {
     /**
      * Start attendance (Faculty clicks "Start Attendance")
      * @param {string} sessionId - Session ID
-     * @param {string} facultyId - Faculty ID for authorization
-     * @returns {Object} - Session with first QR token
+     * @param {string} facultyId - Faculty ID
+     * @returns {Object} - QR token data
      */
     async startAttendance(sessionId, facultyId) {
         const session = await this.getSessionById(sessionId);

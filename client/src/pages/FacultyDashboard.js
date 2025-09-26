@@ -297,6 +297,12 @@ const FacultyDashboard = () => {
         socket.emit('qr-lockSession', { sessionId });
     };
 
+    const handleUnlockSession = (sessionId) => {
+        if (!socket) return;
+        
+        socket.emit('qr-unlockSession', { sessionId });
+    };
+
     const handleStartAttendance = (sessionId) => {
         if (!socket) return;
         
@@ -771,6 +777,7 @@ const FacultyDashboard = () => {
                         qrData={qrData}
                         sessionData={qrSessionData}
                         onLockSession={handleLockSession}
+                        onUnlockSession={handleUnlockSession}
                         onStartAttendance={handleStartAttendance}
                         onEndSession={handleEndSession}
                         onQRTokenRefresh={handleQRTokenRefresh}

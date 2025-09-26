@@ -598,10 +598,33 @@ io.on('connection', (socket) => {
                 message: 'Session locked by faculty'
             });
 
-            console.log(`🔒 QR Session locked: ${data.sessionId}`);
-
         } catch (error) {
             console.error('QR Lock session error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    socket.on('qr-unlockSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can unlock QR sessions');
+            }
+
+            const result = await qrSessionService.unlockSession(data.sessionId, socket.user.facultyId);
+
+            // Emit to faculty
+            socket.emit('qr-sessionUnlocked', result);
+
+            // Notify all students - show join button again
+            const roomName = `${result.sessionData.department}-${result.sessionData.semester}-${result.sessionData.section}`;
+            socket.to(roomName).emit('qr-sessionUnlocked', {
+                sessionId: data.sessionId,
+                canJoin: true,
+                message: 'Session unlocked - you can join again'
+            });
+
+        } catch (error) {
+            console.error('QR Unlock session error:', error);
             socket.emit('qr-error', { message: error.message });
         }
     });

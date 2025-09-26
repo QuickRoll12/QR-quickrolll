@@ -6,6 +6,7 @@ const QRAttendancePanel = ({
     qrData, 
     sessionData, 
     onLockSession, 
+    onUnlockSession,
     onStartAttendance, 
     onEndSession,
     onQRTokenRefresh,
@@ -60,12 +61,22 @@ const QRAttendancePanel = ({
         };
 
         const handleAttendanceUpdate = (data) => {
-            setStudentsPresent(prev => [...prev, data]);
-            setLiveStats(prev => ({
-                ...prev,
-                totalPresent: prev.totalPresent + 1,
-                presentPercentage: ((prev.totalPresent + 1) / studentsJoined.length) * 100
-            }));
+            // Add the new student to the present list
+            setStudentsPresent(prev => {
+                const newStudent = {
+                    studentName: data.studentName,
+                    rollNumber: data.rollNumber,
+                    markedAt: data.markedAt
+                };
+                return [...prev, newStudent];
+            });
+            
+            // Update live stats with actual data from backend
+            setLiveStats({
+                totalJoined: studentsJoined.length,
+                totalPresent: data.totalPresent,
+                presentPercentage: data.presentPercentage || 0
+            });
         };
 
         const handleQRTokenRefresh = (newQRData) => {
@@ -136,12 +147,20 @@ const QRAttendancePanel = ({
                 )}
                 
                 {sessionData?.status === 'locked' && (
-                    <button 
-                        className="control-btn start-btn"
-                        onClick={() => onStartAttendance(sessionData.sessionId)}
-                    >
-                        📱 Start Attendance
-                    </button>
+                    <>
+                        <button 
+                            className="control-btn unlock-btn"
+                            onClick={() => onUnlockSession(sessionData.sessionId)}
+                        >
+                            🔓 Unlock Session
+                        </button>
+                        <button 
+                            className="control-btn start-btn"
+                            onClick={() => onStartAttendance(sessionData.sessionId)}
+                        >
+                            📱 Start Attendance
+                        </button>
+                    </>
                 )}
                 
                 {(sessionData?.status === 'active' || sessionData?.status === 'locked') && (
@@ -236,7 +255,19 @@ const QRAttendancePanel = ({
                         <div className="stat-icon">✅</div>
                         <div className="stat-content">
                             <div className="stat-number">{liveStats.totalPresent}</div>
-                            <div className="stat-label">Present</div>
+                            <div className="stat-label">Present Students</div>
+                            {studentsPresent.length > 0 && (
+                                <div className="roll-numbers">
+                                    {studentsPresent.map((student, index) => (
+                                        <span key={index} className="roll-number">
+                                            {student.rollNumber}
+                                        </span>
+                                    )).slice(0, 10)} {/* Show first 10 */}
+                                    {studentsPresent.length > 10 && (
+                                        <span className="roll-number more">+{studentsPresent.length - 10}</span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     
