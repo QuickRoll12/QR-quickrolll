@@ -82,14 +82,8 @@ class QRTokenService {
                 };
             }
 
-            // Check if token is already used
-            if (cachedToken.used) {
-                return {
-                    valid: false,
-                    error: 'QR code already used',
-                    code: 'TOKEN_ALREADY_USED'
-                };
-            }
+            // NOTE: We don't check if token is "used" because multiple students should be able to scan the same QR
+            // Individual duplicate prevention is handled at the session level per student
 
             // Check expiry
             if (new Date() > cachedToken.expiryTime) {

@@ -329,8 +329,8 @@ class QRSessionService {
             throw new Error('Attendance already marked for this session');
         }
 
-        // Mark token as used
-        qrTokenService.markTokenAsUsed(qrToken);
+        // NOTE: We don't mark token as "used" because multiple students should be able to scan the same QR code
+        // Individual duplicate prevention is handled by checking if student already marked attendance
 
         // Add student to present list
         const attendanceData = {
