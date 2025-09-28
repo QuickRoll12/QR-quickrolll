@@ -808,14 +808,16 @@ io.on('connection', (socket) => {
                 sessionData: result.sessionData
             });
 
-            // Notify faculty about student joining
-            const facultyRoom = `faculty-${result.sessionData.facultyId}`;
-            socket.to(facultyRoom).emit('qr-studentJoined', {
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                joinedAt: new Date(),
-                totalJoined: result.sessionData.studentsJoined
-            });
+            // Notify faculty about student joining (only if not already joined)
+            if (result.sessionData && result.sessionData.facultyId) {
+                const facultyRoom = `faculty-${result.sessionData.facultyId}`;
+                socket.to(facultyRoom).emit('qr-studentJoined', {
+                    studentName: studentData.name,
+                    rollNumber: studentData.classRollNumber,
+                    joinedAt: new Date(),
+                    totalJoined: result.sessionData.studentsJoined
+                });
+            }
 
             console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
@@ -920,14 +922,16 @@ io.on('connection', (socket) => {
                 sessionData: result.sessionData
             });
 
-            // Notify faculty about student joining
-            const facultyRoom = `faculty-${result.sessionData.facultyId}`;
-            socket.to(facultyRoom).emit('qr-studentJoined', {
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                joinedAt: new Date(),
-                totalJoined: result.sessionData.studentsJoined
-            });
+            // Notify faculty about student joining (only if not already joined)
+            if (result.sessionData && result.sessionData.facultyId) {
+                const facultyRoom = `faculty-${result.sessionData.facultyId}`;
+                socket.to(facultyRoom).emit('qr-studentJoined', {
+                    studentName: studentData.name,
+                    rollNumber: studentData.classRollNumber,
+                    joinedAt: new Date(),
+                    totalJoined: result.sessionData.studentsJoined
+                });
+            }
 
             console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
@@ -972,31 +976,34 @@ io.on('connection', (socket) => {
 
             // Notify faculty and other students with standardized format
             const sectionRoom = `${studentData.course}-${studentData.semester}-${studentData.section}`;
+            const facultyRoom = `faculty-${result.attendanceData.sessionId}`; // Faculty room based on session
             
             const attendanceUpdateData = {
                 studentName: studentData.name,
                 rollNumber: studentData.classRollNumber,
                 markedAt: result.attendanceData.markedAt,
-                totalPresent: result.sessionStats.studentsPresent, // This is already the count (length)
-                totalJoined: result.sessionStats.studentsJoined,   // Add total joined count
+                totalPresent: result.sessionStats.studentsPresent,
+                totalJoined: result.sessionStats.studentsJoined,
                 presentPercentage: result.sessionStats.presentPercentage,
+                studentsPresentData: result.sessionStats.studentsPresentData, // Include actual student data
                 sessionId: result.attendanceData.sessionId,
                 status: 'active',
                 canJoin: false,
                 canScanQR: true
             };
             
-            // Emit to section room and broadcast to all connected clients
-            console.log(`📊 Emitting attendance update to section room: ${sectionRoom}`);
-            console.log(`📊 Attendance data:`, {
-                studentName: attendanceUpdateData.studentName,
-                rollNumber: attendanceUpdateData.rollNumber,
+            // Emit to section room and faculty room
+            console.log(`📊 Emitting attendance update to rooms`);
+            console.log(`📊 Attendance stats:`, {
                 totalPresent: attendanceUpdateData.totalPresent,
-                totalJoined: attendanceUpdateData.totalJoined
+                totalJoined: attendanceUpdateData.totalJoined,
+                rollNumbers: attendanceUpdateData.studentsPresentData?.map(s => s.rollNumber) || []
             });
             
+            // Emit to all relevant rooms
             socket.to(sectionRoom).emit('qr-attendanceUpdate', attendanceUpdateData);
-            socket.broadcast.emit('qr-attendanceUpdate', attendanceUpdateData);
+            socket.to(facultyRoom).emit('qr-attendanceUpdate', attendanceUpdateData);
+            io.emit('qr-attendanceUpdate', attendanceUpdateData); // Broadcast to all for faculty dashboard
 
             console.log(`✅ Attendance marked via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
@@ -1080,8 +1087,8 @@ app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
 
         // Prepare students present with roll numbers
         const studentsPresent = session.studentsPresent.map(student => ({
-            studentName: student.name,
-            rollNumber: student.classRollNumber,
+            studentName: student.studentName || student.name,
+            rollNumber: student.rollNumber || student.classRollNumber,
             markedAt: student.markedAt
         }));
 
@@ -1095,6 +1102,13 @@ app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
             studentsPresent: studentsPresent,
             status: session.status
         };
+
+        console.log(`📊 Stats API called for session ${sessionId}:`, {
+            totalJoined: stats.totalJoined,
+            totalPresent: stats.totalPresent,
+            rollNumbers: studentsPresent.map(s => s.rollNumber),
+            status: session.status
+        });
 
         res.json(stats);
 

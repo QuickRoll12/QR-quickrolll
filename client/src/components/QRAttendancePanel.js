@@ -65,40 +65,22 @@ const QRAttendancePanel = memo(({
         const handleAttendanceUpdate = (data) => {
             console.log('📊 Received attendance update via socket:', data);
             
-            // Update students present immediately via socket
-            if (data.studentName && data.rollNumber) {
-                setStudentsPresent(prev => {
-                    const newStudent = {
-                        studentName: data.studentName,
-                        rollNumber: data.rollNumber,
-                        markedAt: data.markedAt || new Date()
-                    };
-                    // Check if student already exists to avoid duplicates
-                    const exists = prev.some(s => s.rollNumber === data.rollNumber);
-                    if (!exists) {
-                        console.log('📊 Adding student via socket:', newStudent);
-                        return [...prev, newStudent];
-                    }
-                    return prev;
-                });
-            }
-            
-            // Update live stats immediately via socket
-            if (data.totalPresent !== undefined || data.totalJoined !== undefined) {
+            // Update live stats immediately from socket
+            if (data.totalPresent !== undefined) {
                 setLiveStats(prev => ({
                     ...prev,
-                    totalJoined: data.totalJoined !== undefined ? data.totalJoined : prev.totalJoined,
-                    totalPresent: data.totalPresent !== undefined ? data.totalPresent : prev.totalPresent,
-                    presentPercentage: data.presentPercentage !== undefined ? data.presentPercentage : prev.presentPercentage
+                    totalJoined: data.totalJoined || prev.totalJoined,
+                    totalPresent: data.totalPresent || 0,
+                    presentPercentage: data.presentPercentage || 0
                 }));
-                console.log('📊 Updated stats via socket:', {
-                    totalJoined: data.totalJoined,
-                    totalPresent: data.totalPresent
-                });
             }
             
-            // Force re-render
-            triggerUpdate();
+            // Update students present list with actual data
+            if (data.studentsPresentData && Array.isArray(data.studentsPresentData)) {
+                console.log('📊 Updating students present with roll numbers:', data.studentsPresentData);
+                setStudentsPresent(data.studentsPresentData);
+                triggerUpdate(); // Force re-render
+            }
         };
 
         const handleQRTokenRefresh = (newQRData) => {
@@ -142,14 +124,7 @@ const QRAttendancePanel = memo(({
 
     // Memoized polling function to prevent unnecessary re-renders
     const pollAttendanceStats = useCallback(async () => {
-        if (!sessionData?.sessionId) return;
-        
-        // Only poll for active sessions OR when we need to track joined students
-        const shouldPoll = sessionData.status === 'active' || 
-                          sessionData.status === 'created' || 
-                          sessionData.status === 'locked';
-        
-        if (!shouldPoll) return;
+        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
             try {
                 console.log('🔄 Polling attendance stats...');
                 const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
@@ -189,19 +164,14 @@ const QRAttendancePanel = memo(({
 
     // Poll database every 3 seconds for live attendance stats
     useEffect(() => {
-        if (!sessionData?.sessionId) return;
+        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
 
-        console.log(`🔄 Starting polling for session: ${sessionData.sessionId}, status: ${sessionData.status}`);
-        
         // Poll immediately and then every 3 seconds
         pollAttendanceStats();
         const interval = setInterval(pollAttendanceStats, 3000);
 
-        return () => {
-            console.log('🛑 Stopping polling');
-            clearInterval(interval);
-        };
-    }, [pollAttendanceStats, sessionData?.sessionId, sessionData?.status]);
+        return () => clearInterval(interval);
+    }, [pollAttendanceStats]);
 
     // Additional useEffect to force re-render when data changes
     useEffect(() => {

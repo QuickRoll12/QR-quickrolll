@@ -288,7 +288,14 @@ class QRSessionService {
             return {
                 success: true,
                 message: 'You have already joined this session',
-                alreadyJoined: true
+                alreadyJoined: true,
+                sessionData: {
+                    sessionId,
+                    status: session.status,
+                    canScanQR: session.status === 'active',
+                    facultyId: session.facultyId,
+                    studentsJoined: session.studentsJoined.length
+                }
             };
         }
 
@@ -430,7 +437,13 @@ class QRSessionService {
                 totalStudents: session.totalStudents,
                 studentsJoined: session.studentsJoined.length,
                 studentsPresent: session.studentsPresent.length,
-                presentPercentage: Math.round((session.studentsPresent.length / session.totalStudents) * 100)
+                presentPercentage: Math.round((session.studentsPresent.length / session.totalStudents) * 100),
+                // Add the actual student data with roll numbers
+                studentsPresentData: session.studentsPresent.map(s => ({
+                    studentName: s.studentName,
+                    rollNumber: s.rollNumber,
+                    markedAt: s.markedAt
+                }))
             }
         };
     }
