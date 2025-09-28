@@ -374,10 +374,18 @@ exports.login = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role,
+        studentId: user.studentId,
+        facultyId: user.facultyId,
+        course: user.course,                    // ✅ Required
+        department: user.department,
+        semester: user.semester,                // ✅ Required
+        section: user.section,                  // ✅ Required
+        classRollNumber: user.classRollNumber,  // ✅ Required
+        universityRollNumber: user.universityRollNumber,
         isVerified: user.isVerified,
         passwordChangeRequired: user.passwordChangeRequired || false
       }
