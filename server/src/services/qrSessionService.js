@@ -322,7 +322,9 @@ class QRSessionService {
                 sessionId,
                 status: session.status,
                 canScanQR: session.status === 'active',
-                joinedAt: joinData.joinedAt
+                joinedAt: joinData.joinedAt,
+                facultyId: session.facultyId,
+                studentsJoined: session.studentsJoined.length
             }
         };
     }

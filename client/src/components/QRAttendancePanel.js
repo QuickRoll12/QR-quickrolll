@@ -64,7 +64,41 @@ const QRAttendancePanel = memo(({
 
         const handleAttendanceUpdate = (data) => {
             console.log('📊 Received attendance update via socket:', data);
-            // Socket events are now supplementary - main updates come from polling
+            
+            // Update students present immediately via socket
+            if (data.studentName && data.rollNumber) {
+                setStudentsPresent(prev => {
+                    const newStudent = {
+                        studentName: data.studentName,
+                        rollNumber: data.rollNumber,
+                        markedAt: data.markedAt || new Date()
+                    };
+                    // Check if student already exists to avoid duplicates
+                    const exists = prev.some(s => s.rollNumber === data.rollNumber);
+                    if (!exists) {
+                        console.log('📊 Adding student via socket:', newStudent);
+                        return [...prev, newStudent];
+                    }
+                    return prev;
+                });
+            }
+            
+            // Update live stats immediately via socket
+            if (data.totalPresent !== undefined || data.totalJoined !== undefined) {
+                setLiveStats(prev => ({
+                    ...prev,
+                    totalJoined: data.totalJoined !== undefined ? data.totalJoined : prev.totalJoined,
+                    totalPresent: data.totalPresent !== undefined ? data.totalPresent : prev.totalPresent,
+                    presentPercentage: data.presentPercentage !== undefined ? data.presentPercentage : prev.presentPercentage
+                }));
+                console.log('📊 Updated stats via socket:', {
+                    totalJoined: data.totalJoined,
+                    totalPresent: data.totalPresent
+                });
+            }
+            
+            // Force re-render
+            triggerUpdate();
         };
 
         const handleQRTokenRefresh = (newQRData) => {
@@ -104,15 +138,19 @@ const QRAttendancePanel = memo(({
 
     // Force re-render trigger
     const [forceUpdate, setForceUpdate] = useState(0);
-    const [isPolling, setIsPolling] = useState(false);
-    const [lastUpdated, setLastUpdated] = useState(new Date());
     const triggerUpdate = () => setForceUpdate(prev => prev + 1);
 
     // Memoized polling function to prevent unnecessary re-renders
     const pollAttendanceStats = useCallback(async () => {
         if (!sessionData?.sessionId) return;
+        
+        // Only poll for active sessions OR when we need to track joined students
+        const shouldPoll = sessionData.status === 'active' || 
+                          sessionData.status === 'created' || 
+                          sessionData.status === 'locked';
+        
+        if (!shouldPoll) return;
             try {
-                setIsPolling(true);
                 console.log('🔄 Polling attendance stats...');
                 const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
                     headers: {
@@ -139,9 +177,6 @@ const QRAttendancePanel = memo(({
                     setLiveStats(newStats);
                     console.log('📊 Updated liveStats:', newStats);
                     
-                    // Update last updated time
-                    setLastUpdated(new Date());
-                    
                     // Trigger force re-render
                     triggerUpdate();
                 } else {
@@ -149,20 +184,18 @@ const QRAttendancePanel = memo(({
                 }
             } catch (error) {
                 console.error('Error polling attendance stats:', error);
-            } finally {
-                setIsPolling(false);
             }
     }, [sessionData?.sessionId, sessionData?.status]);
 
-    // Poll database every 2 seconds for ALL session states (not just active)
+    // Poll database every 3 seconds for live attendance stats
     useEffect(() => {
         if (!sessionData?.sessionId) return;
 
         console.log(`🔄 Starting polling for session: ${sessionData.sessionId}, status: ${sessionData.status}`);
         
-        // Poll immediately and then every 2 seconds
+        // Poll immediately and then every 3 seconds
         pollAttendanceStats();
-        const interval = setInterval(pollAttendanceStats, 2000);
+        const interval = setInterval(pollAttendanceStats, 3000);
 
         return () => {
             console.log('🛑 Stopping polling');
@@ -213,15 +246,6 @@ const QRAttendancePanel = memo(({
 
             {/* Control Buttons */}
             <div className="control-buttons">
-                {/* Manual Refresh Button */}
-                <button 
-                    className="control-btn refresh-btn"
-                    onClick={pollAttendanceStats}
-                    disabled={isPolling}
-                    title="Refresh live stats"
-                >
-                    {isPolling ? '🔄' : '↻'} Refresh
-                </button>
                 {/* Lock button - available when session is created */}
                 {sessionData?.status === 'created' && (
                     <button 
@@ -333,14 +357,8 @@ const QRAttendancePanel = memo(({
                     <div className="stat-card joined-students">
                         <div className="stat-icon">🚪</div>
                         <div className="stat-content">
-                            <div className="stat-number">
-                                {liveStats.totalJoined}
-                                {isPolling && <span className="update-indicator">🔄</span>}
-                            </div>
+                            <div className="stat-number">{liveStats.totalJoined}</div>
                             <div className="stat-label">Joined Students</div>
-                            <div className="last-updated">
-                                Updated: {lastUpdated.toLocaleTimeString()}
-                            </div>
                         </div>
                     </div>
                     
