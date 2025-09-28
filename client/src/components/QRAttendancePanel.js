@@ -63,27 +63,8 @@ const QRAttendancePanel = ({
         };
 
         const handleAttendanceUpdate = (data) => {
-            console.log('📊 Received attendance update:', data);
-            
-            // Add the new student to the present list
-            setStudentsPresent(prev => {
-                const newStudent = {
-                    studentName: data.studentName,
-                    rollNumber: data.rollNumber,
-                    markedAt: data.markedAt
-                };
-                console.log('📊 Adding student to present list:', newStudent);
-                return [...prev, newStudent];
-            });
-            
-            // Update live stats with actual data from backend
-            const newStats = {
-                totalJoined: data.totalJoined || studentsJoined.length,
-                totalPresent: data.totalPresent,
-                presentPercentage: data.presentPercentage || 0
-            };
-            console.log('📊 Updating live stats:', newStats);
-            setLiveStats(newStats);
+            console.log('📊 Received attendance update via socket:', data);
+            // Socket events are now supplementary - main updates come from polling
         };
 
         const handleQRTokenRefresh = (newQRData) => {
@@ -120,6 +101,46 @@ const QRAttendancePanel = ({
             });
         }
     }, [sessionData]);
+
+    // Poll database every 3 seconds for live attendance stats
+    useEffect(() => {
+        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
+
+        const pollAttendanceStats = async () => {
+            try {
+                const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const stats = await response.json();
+                    console.log('📊 Polled attendance stats:', stats);
+                    
+                    // Update students present with roll numbers
+                    if (stats.studentsPresent) {
+                        setStudentsPresent(stats.studentsPresent);
+                    }
+                    
+                    // Update live stats
+                    setLiveStats({
+                        totalJoined: stats.totalJoined || 0,
+                        totalPresent: stats.totalPresent || 0,
+                        presentPercentage: stats.presentPercentage || 0
+                    });
+                }
+            } catch (error) {
+                console.error('Error polling attendance stats:', error);
+            }
+        };
+
+        // Poll immediately and then every 3 seconds
+        pollAttendanceStats();
+        const interval = setInterval(pollAttendanceStats, 3000);
+
+        return () => clearInterval(interval);
+    }, [sessionData?.sessionId, sessionData?.status]);
 
     const getStatusColor = (status) => {
         switch (status) {

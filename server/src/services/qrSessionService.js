@@ -175,7 +175,12 @@ class QRSessionService {
                 status: session.status,
                 studentsJoined: session.studentsJoined.length,
                 canJoin: true,
-                canStartAttendance: false
+                canStartAttendance: false,
+                department: session.department,
+                semester: session.semester,
+                section: session.section,
+                facultyName: session.facultyName,
+                facultyId: session.facultyId
             }
         };
     }
