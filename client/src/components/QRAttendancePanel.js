@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import QRCode from 'react-qr-code';
-import './QRAttendancePanel.css';
+import '../styles/QRAttendancePanel.css';
 
 const QRAttendancePanel = memo(({ 
     qrData, 
