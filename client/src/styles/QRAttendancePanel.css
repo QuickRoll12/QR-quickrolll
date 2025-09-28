@@ -138,6 +138,33 @@
     to { transform: rotate(360deg); }
 }
 
+/* Last updated indicator */
+.last-updated {
+    font-size: 10px;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+/* Refresh button */
+.refresh-btn {
+    background: linear-gradient(135deg, #2196f3, #1976d2);
+    color: white;
+    font-size: 12px;
+    padding: 6px 12px;
+    margin-right: 8px;
+}
+
+.refresh-btn:hover {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    transform: translateY(-1px);
+}
+
+.refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .start-btn {
     background: linear-gradient(135deg, #4caf50, #388e3c);
     color: white;

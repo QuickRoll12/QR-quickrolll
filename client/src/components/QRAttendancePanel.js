@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo , useRef} from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import QRCode from 'react-qr-code';
 import '../styles/QRAttendancePanel.css';
 
@@ -104,12 +104,15 @@ const QRAttendancePanel = memo(({
 
     // Force re-render trigger
     const [forceUpdate, setForceUpdate] = useState(0);
+    const [isPolling, setIsPolling] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState(new Date());
     const triggerUpdate = () => setForceUpdate(prev => prev + 1);
 
     // Memoized polling function to prevent unnecessary re-renders
     const pollAttendanceStats = useCallback(async () => {
-        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
+        if (!sessionData?.sessionId) return;
             try {
+                setIsPolling(true);
                 console.log('🔄 Polling attendance stats...');
                 const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
                     headers: {
@@ -136,6 +139,9 @@ const QRAttendancePanel = memo(({
                     setLiveStats(newStats);
                     console.log('📊 Updated liveStats:', newStats);
                     
+                    // Update last updated time
+                    setLastUpdated(new Date());
+                    
                     // Trigger force re-render
                     triggerUpdate();
                 } else {
@@ -143,19 +149,26 @@ const QRAttendancePanel = memo(({
                 }
             } catch (error) {
                 console.error('Error polling attendance stats:', error);
+            } finally {
+                setIsPolling(false);
             }
     }, [sessionData?.sessionId, sessionData?.status]);
 
-    // Poll database every 3 seconds for live attendance stats
+    // Poll database every 2 seconds for ALL session states (not just active)
     useEffect(() => {
-        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
+        if (!sessionData?.sessionId) return;
 
-        // Poll immediately and then every 3 seconds
+        console.log(`🔄 Starting polling for session: ${sessionData.sessionId}, status: ${sessionData.status}`);
+        
+        // Poll immediately and then every 2 seconds
         pollAttendanceStats();
-        const interval = setInterval(pollAttendanceStats, 3000);
+        const interval = setInterval(pollAttendanceStats, 2000);
 
-        return () => clearInterval(interval);
-    }, [pollAttendanceStats]);
+        return () => {
+            console.log('🛑 Stopping polling');
+            clearInterval(interval);
+        };
+    }, [pollAttendanceStats, sessionData?.sessionId, sessionData?.status]);
 
     // Additional useEffect to force re-render when data changes
     useEffect(() => {
@@ -200,6 +213,15 @@ const QRAttendancePanel = memo(({
 
             {/* Control Buttons */}
             <div className="control-buttons">
+                {/* Manual Refresh Button */}
+                <button 
+                    className="control-btn refresh-btn"
+                    onClick={pollAttendanceStats}
+                    disabled={isPolling}
+                    title="Refresh live stats"
+                >
+                    {isPolling ? '🔄' : '↻'} Refresh
+                </button>
                 {/* Lock button - available when session is created */}
                 {sessionData?.status === 'created' && (
                     <button 
@@ -311,8 +333,14 @@ const QRAttendancePanel = memo(({
                     <div className="stat-card joined-students">
                         <div className="stat-icon">🚪</div>
                         <div className="stat-content">
-                            <div className="stat-number">{liveStats.totalJoined}</div>
+                            <div className="stat-number">
+                                {liveStats.totalJoined}
+                                {isPolling && <span className="update-indicator">🔄</span>}
+                            </div>
                             <div className="stat-label">Joined Students</div>
+                            <div className="last-updated">
+                                Updated: {lastUpdated.toLocaleTimeString()}
+                            </div>
                         </div>
                     </div>
                     
