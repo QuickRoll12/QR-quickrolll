@@ -63,6 +63,8 @@ const QRAttendancePanel = ({
         };
 
         const handleAttendanceUpdate = (data) => {
+            console.log('📊 Received attendance update:', data);
+            
             // Add the new student to the present list
             setStudentsPresent(prev => {
                 const newStudent = {
@@ -70,15 +72,18 @@ const QRAttendancePanel = ({
                     rollNumber: data.rollNumber,
                     markedAt: data.markedAt
                 };
+                console.log('📊 Adding student to present list:', newStudent);
                 return [...prev, newStudent];
             });
             
             // Update live stats with actual data from backend
-            setLiveStats({
-                totalJoined: studentsJoined.length,
+            const newStats = {
+                totalJoined: data.totalJoined || studentsJoined.length,
                 totalPresent: data.totalPresent,
                 presentPercentage: data.presentPercentage || 0
-            });
+            };
+            console.log('📊 Updating live stats:', newStats);
+            setLiveStats(newStats);
         };
 
         const handleQRTokenRefresh = (newQRData) => {
