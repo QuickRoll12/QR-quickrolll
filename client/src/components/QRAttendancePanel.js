@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, memo , useRef} from 'react';
 import QRCode from 'react-qr-code';
 import '../styles/QRAttendancePanel.css';
 
@@ -64,23 +64,7 @@ const QRAttendancePanel = memo(({
 
         const handleAttendanceUpdate = (data) => {
             console.log('📊 Received attendance update via socket:', data);
-            
-            // Update live stats immediately from socket
-            if (data.totalPresent !== undefined) {
-                setLiveStats(prev => ({
-                    ...prev,
-                    totalJoined: data.totalJoined || prev.totalJoined,
-                    totalPresent: data.totalPresent || 0,
-                    presentPercentage: data.presentPercentage || 0
-                }));
-            }
-            
-            // Update students present list with actual data
-            if (data.studentsPresentData && Array.isArray(data.studentsPresentData)) {
-                console.log('📊 Updating students present with roll numbers:', data.studentsPresentData);
-                setStudentsPresent(data.studentsPresentData);
-                triggerUpdate(); // Force re-render
-            }
+            // Socket events are now supplementary - main updates come from polling
         };
 
         const handleQRTokenRefresh = (newQRData) => {
