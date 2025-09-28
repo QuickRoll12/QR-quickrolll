@@ -33,6 +33,15 @@ class QRSessionService {
         if (existingSession) {
             throw new Error('An active session already exists for this section');
         }
+        
+        // Clean up any old ended sessions for this section (extra safety)
+        await QRSession.deleteMany({
+            department,
+            semester,
+            section,
+            status: 'ended',
+            endedAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Older than 24 hours
+        });
 
         // Generate unique session ID
         const sessionId = uuidv4();
@@ -285,6 +294,14 @@ class QRSessionService {
 
         // Check if student already joined
         if (session.hasStudentJoined(studentData.studentId)) {
+            console.log(`⚠️ Student ${studentData.studentId} already joined session ${sessionId}`);
+            console.log(`📊 Session details:`, {
+                sessionId: session.sessionId,
+                status: session.status,
+                createdAt: session.createdAt,
+                studentsJoined: session.studentsJoined.map(s => s.studentId)
+            });
+            
             return {
                 success: true,
                 message: 'You have already joined this session',
@@ -509,6 +526,18 @@ class QRSessionService {
 
         // Remove from cache
         this.activeSessions.delete(sessionId);
+        
+        // Clean up any other sessions for this section to prevent conflicts
+        await QRSession.updateMany(
+            {
+                department: session.department,
+                semester: session.semester,
+                section: session.section,
+                status: { $ne: 'ended' },
+                sessionId: { $ne: sessionId }
+            },
+            { status: 'ended', endedAt: new Date() }
+        );
 
         console.log(`🏁 Session ended: ${sessionId}, Attendance record created: ${attendanceRecord._id}`);
 
