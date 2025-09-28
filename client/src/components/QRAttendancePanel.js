@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo , useRef} from 'react';
 import QRCode from 'react-qr-code';
 import '../styles/QRAttendancePanel.css';
 
