@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import QRCode from 'react-qr-code';
-import '../styles/QRAttendancePanel.css';
+import './QRAttendancePanel.css';
 
-const QRAttendancePanel = ({ 
+const QRAttendancePanel = memo(({ 
     qrData, 
     sessionData, 
     onLockSession, 
@@ -102,12 +102,15 @@ const QRAttendancePanel = ({
         }
     }, [sessionData]);
 
-    // Poll database every 3 seconds for live attendance stats
-    useEffect(() => {
-        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
+    // Force re-render trigger
+    const [forceUpdate, setForceUpdate] = useState(0);
+    const triggerUpdate = () => setForceUpdate(prev => prev + 1);
 
-        const pollAttendanceStats = async () => {
+    // Memoized polling function to prevent unnecessary re-renders
+    const pollAttendanceStats = useCallback(async () => {
+        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
             try {
+                console.log('🔄 Polling attendance stats...');
                 const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -118,29 +121,46 @@ const QRAttendancePanel = ({
                     const stats = await response.json();
                     console.log('📊 Polled attendance stats:', stats);
                     
-                    // Update students present with roll numbers
+                    // Force update students present with new array reference
                     if (stats.studentsPresent) {
-                        setStudentsPresent(stats.studentsPresent);
+                        setStudentsPresent([...stats.studentsPresent]); // New array reference
+                        console.log('📊 Updated studentsPresent:', stats.studentsPresent);
                     }
                     
-                    // Update live stats
-                    setLiveStats({
+                    // Force update live stats with new object reference
+                    const newStats = {
                         totalJoined: stats.totalJoined || 0,
                         totalPresent: stats.totalPresent || 0,
                         presentPercentage: stats.presentPercentage || 0
-                    });
+                    };
+                    setLiveStats(newStats);
+                    console.log('📊 Updated liveStats:', newStats);
+                    
+                    // Trigger force re-render
+                    triggerUpdate();
+                } else {
+                    console.error('Failed to fetch stats:', response.status);
                 }
             } catch (error) {
                 console.error('Error polling attendance stats:', error);
             }
-        };
+    }, [sessionData?.sessionId, sessionData?.status]);
+
+    // Poll database every 3 seconds for live attendance stats
+    useEffect(() => {
+        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
 
         // Poll immediately and then every 3 seconds
         pollAttendanceStats();
         const interval = setInterval(pollAttendanceStats, 3000);
 
         return () => clearInterval(interval);
-    }, [sessionData?.sessionId, sessionData?.status]);
+    }, [pollAttendanceStats]);
+
+    // Additional useEffect to force re-render when data changes
+    useEffect(() => {
+        console.log('🔄 Component re-rendered due to state change');
+    }, [liveStats, studentsPresent, forceUpdate]);
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -292,24 +312,32 @@ const QRAttendancePanel = ({
                         <div className="stat-icon">🚪</div>
                         <div className="stat-content">
                             <div className="stat-number">{liveStats.totalJoined}</div>
-                            <div className="stat-label">Students Joined</div>
+                            <div className="stat-label">Joined Students</div>
                         </div>
                     </div>
                     
                     <div className="stat-card present-students">
-                        <div className="stat-icon">✅</div>
+                        <div className="stat-icon">👥</div>
                         <div className="stat-content">
-                            <div className="stat-number">{liveStats.totalPresent}</div>
+                            <div className="stat-number">
+                                {liveStats.totalPresent}
+                                <span className="update-indicator" key={forceUpdate}>🔄</span>
+                            </div>
                             <div className="stat-label">Present Students</div>
                             {studentsPresent.length > 0 && (
-                                <div className="roll-numbers">
-                                    {studentsPresent.map((student, index) => (
-                                        <span key={index} className="roll-number">
+                                <div className="roll-numbers" key={`roll-${forceUpdate}`}>
+                                    {studentsPresent.slice(0, 10).map((student, index) => (
+                                        <span 
+                                            key={`${student.rollNumber}-${index}-${forceUpdate}`} 
+                                            className="roll-number"
+                                        >
                                             {student.rollNumber}
                                         </span>
-                                    )).slice(0, 10)} {/* Show first 10 */}
+                                    ))}
                                     {studentsPresent.length > 10 && (
-                                        <span className="roll-number more">+{studentsPresent.length - 10}</span>
+                                        <span className="roll-number more">
+                                            +{studentsPresent.length - 10}
+                                        </span>
                                     )}
                                 </div>
                             )}
@@ -320,7 +348,6 @@ const QRAttendancePanel = ({
                         <div className="stat-icon">📊</div>
                         <div className="stat-content">
                             <div className="stat-number">{liveStats.presentPercentage}%</div>
-                            <div className="stat-label">Attendance</div>
                         </div>
                     </div>
                 </div>
@@ -364,6 +391,6 @@ const QRAttendancePanel = ({
             )}
         </div>
     );
-};
+});
 
 export default QRAttendancePanel;
