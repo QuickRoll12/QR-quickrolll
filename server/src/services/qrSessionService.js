@@ -22,16 +22,48 @@ class QRSessionService {
      * Start a new QR session (Faculty clicks "Start Session")
      * @param {Object} sessionData - Session information
      * @param {Object} facultyData - Faculty information
-     * @returns {Object} - Created session
      */
     async startSession(sessionData, facultyData) {
         const { department, semester, section, totalStudents, sessionType = 'roll' } = sessionData;
         const { facultyId, name: facultyName, email: facultyEmail } = facultyData;
 
-        // Check if there's already an active session for this section
-        const existingSession = await QRSession.findActiveSessionForSection(department, semester, section);
-        if (existingSession) {
-            throw new Error('An active session already exists for this section');
+        // Force cleanup any existing sessions for this section first
+        console.log(`🧹 Cleaning up existing sessions for ${department}-${semester}-${section}`);
+        
+        // End any active sessions for this section (atomic operation)
+        const cleanupResult = await QRSession.updateMany(
+            {
+                department,
+                semester,
+                section,
+                status: { $in: ['created', 'locked', 'active'] }
+            },
+            { 
+                status: 'ended', 
+                endedAt: new Date() 
+            }
+        );
+        
+        if (cleanupResult.modifiedCount > 0) {
+            console.log(`🧹 Ended ${cleanupResult.modifiedCount} existing sessions for section`);
+        }
+        
+        // Clean up old ended sessions (older than 24 hours)
+        await QRSession.deleteMany({
+            department,
+            semester,
+            section,
+            status: 'ended',
+            endedAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        });
+        
+        // Clear cache for this section
+        for (const [cachedSessionId, cachedSession] of this.activeSessions.entries()) {
+            if (cachedSession.department === department && 
+                cachedSession.semester === semester && 
+                cachedSession.section === section) {
+                this.activeSessions.delete(cachedSessionId);
+            }
         }
 
         // Generate unique session ID
@@ -449,31 +481,40 @@ class QRSessionService {
      * @returns {Object} - Final session data
      */
     async endSession(sessionId, facultyId) {
-        const session = await this.getSessionById(sessionId);
+        // Use atomic update to prevent parallel save errors
+        const session = await QRSession.findOneAndUpdate(
+            { 
+                sessionId, 
+                facultyId,
+                status: { $ne: 'ended' } // Only update if not already ended
+            },
+            { 
+                status: 'ended',
+                endedAt: new Date()
+            },
+            { 
+                new: true, // Return updated document
+                runValidators: true
+            }
+        );
         
         if (!session) {
+            // Check if session exists but is already ended
+            const existingSession = await QRSession.findOne({ sessionId });
+            if (existingSession && existingSession.status === 'ended') {
+                throw new Error('Session already ended');
+            }
+            if (existingSession && existingSession.facultyId !== facultyId) {
+                throw new Error('Unauthorized: You can only end your own sessions');
+            }
             throw new Error('Session not found');
-        }
-
-        if (session.facultyId !== facultyId) {
-            throw new Error('Unauthorized: You can only end your own sessions');
-        }
-
-        if (session.status === 'ended') {
-            throw new Error('Session already ended');
         }
 
         // Stop QR refresh
         this.stopQRRefresh(sessionId);
 
-        // Update session status
-        session.status = 'ended';
-        session.endedAt = new Date();
-
         // Invalidate any remaining QR tokens
         qrTokenService.invalidateSessionTokens(sessionId);
-
-        await session.save();
 
         // Create final attendance record (compatible with existing system)
         const presentStudents = session.studentsPresent.map(s => s.rollNumber || s.email);
@@ -507,8 +548,29 @@ class QRSessionService {
 
         await attendanceRecord.save();
 
-        // Remove from cache
+        // Remove from cache immediately
         this.activeSessions.delete(sessionId);
+        
+        // Clean up any other sessions for this section to prevent conflicts
+        try {
+            await QRSession.updateMany(
+                {
+                    department: session.department,
+                    semester: session.semester,
+                    section: session.section,
+                    status: { $ne: 'ended' },
+                    sessionId: { $ne: sessionId }
+                },
+                { 
+                    status: 'ended', 
+                    endedAt: new Date() 
+                }
+            );
+            console.log(`🧹 Cleaned up conflicting sessions for ${session.department}-${session.semester}-${session.section}`);
+        } catch (cleanupError) {
+            console.error('⚠️ Error cleaning up conflicting sessions:', cleanupError);
+            // Don't throw - this is cleanup, not critical
+        }
 
         console.log(`🏁 Session ended: ${sessionId}, Attendance record created: ${attendanceRecord._id}`);
 
