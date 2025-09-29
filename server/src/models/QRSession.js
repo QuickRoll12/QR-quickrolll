@@ -73,53 +73,18 @@ const qrSessionSchema = new mongoose.Schema({
       default: 7 // seconds - backend validity (5 + 2 buffer)
     }
   },
-  // Student Management
-  studentsJoined: [{
-    studentId: {
-      type: String,
-      required: true
-    },
-    studentName: String,
-    rollNumber: String,
-    email: String,
-    joinedAt: {
-      type: Date,
-      default: Date.now
-    },
-    deviceInfo: {
-      fingerprint: String,
-      webRTCIPs: [String],
-      userAgent: String,
-      ipAddress: String
-    }
-  }],
-  studentsPresent: [{
-    studentId: {
-      type: String,
-      required: true
-    },
-    studentName: String,
-    rollNumber: String,
-    email: String,
-    markedAt: {
-      type: Date,
-      default: Date.now
-    },
-    qrToken: String,
-    deviceInfo: {
-      fingerprint: String,
-      webRTCIPs: [String],
-      userAgent: String,
-      ipAddress: String
-    },
-    photoFilename: String,
-    photoCloudinaryUrl: String,
-    verificationStatus: {
-      type: String,
-      enum: ['pending', 'verified', 'rejected'],
-      default: 'verified'
-    }
-  }],
+  // Student Management - Optimized with Counters
+  studentsJoinedCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+  studentsPresentCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+  // Legacy arrays removed - data moved to SessionJoin and SessionAttendance collections
   // Session Timestamps
   createdAt: {
     type: Date,
@@ -186,20 +151,26 @@ qrSessionSchema.methods.isQRTokenValid = function() {
   return this.currentQRToken && this.qrTokenExpiry && new Date() < this.qrTokenExpiry;
 };
 
-qrSessionSchema.methods.getStudentJoinedById = function(studentId) {
-  return this.studentsJoined.find(student => student.studentId === studentId);
+// Legacy methods - now handled by separate collections
+// These methods are kept for backward compatibility but will use new collections
+qrSessionSchema.methods.getStudentJoinedById = async function(studentId) {
+  const SessionJoin = require('./SessionJoin');
+  return await SessionJoin.findOne({ sessionId: this.sessionId, studentId });
 };
 
-qrSessionSchema.methods.getStudentPresentById = function(studentId) {
-  return this.studentsPresent.find(student => student.studentId === studentId);
+qrSessionSchema.methods.getStudentPresentById = async function(studentId) {
+  const SessionAttendance = require('./SessionAttendance');
+  return await SessionAttendance.findOne({ sessionId: this.sessionId, studentId });
 };
 
-qrSessionSchema.methods.hasStudentJoined = function(studentId) {
-  return this.studentsJoined.some(student => student.studentId === studentId);
+qrSessionSchema.methods.hasStudentJoined = async function(studentId) {
+  const SessionJoin = require('./SessionJoin');
+  return await SessionJoin.hasStudentJoined(this.sessionId, studentId);
 };
 
-qrSessionSchema.methods.hasStudentMarkedAttendance = function(studentId) {
-  return this.studentsPresent.some(student => student.studentId === studentId);
+qrSessionSchema.methods.hasStudentMarkedAttendance = async function(studentId) {
+  const SessionAttendance = require('./SessionAttendance');
+  return await SessionAttendance.hasStudentMarkedAttendance(this.sessionId, studentId);
 };
 
 // Static methods

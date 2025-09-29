@@ -112,6 +112,12 @@ const userSchema = new mongoose.Schema({
       },
       message: 'Faculty must have at least one teaching assignment'
     }
+  },
+
+  // ✅ New field for storing device ID
+  deviceId: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

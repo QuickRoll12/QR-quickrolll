@@ -1,4 +1,6 @@
 const QRSession = require('../models/QRSession');
+const SessionJoin = require('../models/SessionJoin');
+const SessionAttendance = require('../models/SessionAttendance');
 const AttendanceRecord = require('../models/AttendanceRecord');
 const qrTokenService = require('./qrTokenService');
 const { v4: uuidv4 } = require('uuid');
@@ -315,29 +317,16 @@ class QRSessionService {
             throw new Error('You are not enrolled in this section');
         }
 
-        // Check if student already joined
-        if (session.hasStudentJoined(studentData.studentId)) {
-            return {
-                success: true,
-                message: 'You have already joined this session',
-                alreadyJoined: true,
-                sessionData: {
-                    sessionId,
-                    status: session.status,
-                    canScanQR: session.status === 'active',
-                    facultyId: session.facultyId,
-                    studentsJoined: session.studentsJoined.length
-                }
-            };
-        }
-
-        // Add student to joined list
+        // Optimized join data preparation
         const joinData = {
+            sessionId,
             studentId: studentData.studentId,
             studentName: studentData.name,
             rollNumber: studentData.classRollNumber,
             email: studentData.email,
-            joinedAt: new Date(),
+            department: session.department,
+            semester: session.semester,
+            section: session.section,
             deviceInfo: {
                 fingerprint: studentData.fingerprint,
                 webRTCIPs: studentData.webRTCIPs,
@@ -346,26 +335,53 @@ class QRSessionService {
             }
         };
 
-        session.studentsJoined.push(joinData);
-        await session.save();
+        try {
+            // Atomic operation - create join record
+            await SessionJoin.create(joinData);
 
-        // Update cache
-        this.activeSessions.set(sessionId, session);
+            // Atomic operation - increment counter
+            const updatedSession = await QRSession.findOneAndUpdate(
+                { sessionId },
+                { $inc: { studentsJoinedCount: 1 } },
+                { new: true }
+            );
 
-        console.log(`👤 Student joined: ${studentData.name} (${studentData.studentId}) in session ${sessionId}`);
+            // Update cache with new counter
+            this.activeSessions.set(sessionId, updatedSession);
 
-        return {
-            success: true,
-            message: 'Successfully joined the session. Wait for faculty to start attendance.',
-            sessionData: {
-                sessionId,
-                status: session.status,
-                canScanQR: session.status === 'active',
-                joinedAt: joinData.joinedAt,
-                facultyId: session.facultyId,
-                studentsJoined: session.studentsJoined.length
+            console.log(`👤 Student joined: ${studentData.name} (${studentData.studentId}) in session ${sessionId}`);
+
+            return {
+                success: true,
+                message: 'Successfully joined the session. Wait for faculty to start attendance.',
+                sessionData: {
+                    sessionId,
+                    status: session.status,
+                    canScanQR: session.status === 'active',
+                    joinedAt: new Date(),
+                    facultyId: session.facultyId,
+                    studentsJoined: updatedSession.studentsJoinedCount
+                }
+            };
+
+        } catch (err) {
+            // Handle duplicate key error (student already joined)
+            if (err.code === 11000) {
+                return {
+                    success: true,
+                    message: 'You have already joined this session',
+                    alreadyJoined: true,
+                    sessionData: {
+                        sessionId,
+                        status: session.status,
+                        canScanQR: session.status === 'active',
+                        facultyId: session.facultyId,
+                        studentsJoined: session.studentsJoinedCount
+                    }
+                };
             }
-        };
+            throw err;
+        }
     }
 
     /**
@@ -407,47 +423,58 @@ class QRSessionService {
             throw new Error('You are not enrolled in this section');
         }
 
-        // Check if student joined the session
-        if (!session.hasStudentJoined(studentData.studentId)) {
+        // Optimized: Check if student joined the session using new collection
+        const joinedStudent = await SessionJoin.findOne({
+            sessionId: session.sessionId,
+            studentId: studentData.studentId
+        });
+
+        if (!joinedStudent) {
             throw new Error('You must join the session first');
         }
 
-        // Check if student already marked attendance
-        if (session.hasStudentMarkedAttendance(studentData.studentId)) {
-            session.analytics.duplicateAttempts += 1;
-            await session.save();
+        // Optimized: Check if student already marked attendance using new collection
+        const existingAttendance = await SessionAttendance.findOne({
+            sessionId: session.sessionId,
+            studentId: studentData.studentId
+        });
+
+        if (existingAttendance) {
+            // Increment duplicate attempts counter
+            await QRSession.updateOne(
+                { sessionId: session.sessionId },
+                { $inc: { 'analytics.duplicateAttempts': 1 } }
+            );
             throw new Error('Attendance already marked for this session');
         }
 
-        console.log(`Student ${studentData.name} has Device id: ${studentData.fingerprint}`);
-        console.log(`Student ${studentData.name} has WebRTC IP: ${studentData.webRTCIPs}`);
-        console.log(`Student ${studentData.name} has User Agent: ${studentData.userAgent}`);
-        console.log(`Student ${studentData.name} has IP Address: ${studentData.ipAddress}`);
+        // Fingerprint validation using joined student data
+        const storedFingerprint = joinedStudent.deviceInfo?.fingerprint;
 
-        // Check if fingerprint(Android Id) already used in this session (to prevent cloned apps)
-        const isFingerprintUsed = session.studentsPresent.some(
-            s => s.deviceInfo?.fingerprint === studentData.fingerprint
+        console.log(
+            `🔎 Checking fingerprint for ${studentData.name}: stored=${storedFingerprint}, received=${studentData.fingerprint}`
         );
 
-        if (isFingerprintUsed) {
-            throw new Error('Cloned app Found !');
+        if (storedFingerprint && storedFingerprint !== studentData.fingerprint) {
+            throw new Error('Attendance cannot be marked. Cloned app found !');
         }
-
 
         // NOTE: We don't mark token as "used" because multiple students should be able to scan the same QR code
         // Individual duplicate prevention is handled by checking if student already marked attendance
 
-        // Add student to present list
+        // Optimized: Prepare attendance data for new collection
         const attendanceData = {
+            sessionId: session.sessionId,
             studentId: studentData.studentId,
             studentName: studentData.name,
             rollNumber: studentData.classRollNumber,
             email: studentData.email,
-            markedAt: new Date(),
             qrToken: qrToken,
+            department: session.department,
+            semester: session.semester,
+            section: session.section,
             deviceInfo: {
                 fingerprint: studentData.fingerprint,
-                webRTCIPs: studentData.webRTCIPs,
                 userAgent: studentData.userAgent,
                 ipAddress: studentData.ipAddress
             },
@@ -456,37 +483,54 @@ class QRSessionService {
             verificationStatus: 'verified'
         };
 
-        session.studentsPresent.push(attendanceData);
-        session.analytics.totalQRScans += 1;
-        
-        // Update unique devices count
-        const uniqueFingerprints = new Set(session.studentsPresent.map(s => s.deviceInfo.fingerprint));
-        session.analytics.uniqueDevices = uniqueFingerprints.size;
+        try {
+            // Atomic operation - create attendance record
+            await SessionAttendance.create(attendanceData);
 
-        await session.save();
+            // Atomic operation - increment counters
+            const updatedSession = await QRSession.findOneAndUpdate(
+                { sessionId: session.sessionId },
+                { 
+                    $inc: { 
+                        studentsPresentCount: 1,
+                        'analytics.totalQRScans': 1 
+                    }
+                },
+                { new: true }
+            );
 
-        // Update cache
-        this.activeSessions.set(session.sessionId, session);
+            // Update cache with new counters
+            this.activeSessions.set(session.sessionId, updatedSession);
 
-        console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
+            console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
 
-        return {
-            success: true,
-            message: 'Attendance marked successfully!',
-            attendanceData: {
-                sessionId: session.sessionId,
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                markedAt: attendanceData.markedAt,
-                status: 'present'
-            },
-            sessionStats: {
-                totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined.length,
-                studentsPresent: session.studentsPresent.length,
-                presentPercentage: Math.round((session.studentsPresent.length / session.totalStudents) * 100)
+            return {
+                success: true,
+                message: 'Attendance marked successfully!',
+                attendanceData: {
+                    sessionId: session.sessionId,
+                    studentName: studentData.name,
+                    rollNumber: studentData.classRollNumber,
+                    markedAt: new Date(),
+                    status: 'present'
+                },
+                sessionStats: {
+                    totalStudents: session.totalStudents,
+                    studentsJoined: updatedSession.studentsJoinedCount,
+                    studentsPresent: updatedSession.studentsPresentCount,
+                    presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
+                    // Add the actual student data with roll numbers for frontend
+                    studentsPresentData: await SessionAttendance.findBySession(session.sessionId, 100)
+                }
+            };
+
+        } catch (err) {
+            // Handle duplicate key error (student already marked attendance)
+            if (err.code === 11000) {
+                throw new Error('Attendance already marked for this session');
             }
-        };
+            throw err;
+        }
     }
 
     /**
@@ -531,8 +575,10 @@ class QRSessionService {
         // Invalidate any remaining QR tokens
         qrTokenService.invalidateSessionTokens(sessionId);
 
-        // Create final attendance record (compatible with existing system)
-        const presentStudents = session.studentsPresent.map(s => s.rollNumber || s.email);
+        // Optimized: Create final attendance record using new collections
+        const presentStudentsData = await SessionAttendance.findBySession(sessionId);
+        const presentStudents = presentStudentsData.map(s => s.rollNumber || s.email);
+        
         const allStudents = Array.from({length: session.totalStudents}, (_, i) => String(i + 1).padStart(2, '0'));
         const absentees = session.sessionType === 'roll' 
             ? allStudents.filter(roll => !presentStudents.includes(roll))
@@ -547,12 +593,12 @@ class QRSessionService {
             section: session.section,
             date: session.createdAt,
             totalStudents: session.totalStudents,
-            presentCount: session.studentsPresent.length,
+            presentCount: session.studentsPresentCount,
             absentees: absentees,
             presentStudents: presentStudents,
             sessionType: session.sessionType,
             photoVerificationRequired: session.photoVerificationRequired,
-            studentPhotos: session.studentsPresent.map(s => ({
+            studentPhotos: presentStudentsData.map(s => ({
                 studentId: s.studentId,
                 rollNumber: s.rollNumber,
                 photoFilename: s.photoFilename,
@@ -596,10 +642,10 @@ class QRSessionService {
             attendanceRecordId: attendanceRecord._id,
             finalStats: {
                 totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined.length,
-                studentsPresent: session.studentsPresent.length,
+                studentsJoined: session.studentsJoinedCount,
+                studentsPresent: session.studentsPresentCount,
                 absentees: absentees.length,
-                presentPercentage: Math.round((session.studentsPresent.length / session.totalStudents) * 100),
+                presentPercentage: Math.round((session.studentsPresentCount / session.totalStudents) * 100),
                 sessionDuration: Math.round((session.endedAt - session.createdAt) / 1000 / 60), // minutes
                 qrRefreshCount: session.qrRefreshCount,
                 analytics: session.analytics
@@ -807,8 +853,8 @@ class QRSessionService {
                 semester: session.semester,
                 section: session.section,
                 totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined.length,
-                studentsPresent: session.studentsPresent.length
+                studentsJoined: session.studentsJoinedCount,
+                studentsPresent: session.studentsPresentCount
             };
 
         } catch (error) {
@@ -879,8 +925,8 @@ class QRSessionService {
                 section: session.section,
                 status: session.status,
                 totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined.length,
-                studentsPresent: session.studentsPresent.length,
+                studentsJoined: session.studentsJoinedCount,
+                studentsPresent: session.studentsPresentCount,
                 createdAt: session.createdAt,
                 currentQRToken: session.currentQRToken,
                 qrTokenExpiry: session.qrTokenExpiry,
@@ -888,6 +934,104 @@ class QRSessionService {
                 canStartAttendance: session.canStartAttendance(),
                 isActive: session.isActive()
             }))
+        };
+    }
+
+    /**
+     * Get optimized session statistics with student data
+     * @param {string} sessionId - Session ID
+     * @returns {Object} - Session statistics with student data
+     */
+    async getSessionStatsOptimized(sessionId) {
+        const session = await this.getSessionById(sessionId);
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        // Get students present with roll numbers (optimized query)
+        const studentsPresent = await SessionAttendance.findBySession(sessionId, 100);
+        
+        return {
+            sessionId: session.sessionId,
+            totalStudents: session.totalStudents,
+            totalJoined: session.studentsJoinedCount,
+            totalPresent: session.studentsPresentCount,
+            presentPercentage: session.totalStudents > 0 ? 
+                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
+            studentsPresent: studentsPresent.map(student => ({
+                studentName: student.studentName,
+                rollNumber: student.rollNumber,
+                markedAt: student.markedAt
+            })),
+            status: session.status
+        };
+    }
+
+    /**
+     * Get all sessions with optimized stats for faculty dashboard
+     * @param {string} facultyId - Faculty ID
+     * @returns {Array} - Array of sessions with stats
+     */
+    async getAllSessionsWithStatsOptimized(facultyId) {
+        const sessions = await QRSession.find({ facultyId })
+            .select('sessionId facultyId department semester section totalStudents status studentsJoinedCount studentsPresentCount createdAt endedAt')
+            .sort({ createdAt: -1 })
+            .limit(50); // Limit for performance
+
+        return sessions.map(session => ({
+            sessionId: session.sessionId,
+            department: session.department,
+            semester: session.semester,
+            section: session.section,
+            totalStudents: session.totalStudents,
+            studentsJoined: session.studentsJoinedCount,
+            studentsPresent: session.studentsPresentCount,
+            presentPercentage: session.totalStudents > 0 ? 
+                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
+            status: session.status,
+            createdAt: session.createdAt,
+            endedAt: session.endedAt,
+            // Optimized flags
+            canLock: session.canJoin(),
+            canStartAttendance: session.canStartAttendance(),
+            isActive: session.isActive()
+        }));
+    }
+
+    /**
+     * Cleanup old session data (maintenance method)
+     * @param {number} daysOld - Days old to cleanup (default 7)
+     */
+    async cleanupOldSessionData(daysOld = 7) {
+        const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
+        
+        console.log(`🧹 Starting cleanup of session data older than ${daysOld} days`);
+        
+        // Get ended sessions older than cutoff
+        const oldSessions = await QRSession.find({
+            status: 'ended',
+            endedAt: { $lt: cutoffDate }
+        }).select('sessionId');
+
+        const sessionIds = oldSessions.map(s => s.sessionId);
+        
+        if (sessionIds.length > 0) {
+            // Delete associated join and attendance records
+            const joinDeleted = await SessionJoin.deleteMany({ 
+                sessionId: { $in: sessionIds } 
+            });
+            
+            const attendanceDeleted = await SessionAttendance.deleteMany({ 
+                sessionId: { $in: sessionIds } 
+            });
+            
+            console.log(`🧹 Cleanup completed: ${joinDeleted.deletedCount} join records, ${attendanceDeleted.deletedCount} attendance records deleted`);
+        }
+        
+        return {
+            sessionsProcessed: sessionIds.length,
+            joinRecordsDeleted: sessionIds.length > 0 ? (await SessionJoin.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0,
+            attendanceRecordsDeleted: sessionIds.length > 0 ? (await SessionAttendance.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0
         };
     }
 }

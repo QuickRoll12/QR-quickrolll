@@ -331,7 +331,7 @@ exports.verifyEmail = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const { identifier, password, deviceId} = req.body;
 
     // Check if identifier is provided
     if (!identifier) {
@@ -365,6 +365,12 @@ exports.login = async (req, res) => {
         message: 'Please verify your email before logging in',
         isVerified: false
       });
+    }
+
+    // ✅ Save deviceId if not already set
+    if (deviceId && !user.deviceId) {
+      user.deviceId = deviceId;
+      await user.save();
     }
 
     // Generate token

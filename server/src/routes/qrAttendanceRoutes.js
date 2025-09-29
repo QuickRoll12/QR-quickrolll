@@ -339,8 +339,7 @@ router.post('/scan-qr', auth, ensureStudent, async (req, res) => {
         const student = req.user;
         const { 
             qrToken, 
-            fingerprint, 
-            webRTCIPs, 
+            fingerprint,
             photoFilename, 
             photoCloudinaryUrl 
         } = req.body;
@@ -361,7 +360,6 @@ router.post('/scan-qr', auth, ensureStudent, async (req, res) => {
             semester: student.semester,
             section: student.section,
             fingerprint,
-            webRTCIPs,
             userAgent: req.get('User-Agent'),
             ipAddress: req.ip,
             photoFilename,
