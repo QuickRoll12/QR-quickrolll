@@ -160,13 +160,28 @@
 
 /* QR Display Container */
 .qr-display-container {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
-    padding: 30px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 24px;
+    padding: 40px;
     margin-bottom: 30px;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.1),
+        0 8px 16px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.qr-display-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
 }
 
 .qr-display {
@@ -174,27 +189,63 @@
     position: relative;
 }
 
+/* Enhanced Header */
 .qr-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    gap: 20px;
 }
 
-.qr-header h3 {
-    color: #333;
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0;
+.qr-title-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.qr-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.qr-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.qr-title-text h3 {
+    color: #1a1a1a;
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 4px 0;
     background: linear-gradient(135deg, #667eea, #764ba2);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
-/* Timer Circle */
+.qr-subtitle {
+    color: #666;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* Enhanced Timer */
 .qr-timer {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
 .timer-circle {
@@ -233,54 +284,359 @@
     color: #4caf50;
 }
 
+/* Enhanced Timer Label */
+.timer-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* QR Main Container */
+.qr-main-container {
+    margin: 40px 0;
+}
+
 /* QR Code Wrapper */
 .qr-code-wrapper {
     position: relative;
     display: inline-block;
-    margin: 20px 0;
+    margin: 0 auto 30px;
+}
+
+.qr-code-frame {
+    position: relative;
     padding: 20px;
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border: 3px solid #f0f0f0;
+    background: linear-gradient(145deg, #ffffff, #f8f9ff);
+    border-radius: 24px;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.15),
+        0 12px 24px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(102, 126, 234, 0.1);
+    overflow: hidden;
+}
+
+.qr-code-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    pointer-events: none;
+}
+
+/* QR Corner Decorations */
+.qr-corner-tl, .qr-corner-tr, .qr-corner-bl, .qr-corner-br {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 3px solid #667eea;
+    z-index: 2;
+}
+
+.qr-corner-tl {
+    top: 8px;
+    left: 8px;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 8px 0 0 0;
+}
+
+.qr-corner-tr {
+    top: 8px;
+    right: 8px;
+    border-left: none;
+    border-bottom: none;
+    border-radius: 0 8px 0 0;
+}
+
+.qr-corner-bl {
+    bottom: 8px;
+    left: 8px;
+    border-right: none;
+    border-top: none;
+    border-radius: 0 0 0 8px;
+}
+
+.qr-corner-br {
+    bottom: 8px;
+    right: 8px;
+    border-left: none;
+    border-top: none;
+    border-radius: 0 0 8px 0;
 }
 
 .qr-code {
     display: block;
-    border-radius: 10px;
-    width: 280px !important;
-    height: 280px !important;
+    border-radius: 16px;
+    width: 380px !important;
+    height: 380px !important;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Scanning Animation */
+.qr-scan-line {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #667eea, transparent);
+    animation: scanLine 3s ease-in-out infinite;
+    z-index: 3;
+    border-radius: 1px;
+}
+
+@keyframes scanLine {
+    0%, 100% { 
+        transform: translateY(0);
+        opacity: 0;
+    }
+    50% { 
+        transform: translateY(360px);
+        opacity: 1;
+    }
 }
 
 .qr-refresh-indicator {
     position: absolute;
-    top: -10px;
-    right: -10px;
-    width: 20px;
-    height: 20px;
+    top: -12px;
+    right: -12px;
+    width: 24px;
+    height: 24px;
+    z-index: 4;
 }
 
 .refresh-pulse {
     width: 100%;
     height: 100%;
-    background: #4caf50;
+    background: linear-gradient(135deg, #4caf50, #45a049);
     border-radius: 50%;
-    animation: refreshPulse 1s infinite;
+    animation: refreshPulse 1.5s infinite;
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
 }
 
 @keyframes refreshPulse {
-    0% { transform: scale(0.8); opacity: 1; }
-    100% { transform: scale(2); opacity: 0; }
+    0% { 
+        transform: scale(0.8); 
+        opacity: 1; 
+        box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+    }
+    100% { 
+        transform: scale(2.2); 
+        opacity: 0; 
+        box-shadow: 0 8px 16px rgba(76, 175, 80, 0.1);
+    }
 }
 
-.qr-info {
+/* Status Indicators */
+.qr-status-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 30px 0;
+}
+
+.status-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    transition: all 0.3s ease;
+}
+
+.status-icon.active {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    animation: statusPulse 2s infinite;
+}
+
+.status-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.status-item span {
+    font-size: 12px;
+    font-weight: 600;
     color: #666;
-    font-size: 14px;
-    margin-top: 15px;
+    text-align: center;
 }
 
-.qr-info p {
-    margin: 5px 0;
+@keyframes statusPulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+    }
+    50% { 
+        transform: scale(1.05);
+        box-shadow: 0 8px 16px rgba(76, 175, 80, 0.4);
+    }
+}
+
+/* Enhanced Info Section */
+.qr-info {
+    margin-top: 30px;
+}
+
+.qr-info-card {
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.info-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.info-divider {
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, transparent, rgba(102, 126, 234, 0.2), transparent);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .qr-display-container {
+        padding: 20px;
+        margin: 0 10px 20px;
+    }
+    
+    .qr-header {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .qr-title-section {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .qr-title-text h3 {
+        font-size: 24px;
+    }
+    
+    .qr-code {
+        width: 300px !important;
+        height: 300px !important;
+    }
+    
+    .qr-scan-line {
+        animation: scanLineMobile 3s ease-in-out infinite;
+    }
+    
+    @keyframes scanLineMobile {
+        0%, 100% { 
+            transform: translateY(0);
+            opacity: 0;
+        }
+        50% { 
+            transform: translateY(280px);
+            opacity: 1;
+        }
+    }
+    
+    .qr-status-indicators {
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .qr-info-card {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .info-divider {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(102, 126, 234, 0.2), transparent);
+    }
+}
+
+@media (max-width: 480px) {
+    .qr-code {
+        width: 250px !important;
+        height: 250px !important;
+    }
+    
+    .qr-code-frame {
+        padding: 15px;
+    }
+    
+    .status-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .status-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* Hover Effects */
+.qr-code-frame:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 30px 60px rgba(0, 0, 0, 0.2),
+        0 15px 30px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
+}
+
+.status-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.qr-info-card:hover {
+    background: rgba(102, 126, 234, 0.08);
+    border-color: rgba(102, 126, 234, 0.2);
+    transition: all 0.3s ease;
 }
 
 /* Live Statistics */

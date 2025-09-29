@@ -340,12 +340,12 @@ exports.login = async (req, res) => {
 
     // Find user by email or studentId
     let user;
-    // First try to find by email (case insensitive)
-    user = await User.findOne({ email: identifier.toLowerCase() });
+    // First try to find by StudentId
+    user = await User.findOne({ studentId: identifier });
     
-    // If not found by email, try to find by studentId
+    // If not found by StudentId, try to find by email (case insensitive)
     if (!user) {
-      user = await User.findOne({ studentId: identifier });
+      user = await User.findOne({ email: identifier.toLowerCase() });
     }
     
     // If still not found, return error

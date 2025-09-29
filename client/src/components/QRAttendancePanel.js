@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo , useRef} from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import QRCode from 'react-qr-code';
 import '../styles/QRAttendancePanel.css';
 
@@ -242,8 +242,25 @@ const QRAttendancePanel = memo(({
             {sessionData?.status === 'active' && qrData && (
                 <div className="qr-display-container">
                     <div className="qr-display" ref={qrDisplayRef}>
+                        {/* Modern Header with Gradient */}
                         <div className="qr-header">
-                            <h3>Scan QR Code to Mark Attendance</h3>
+                            <div className="qr-title-section">
+                                <div className="qr-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 11V3H11V11H3ZM5 9H9V5H5V9ZM13 3H21V11H13V3ZM15 5V9H19V5H15ZM3 21V13H11V21H3ZM5 19H9V15H5V19ZM18 13H16V15H18V13ZM20 13H22V15H20V13ZM16 15H14V17H16V15ZM14 17H12V19H14V17ZM16 17H18V19H16V17ZM18 19H20V21H18V19ZM20 19H22V21H20V19Z" fill="url(#qrGradient)"/>
+                                        <defs>
+                                            <linearGradient id="qrGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#667eea"/>
+                                                <stop offset="100%" stopColor="#764ba2"/>
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                <div className="qr-title-text">
+                                    <h3>Scan QR Code to Mark Attendance</h3>
+                                    <p className="qr-subtitle">Point your camera at the QR code below</p>
+                                </div>
+                            </div>
                             <div className="qr-timer">
                                 <div className="timer-circle">
                                     <svg className="timer-svg" viewBox="0 0 36 36">
@@ -263,27 +280,88 @@ const QRAttendancePanel = memo(({
                                     </svg>
                                     <div className="timer-text">{timeLeft}s</div>
                                 </div>
+                                <span className="timer-label">Next Refresh</span>
                             </div>
                         </div>
                         
-                        <div className="qr-code-wrapper">
-                            <div className="qr-code">
-                                <QRCode 
-                                    value={qrData.token}
-                                    size={280}
-                                    style={{ height: "280px", width: "280px" }}
-                                    bgColor="#ffffff"
-                                    fgColor="#000000"
-                                />
+                        {/* Enhanced QR Code Container */}
+                        <div className="qr-main-container">
+                            <div className="qr-code-wrapper">
+                                <div className="qr-code-frame">
+                                    <div className="qr-corner-tl"></div>
+                                    <div className="qr-corner-tr"></div>
+                                    <div className="qr-corner-bl"></div>
+                                    <div className="qr-corner-br"></div>
+                                    
+                                    <div className="qr-code">
+                                        <QRCode 
+                                            value={qrData.token}
+                                            size={380}
+                                            style={{ height: "380px", width: "380px" }}
+                                            bgColor="#ffffff"
+                                            fgColor="#1a1a1a"
+                                            level="H"
+                                            includeMargin={false}
+                                        />
+                                    </div>
+                                    
+                                    <div className="qr-scan-line"></div>
+                                </div>
+                                
+                                <div className="qr-refresh-indicator">
+                                    <div className="refresh-pulse"></div>
+                                </div>
                             </div>
-                            <div className="qr-refresh-indicator">
-                                <div className="refresh-pulse"></div>
+                            
+                            {/* Status Indicators */}
+                            <div className="qr-status-indicators">
+                                <div className="status-item">
+                                    <div className="status-icon active">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                            <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <span>Active Session</span>
+                                </div>
+                                <div className="status-item">
+                                    <div className="status-icon">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <span>Secure Scan</span>
+                                </div>
+                                <div className="status-item">
+                                    <div className="status-icon">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                                            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    </div>
+                                    <span>Auto-Refresh</span>
+                                </div>
                             </div>
                         </div>
                         
+                        {/* Enhanced Info Section */}
                         <div className="qr-info">
-                            <p>QR Code #{qrData.refreshCount || 1}</p>
-                            <p>Auto-refreshes every 5 seconds</p>
+                            <div className="qr-info-card">
+                                <div className="info-item">
+                                    <span className="info-label">QR Code</span>
+                                    <span className="info-value">#{qrData.refreshCount || 1}</span>
+                                </div>
+                                <div className="info-divider"></div>
+                                <div className="info-item">
+                                    <span className="info-label">Refresh Rate</span>
+                                    <span className="info-value">5 seconds</span>
+                                </div>
+                                <div className="info-divider"></div>
+                                <div className="info-item">
+                                    <span className="info-label">Valid For</span>
+                                    <span className="info-value">7 seconds</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
