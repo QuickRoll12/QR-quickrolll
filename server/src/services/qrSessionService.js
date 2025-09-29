@@ -420,8 +420,11 @@ class QRSessionService {
         }
 
         console.log(`Student ${studentData.name} has Device id: ${studentData.fingerprint}`);
+        console.log(`Student ${studentData.name} has WebRTC IP: ${studentData.webRTCIPs}`);
+        console.log(`Student ${studentData.name} has User Agent: ${studentData.userAgent}`);
+        console.log(`Student ${studentData.name} has IP Address: ${studentData.ipAddress}`);
 
-        // Check if fingerprint already used in this session (to prevent cloned apps)
+        // Check if fingerprint(Android Id) already used in this session (to prevent cloned apps)
         const isFingerprintUsed = session.studentsPresent.some(
             s => s.deviceInfo?.fingerprint === studentData.fingerprint
         );
