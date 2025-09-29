@@ -378,17 +378,17 @@ class QRSessionService {
         // Validate QR token
         const tokenValidation = qrTokenService.validateQRToken(qrToken);
         if (!tokenValidation.valid) {
-            // Increment invalid attempts
-            const session = await QRSession.findOne({ 
-                department: studentData.course,
-                semester: studentData.semester,
-                section: studentData.section,
-                status: 'active'
-            });
-            if (session) {
-                session.analytics.invalidQRAttempts += 1;
-                await session.save();
-            }
+            // // Increment invalid attempts
+            // const session = await QRSession.findOne({ 
+            //     department: studentData.course,
+            //     semester: studentData.semester,
+            //     section: studentData.section,
+            //     status: 'active'
+            // });
+            // if (session) {
+            //     session.analytics.invalidQRAttempts += 1;
+            //     await session.save();
+            // }
             
             throw new Error(tokenValidation.error);
         }
@@ -418,6 +418,18 @@ class QRSessionService {
             await session.save();
             throw new Error('Attendance already marked for this session');
         }
+
+        console.log(`Student ${studentData.name} has Device id: ${studentData.fingerprint}`);
+
+        // Check if fingerprint already used in this session (to prevent cloned apps)
+        const isFingerprintUsed = session.studentsPresent.some(
+            s => s.deviceInfo?.fingerprint === studentData.fingerprint
+        );
+
+        if (isFingerprintUsed) {
+            throw new Error('Cloned app Found !');
+        }
+
 
         // NOTE: We don't mark token as "used" because multiple students should be able to scan the same QR code
         // Individual duplicate prevention is handled by checking if student already marked attendance
