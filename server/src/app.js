@@ -164,24 +164,23 @@ io.on('connection', (socket) => {
     console.log('👤 User connected:', socket.user.name);
 
     // Join users to their specific rooms
-    if (socket.user.role === 'faculty') {
-        socket.join(`faculty-${socket.user.facultyId}`);
-        console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
+    // if (socket.user.role === 'faculty') {
+    //     socket.join(`faculty-${socket.user.facultyId}`);
+    //     console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
         
-        // Faculty also joins section rooms for all their teaching assignments
-        if (socket.user.teachingAssignments && socket.user.teachingAssignments.length > 0) {
-            socket.user.teachingAssignments.forEach(assignment => {
-                const sectionRoom = `${assignment.course}-${assignment.semester}-${assignment.section}`;
-                socket.join(sectionRoom);
-                console.log(`Faculty ${socket.user.facultyId} joined section room: ${sectionRoom}`);
-            });
-        }
-    } else if (socket.user.role === 'student') {
-        // Students join section room for session updates
-        const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
-        socket.join(sectionRoom);
-        console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
-    }
+    //     // Faculty also joins section rooms for all their teaching assignments
+    //     if (socket.user.teachingAssignments && socket.user.teachingAssignments.length > 0) {
+    //         socket.user.teachingAssignments.forEach(assignment => {
+    //             const sectionRoom = `${assignment.semester}-${assignment.section}`;
+    //             socket.join(sectionRoom);
+    //         });
+    //     }
+    // } else if (socket.user.role === 'student') {
+    //     // Students join section room for session updates
+    //     const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
+    //     socket.join(sectionRoom);
+    //     console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
+    // }
 
     // Send available courses and sections to client
     socket.emit('courseData', { courses, sections });
@@ -259,11 +258,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==================== OLD TRADITIONAL ATTENDANCE SYSTEM - COMMENTED OUT ====================
-    // 🚫 THESE ARE FOR THE OLD GRID-BASED ATTENDANCE SYSTEM - NOT QR ATTENDANCE
-    // Commenting out to prevent conflicts with QR attendance system
-    
-    /*
     socket.on('startSession', async ({ department, semester, section, totalStudents, sessionType }) => {
         console.log(`📝 Starting session - Department: ${department}, Semester: ${semester}, Section: ${section}, Session Type: ${sessionType || 'roll-based'}, Total Students: ${totalStudents}`);
         
@@ -519,7 +513,6 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: error.message });
         }
     });
-    */
 
     // Handle full-screen violation - TEMPORARILY COMMENTED OUT FOR TESTING
     /*
@@ -781,12 +774,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== DUPLICATE MOBILE APP HANDLERS - COMMENTED OUT ==========
-    // 🚫 DUPLICATE: This is identical to the handler above (lines 781-828)
-    // Keeping only the QR attendance handlers below for clean functionality
-    
-    /*
-    // Handle student joining session via socket (for mobile app) - DUPLICATE
+    // ========== NEW MOBILE APP SOCKET HANDLERS ==========
+
+    // Handle student joining session via socket (for mobile app)
     socket.on('joinSession', async (data) => {
         try {
             if (socket.user.role !== 'student') {
@@ -835,7 +825,6 @@ io.on('connection', (socket) => {
             socket.emit('sessionJoinError', { message: error.message });
         }
     });
-    */
 
     socket.on('qr-endSession', async (data) => {
         try {
@@ -899,61 +888,59 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==================== DUPLICATE MOBILE APP HANDLERS - COMMENTED OUT ====================
-    // 🚫 THESE ARE DUPLICATES OF THE QR HANDLERS ABOVE - CAUSING MULTIPLE CONNECTIONS
-    
-    /*
-    // Handle student joining session via socket (for mobile app) - DUPLICATE #2
-    socket.on('joinSession', async (data) => {
-        try {
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can join sessions');
-            }
+    // ==================== MOBILE APP SOCKET HANDLERS ====================
 
-            const { sessionId } = data;
-            const studentData = {
-                studentId: socket.user.studentId,
-                name: socket.user.name,
-                classRollNumber: socket.user.classRollNumber,
-                email: socket.user.email,
-                course: socket.user.course,
-                semester: socket.user.semester,
-                section: socket.user.section,
-                fingerprint: data.fingerprint || 'socket-connection',
-                webRTCIPs: data.webRTCIPs || [],
-                userAgent: socket.handshake.headers['user-agent'],
-                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
-            };
+    // Handle student joining session via socket (for mobile app)
+    // socket.on('joinSession', async (data) => {
+    //     try {
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can join sessions');
+    //         }
 
-            const result = await qrSessionService.joinSession(sessionId, studentData);
+    //         const { sessionId } = data;
+    //         const studentData = {
+    //             studentId: socket.user.studentId,
+    //             name: socket.user.name,
+    //             classRollNumber: socket.user.classRollNumber,
+    //             email: socket.user.email,
+    //             course: socket.user.course,
+    //             semester: socket.user.semester,
+    //             section: socket.user.section,
+    //             fingerprint: data.fingerprint || 'socket-connection',
+    //             webRTCIPs: data.webRTCIPs || [],
+    //             userAgent: socket.handshake.headers['user-agent'],
+    //             ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
+    //         };
 
-            // Send success response to student
-            socket.emit('sessionJoined', {
-                success: true,
-                message: result.message,
-                sessionData: result.sessionData
-            });
+    //         const result = await qrSessionService.joinSession(sessionId, studentData);
 
-            // Notify faculty about student joining (only if not already joined)
-            if (result.sessionData && result.sessionData.facultyId) {
-                const facultyRoom = `faculty-${result.sessionData.facultyId}`;
-                socket.to(facultyRoom).emit('qr-studentJoined', {
-                    studentName: studentData.name,
-                    rollNumber: studentData.classRollNumber,
-                    joinedAt: new Date(),
-                    totalJoined: result.sessionData.studentsJoined
-                });
-            }
+    //         // Send success response to student
+    //         socket.emit('sessionJoined', {
+    //             success: true,
+    //             message: result.message,
+    //             sessionData: result.sessionData
+    //         });
 
-            console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
+    //         // Notify faculty about student joining (only if not already joined)
+    //         if (result.sessionData && result.sessionData.facultyId) {
+    //             const facultyRoom = `faculty-${result.sessionData.facultyId}`;
+    //             socket.to(facultyRoom).emit('qr-studentJoined', {
+    //                 studentName: studentData.name,
+    //                 rollNumber: studentData.classRollNumber,
+    //                 joinedAt: new Date(),
+    //                 totalJoined: result.sessionData.studentsJoined
+    //             });
+    //         }
 
-        } catch (error) {
-            console.error('Join session error:', error);
-            socket.emit('sessionJoinError', { message: error.message });
-        }
-    });
+    //         console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
-    // Handle QR attendance marking via socket (replacing API) - DUPLICATE
+    //     } catch (error) {
+    //         console.error('Join session error:', error);
+    //         socket.emit('sessionJoinError', { message: error.message });
+    //     }
+    // });
+
+    // Handle QR attendance marking via socket (replacing API)
     socket.on('markAttendance', async (data) => {
         try {
             if (socket.user.role !== 'student') {
@@ -1021,7 +1008,6 @@ io.on('connection', (socket) => {
             socket.emit('attendanceError', { message: error.message });
         }
     });
-    */
 
     // Handle session status requests (for mobile app)
     socket.on('getSessionStatus', async () => {
@@ -1095,8 +1081,23 @@ app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized: You can only access your own sessions' });
         }
 
-        // 🚀 OPTIMIZED: Use new optimized method for getting session stats
-        const stats = await qrSessionService.getSessionStatsOptimized(sessionId);
+        // Prepare students present with roll numbers
+        const studentsPresent = session.studentsPresent.map(student => ({
+            studentName: student.name,
+            rollNumber: student.classRollNumber,
+            markedAt: student.markedAt
+        }));
+
+        const stats = {
+            sessionId: session.sessionId,
+            totalStudents: session.totalStudents,
+            totalJoined: session.studentsJoined.length,
+            totalPresent: session.studentsPresent.length,
+            presentPercentage: session.totalStudents > 0 ? 
+                Math.round((session.studentsPresent.length / session.totalStudents) * 100) : 0,
+            studentsPresent: studentsPresent,
+            status: session.status
+        };
 
         res.json(stats);
 

@@ -524,8 +524,6 @@ class QRSessionService {
             // Update cache with new counter
             this.activeSessions.set(sessionId, updatedSession);
 
-            console.log(`👤 Student joined: ${studentData.name} (${studentData.studentId}) in session ${sessionId}`);
-
             return {
                 success: true,
                 message: 'Successfully joined the session. Wait for faculty to start attendance.',
@@ -890,8 +888,8 @@ class QRSessionService {
             sessionData: {
                 facultyName: session.facultyName,
                 totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined.length,
-                studentsPresent: session.studentsPresent.length
+                studentsJoined: session.studentsJoinedCount,
+                studentsPresent: session.studentsPresentCount
             }
         };
     }
