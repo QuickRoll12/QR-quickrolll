@@ -164,23 +164,23 @@ io.on('connection', (socket) => {
     console.log('👤 User connected:', socket.user.name);
 
     // Join users to their specific rooms
-    // if (socket.user.role === 'faculty') {
-    //     socket.join(`faculty-${socket.user.facultyId}`);
-    //     console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
+    if (socket.user.role === 'faculty') {
+        socket.join(`faculty-${socket.user.facultyId}`);
+        console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
         
-    //     // Faculty also joins section rooms for all their teaching assignments
-    //     if (socket.user.teachingAssignments && socket.user.teachingAssignments.length > 0) {
-    //         socket.user.teachingAssignments.forEach(assignment => {
-    //             const sectionRoom = `${assignment.semester}-${assignment.section}`;
-    //             socket.join(sectionRoom);
-    //         });
-    //     }
-    // } else if (socket.user.role === 'student') {
-    //     // Students join section room for session updates
-    //     const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
-    //     socket.join(sectionRoom);
-    //     console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
-    // }
+        // Faculty also joins section rooms for all their teaching assignments
+        if (socket.user.teachingAssignments && socket.user.teachingAssignments.length > 0) {
+            socket.user.teachingAssignments.forEach(assignment => {
+                const sectionRoom = `${assignment.semester}-${assignment.section}`;
+                socket.join(sectionRoom);
+            });
+        }
+    } else if (socket.user.role === 'student') {
+        // Students join section room for session updates
+        const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
+        socket.join(sectionRoom);
+        console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
+    }
 
     // Send available courses and sections to client
     socket.emit('courseData', { courses, sections });
