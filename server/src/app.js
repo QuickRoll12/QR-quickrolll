@@ -259,6 +259,11 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==================== OLD TRADITIONAL ATTENDANCE SYSTEM - COMMENTED OUT ====================
+    // 🚫 THESE ARE FOR THE OLD GRID-BASED ATTENDANCE SYSTEM - NOT QR ATTENDANCE
+    // Commenting out to prevent conflicts with QR attendance system
+    
+    /*
     socket.on('startSession', async ({ department, semester, section, totalStudents, sessionType }) => {
         console.log(`📝 Starting session - Department: ${department}, Semester: ${semester}, Section: ${section}, Session Type: ${sessionType || 'roll-based'}, Total Students: ${totalStudents}`);
         
@@ -514,6 +519,7 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: error.message });
         }
     });
+    */
 
     // Handle full-screen violation - TEMPORARILY COMMENTED OUT FOR TESTING
     /*
@@ -775,9 +781,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== NEW MOBILE APP SOCKET HANDLERS ==========
-
-    // Handle student joining session via socket (for mobile app)
+    // ========== DUPLICATE MOBILE APP HANDLERS - COMMENTED OUT ==========
+    // 🚫 DUPLICATE: This is identical to the handler above (lines 781-828)
+    // Keeping only the QR attendance handlers below for clean functionality
+    
+    /*
+    // Handle student joining session via socket (for mobile app) - DUPLICATE
     socket.on('joinSession', async (data) => {
         try {
             if (socket.user.role !== 'student') {
@@ -826,6 +835,7 @@ io.on('connection', (socket) => {
             socket.emit('sessionJoinError', { message: error.message });
         }
     });
+    */
 
     socket.on('qr-endSession', async (data) => {
         try {
@@ -889,9 +899,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==================== MOBILE APP SOCKET HANDLERS ====================
-
-    // Handle student joining session via socket (for mobile app)
+    // ==================== DUPLICATE MOBILE APP HANDLERS - COMMENTED OUT ====================
+    // 🚫 THESE ARE DUPLICATES OF THE QR HANDLERS ABOVE - CAUSING MULTIPLE CONNECTIONS
+    
+    /*
+    // Handle student joining session via socket (for mobile app) - DUPLICATE #2
     socket.on('joinSession', async (data) => {
         try {
             if (socket.user.role !== 'student') {
@@ -941,7 +953,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle QR attendance marking via socket (replacing API)
+    // Handle QR attendance marking via socket (replacing API) - DUPLICATE
     socket.on('markAttendance', async (data) => {
         try {
             if (socket.user.role !== 'student') {
@@ -1009,6 +1021,7 @@ io.on('connection', (socket) => {
             socket.emit('attendanceError', { message: error.message });
         }
     });
+    */
 
     // Handle session status requests (for mobile app)
     socket.on('getSessionStatus', async () => {
@@ -1082,23 +1095,8 @@ app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized: You can only access your own sessions' });
         }
 
-        // Prepare students present with roll numbers
-        const studentsPresent = session.studentsPresent.map(student => ({
-            studentName: student.name,
-            rollNumber: student.classRollNumber,
-            markedAt: student.markedAt
-        }));
-
-        const stats = {
-            sessionId: session.sessionId,
-            totalStudents: session.totalStudents,
-            totalJoined: session.studentsJoined.length,
-            totalPresent: session.studentsPresent.length,
-            presentPercentage: session.totalStudents > 0 ? 
-                Math.round((session.studentsPresent.length / session.totalStudents) * 100) : 0,
-            studentsPresent: studentsPresent,
-            status: session.status
-        };
+        // 🚀 OPTIMIZED: Use new optimized method for getting session stats
+        const stats = await qrSessionService.getSessionStatsOptimized(sessionId);
 
         res.json(stats);
 

@@ -202,7 +202,7 @@ class QRSessionService {
         const { facultyId, name: facultyName, email: facultyEmail } = facultyData;
 
         // Force cleanup any existing sessions for this section first
-        console.log(`🧹 Cleaning up existing sessions for ${department}-${semester}-${section}`);
+        // console.log(`🧹 Cleaning up existing sessions for ${department}-${semester}-${section}`);
         
         // End any active sessions for this section (atomic operation)
         const cleanupResult = await QRSession.updateMany(
@@ -632,7 +632,7 @@ class QRSessionService {
 
         // Validate fingerprint against stored device ID
         if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
-            throw new Error('Attendance cannot be marked. Cloned app detected!');
+            throw new Error('Attendance cannot be marked. Suspicious activity detected !');
         }
 
         // // If no device ID stored, this is first time - update it ( *** This Case is not possible, because login first time is mandatory****)
