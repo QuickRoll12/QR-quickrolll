@@ -207,7 +207,7 @@ class QRSessionService {
             sessionData: {
                 sessionId: session.sessionId,
                 status: session.status,
-                studentsJoined: session.studentsJoined.length,
+                studentsJoined: session.studentsJoinedCount,
                 canJoin: true,
                 canStartAttendance: false,
                 department: session.department,
