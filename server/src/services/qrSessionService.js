@@ -2,6 +2,7 @@ const QRSession = require('../models/QRSession');
 const SessionJoin = require('../models/SessionJoin');
 const SessionAttendance = require('../models/SessionAttendance');
 const AttendanceRecord = require('../models/AttendanceRecord');
+const User = require('../models/User');
 const qrTokenService = require('./qrTokenService');
 const { v4: uuidv4 } = require('uuid');
 
@@ -10,6 +11,19 @@ class QRSessionService {
         this.activeSessions = new Map(); // In-memory cache for active sessions
         this.qrRefreshIntervals = new Map(); // Store interval IDs for QR refresh
         this.io = null; // Socket.io instance for real-time updates
+        
+        // 🚀 OPTIMIZED: Device fingerprint cache to minimize DB calls
+        this.deviceCache = new Map(); // studentId -> deviceId mapping
+        this.sectionDeviceCache = new Map(); // sectionKey -> Map(studentId -> deviceId)
+        this.cacheExpiry = new Map(); // Track cache expiry times
+        this.CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache TTL
+        this.cacheHits = 0; // Track cache performance
+        this.cacheMisses = 0;
+        
+        // Start periodic cache cleanup (every 10 minutes)
+        setInterval(() => {
+            this.clearExpiredCache();
+        }, 10 * 60 * 1000);
     }
 
     /**
@@ -18,6 +32,164 @@ class QRSessionService {
      */
     setSocketIO(io) {
         this.io = io;
+    }
+
+    /**
+     * 🚀 OPTIMIZED: Get device ID for a student with intelligent caching
+     * @param {string} studentId - Student ID
+     * @param {string} department - Department
+     * @param {string} semester - Semester  
+     * @param {string} section - Section
+     * @returns {string|null} - Device ID or null
+     */
+    async getStudentDeviceId(studentId, department, semester, section) {
+        const sectionKey = `${department}-${semester}-${section}`;
+        const now = Date.now();
+
+        // Check individual cache first (fastest)
+        if (this.deviceCache.has(studentId)) {
+            const cacheTime = this.cacheExpiry.get(studentId);
+            if (cacheTime && now < cacheTime) {
+                this.cacheHits++;
+                return this.deviceCache.get(studentId);
+            }
+            // Expired - remove from cache
+            this.deviceCache.delete(studentId);
+            this.cacheExpiry.delete(studentId);
+        }
+
+        // Check section cache (batch cache)
+        if (this.sectionDeviceCache.has(sectionKey)) {
+            const sectionCache = this.sectionDeviceCache.get(sectionKey);
+            const cacheTime = this.cacheExpiry.get(sectionKey);
+            
+            if (cacheTime && now < cacheTime && sectionCache.has(studentId)) {
+                const deviceId = sectionCache.get(studentId);
+                // Also cache individually for faster future access
+                this.deviceCache.set(studentId, deviceId);
+                this.cacheExpiry.set(studentId, now + this.CACHE_TTL);
+                this.cacheHits++;
+                return deviceId;
+            }
+            
+            // Section cache expired
+            if (!cacheTime || now >= cacheTime) {
+                this.sectionDeviceCache.delete(sectionKey);
+                this.cacheExpiry.delete(sectionKey);
+            }
+        }
+
+        // Cache miss - fetch from database
+        this.cacheMisses++;
+        console.log(`📊 Cache miss for section ${sectionKey}, fetching device IDs from DB`);
+        
+        try {
+            // Fetch all students in this section at once (batch optimization)
+            const sectionStudents = await User.find({
+                course: department,
+                semester: semester,
+                section: section,
+                role: 'student'
+            }).select('studentId deviceId').lean();
+
+            // Create section cache
+            const sectionCache = new Map();
+            sectionStudents.forEach(student => {
+                if (student.deviceId) {
+                    sectionCache.set(student.studentId, student.deviceId);
+                    // Also cache individually
+                    this.deviceCache.set(student.studentId, student.deviceId);
+                    this.cacheExpiry.set(student.studentId, now + this.CACHE_TTL);
+                }
+            });
+
+            // Cache the entire section
+            this.sectionDeviceCache.set(sectionKey, sectionCache);
+            this.cacheExpiry.set(sectionKey, now + this.CACHE_TTL);
+
+            console.log(`✅ Cached ${sectionStudents.length} device IDs for section ${sectionKey}`);
+            
+            return sectionCache.get(studentId) || null;
+
+        } catch (error) {
+            console.error('❌ Error fetching device IDs:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 🚀 OPTIMIZED: Preload device cache for a session (called when session starts)
+     * @param {Object} session - QR Session object
+     */
+    async preloadDeviceCache(session) {
+        const sectionKey = `${session.department}-${session.semester}-${session.section}`;
+        
+        // Skip if already cached and not expired
+        const cacheTime = this.cacheExpiry.get(sectionKey);
+        if (cacheTime && Date.now() < cacheTime) {
+            console.log(`📋 Device cache already loaded for section ${sectionKey}`);
+            return;
+        }
+
+        console.log(`🚀 Preloading device cache for section ${sectionKey}`);
+        
+        // This will populate the cache
+        await this.getStudentDeviceId('dummy', session.department, session.semester, session.section);
+    }
+
+    /**
+     * Clear expired cache entries (maintenance method)
+     */
+    clearExpiredCache() {
+        const now = Date.now();
+        let expiredCount = 0;
+        
+        // Clear individual cache
+        for (const [key, expiry] of this.cacheExpiry.entries()) {
+            if (now >= expiry) {
+                this.deviceCache.delete(key);
+                this.sectionDeviceCache.delete(key);
+                this.cacheExpiry.delete(key);
+                expiredCount++;
+            }
+        }
+        
+        if (expiredCount > 0) {
+            console.log(`🧹 Cleared ${expiredCount} expired cache entries`);
+        }
+    }
+
+    /**
+     * Get cache statistics for monitoring
+     * @returns {Object} Cache statistics
+     */
+    getCacheStats() {
+        return {
+            deviceCacheSize: this.deviceCache.size,
+            sectionCacheSize: this.sectionDeviceCache.size,
+            totalCacheEntries: this.cacheExpiry.size,
+            cacheTTL: this.CACHE_TTL / 1000 / 60, // minutes
+            cacheHitRate: this.cacheHits / (this.cacheHits + this.cacheMisses) || 0
+        };
+    }
+
+    /**
+     * Force refresh cache for a specific section
+     * @param {string} department - Department
+     * @param {string} semester - Semester
+     * @param {string} section - Section
+     */
+    async refreshSectionCache(department, semester, section) {
+        const sectionKey = `${department}-${semester}-${section}`;
+        
+        // Clear existing cache
+        this.sectionDeviceCache.delete(sectionKey);
+        this.cacheExpiry.delete(sectionKey);
+        
+        // Reload cache
+        await this.getStudentDeviceId('dummy', department, semester, section);
+        
+        console.log(`🔄 Refreshed device cache for section ${sectionKey}`);
     }
 
     /**
@@ -96,6 +268,9 @@ class QRSessionService {
 
         // Cache the session
         this.activeSessions.set(sessionId, qrSession);
+
+        // 🚀 OPTIMIZED: Preload device cache for this section
+        await this.preloadDeviceCache(qrSession);
 
         console.log(`✅ QR Session started: ${sessionId} for ${department}-${semester}-${section}`);
 
@@ -440,24 +615,37 @@ class QRSessionService {
         });
 
         if (existingAttendance) {
-            // Increment duplicate attempts counter
-            await QRSession.updateOne(
-                { sessionId: session.sessionId },
-                { $inc: { 'analytics.duplicateAttempts': 1 } }
-            );
             throw new Error('Attendance already marked for this session');
         }
 
-        // Fingerprint validation using joined student data
-        const storedFingerprint = joinedStudent.deviceInfo?.fingerprint;
-
-        console.log(
-            `🔎 Checking fingerprint for ${studentData.name}: stored=${storedFingerprint}, received=${studentData.fingerprint}`
+        // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
+        const storedDeviceId = await this.getStudentDeviceId(
+            studentData.studentId, 
+            session.department, 
+            session.semester, 
+            session.section
         );
 
-        if (storedFingerprint && storedFingerprint !== studentData.fingerprint) {
-            throw new Error('Attendance cannot be marked. Cloned app found !');
+        console.log(
+            `🔎 Checking fingerprint for ${studentData.name}: stored=${storedDeviceId}, received=${studentData.fingerprint}`
+        );
+
+        // Validate fingerprint against stored device ID
+        if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
+            throw new Error('Attendance cannot be marked. Cloned app detected!');
         }
+
+        // // If no device ID stored, this is first time - update it ( *** This Case is not possible, because login first time is mandatory****)
+        // if (!storedDeviceId) {
+        //     console.log(`📱 First time device registration for ${studentData.name}`);
+        //     await User.updateOne(
+        //         { studentId: studentData.studentId },
+        //         { deviceId: studentData.fingerprint }
+        //     );
+        //     // Update cache
+        //     this.deviceCache.set(studentData.studentId, studentData.fingerprint);
+        //     this.cacheExpiry.set(studentData.studentId, Date.now() + this.CACHE_TTL);
+        // }
 
         // NOTE: We don't mark token as "used" because multiple students should be able to scan the same QR code
         // Individual duplicate prevention is handled by checking if student already marked attendance
