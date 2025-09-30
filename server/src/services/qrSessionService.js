@@ -797,6 +797,20 @@ class QRSessionService {
 
         await attendanceRecord.save();
 
+        // 🧹 CLEANUP: Remove session documents from SessionJoin and SessionAttendance collections
+        // since they're no longer needed after creating the final attendance record
+        try {
+            const [joinDeleteResult, attendanceDeleteResult] = await Promise.all([
+                SessionJoin.deleteMany({ sessionId }),
+                SessionAttendance.deleteMany({ sessionId })
+            ]);
+            
+            console.log(`🧹 Cleaned up session data: ${joinDeleteResult.deletedCount} join records, ${attendanceDeleteResult.deletedCount} attendance records`);
+        } catch (cleanupError) {
+            console.error('⚠️ Error cleaning up session documents:', cleanupError);
+            // Don't throw - this is cleanup, not critical for the main flow
+        }
+
         // Remove from cache immediately
         this.activeSessions.delete(sessionId);
         
