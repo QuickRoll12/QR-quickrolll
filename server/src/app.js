@@ -1091,10 +1091,10 @@ app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
         const stats = {
             sessionId: session.sessionId,
             totalStudents: session.totalStudents,
-            totalJoined: session.studentsJoined.length,
-            totalPresent: session.studentsPresent.length,
+            totalJoined: session.studentsJoinedCount,
+            totalPresent: session.studentsPresentCount,
             presentPercentage: session.totalStudents > 0 ? 
-                Math.round((session.studentsPresent.length / session.totalStudents) * 100) : 0,
+                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
             studentsPresent: studentsPresent,
             status: session.status
         };

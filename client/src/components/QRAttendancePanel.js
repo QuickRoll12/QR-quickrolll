@@ -102,7 +102,7 @@ const QRAttendancePanel = memo(({
         if (!sessionData?.sessionId || sessionData.status !== 'active') return;
         
         try {
-            const response = await fetch(`/api/qr-attendance/session/${sessionData.sessionId}/stats`, {
+            const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
@@ -113,12 +113,12 @@ const QRAttendancePanel = memo(({
                 
                 // Update state with fresh data from the database.
                 // Using new array/object references ensures React re-renders.
-                setStudentsPresent([...stats.studentsPresent] || []);
+                setStudentsPresent([...stats.studentsPresentCount] || []);
 
                 // Safely update the presentation stats, preserving the 'totalJoined' from sockets.
                 setLiveStats(prev => ({
                     ...prev,
-                    totalPresent: stats.totalPresent || 0,
+                    totalPresent: stats.totalPresentCount || 0,
                     presentPercentage: stats.presentPercentage || 0
                 }));
             } else {

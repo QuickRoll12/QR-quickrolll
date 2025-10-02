@@ -337,7 +337,7 @@ class QRSessionService {
                 section: session.section,
                 totalStudents: session.totalStudents,
                 status: 'locked',
-                studentsJoined: session.studentsJoined,
+                studentsJoined: session.studentsJoinedCount,
                 canLock: false,
                 canStartAttendance: true,
             }
@@ -461,8 +461,8 @@ class QRSessionService {
                 section: session.section,
                 totalStudents: session.totalStudents,
                 status: 'active',
-                studentsJoined: session.studentsJoined,
-                studentsPresent: session.studentsPresent,
+                studentsJoined: session.studentsJoinedCount,
+                studentsPresent: session.studentsPresentCount,
                 startedAt: session.startedAt
             }
         };
