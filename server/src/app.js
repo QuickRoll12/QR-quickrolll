@@ -1060,53 +1060,6 @@ app.use('/api/admin', facultyAssignmentRoutes);
 // Student attendance routes
 app.use('/api/student/attendance', studentAttendanceRoutes);
 
-// QR Session stats API endpoint for live polling
-app.get('/api/qr-session/:sessionId/stats', auth, async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        
-        // Only faculty can access session stats
-        if (req.user.role !== 'faculty') {
-            return res.status(403).json({ message: 'Only faculty can access session stats' });
-        }
-
-        const session = await qrSessionService.getSessionById(sessionId);
-        
-        if (!session) {
-            return res.status(404).json({ message: 'Session not found' });
-        }
-
-        // Verify faculty owns this session
-        if (session.facultyId !== req.user.facultyId) {
-            return res.status(403).json({ message: 'Unauthorized: You can only access your own sessions' });
-        }
-
-        // Prepare students present with roll numbers
-        const studentsPresent = session.studentsPresent.map(student => ({
-            studentName: student.name,
-            rollNumber: student.classRollNumber,
-            markedAt: student.markedAt
-        }));
-
-        const stats = {
-            sessionId: session.sessionId,
-            totalStudents: session.totalStudents,
-            totalJoined: session.studentsJoinedCount,
-            totalPresent: session.studentsPresentCount,
-            presentPercentage: session.totalStudents > 0 ? 
-                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
-            studentsPresent: studentsPresent,
-            status: session.status
-        };
-
-        res.json(stats);
-
-    } catch (error) {
-        console.error('Error fetching session stats:', error);
-        res.status(500).json({ message: 'Failed to fetch session stats' });
-    }
-});
-
 // Admin route to check server status
 app.get('/api/status', (req, res) => {
     res.json({
