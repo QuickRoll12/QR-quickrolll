@@ -147,7 +147,7 @@ const QRAttendancePanel = memo(({
         if (sessionData?.status !== 'active') return;
 
         pollAttendanceStats();
-        const interval = setInterval(pollAttendanceStats, 3000);
+        const interval = setInterval(pollAttendanceStats, 6000);
 
         return () => clearInterval(interval);
     }, [sessionData?.status, pollAttendanceStats]);
