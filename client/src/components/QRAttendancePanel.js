@@ -93,7 +93,7 @@ const QRAttendancePanel = memo(({
         if (!sessionData?.sessionId || sessionData?.status !== 'active') return;
         
         try {
-            const response = await fetch(`/api/qr-attendance/session/${sessionData.sessionId}/stats`, {
+            const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
