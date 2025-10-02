@@ -196,53 +196,31 @@ router.get('/faculty-dashboard', auth, ensureFaculty, async (req, res) => {
  * @desc    Get detailed session information
  * @access  Private (Faculty only)
  */
-router.get('/session/:sessionId', auth, ensureFaculty, async (req, res) => {
+router.get('/session/:sessionId/stats', auth, async (req, res) => {
     try {
         const { sessionId } = req.params;
         const session = await qrSessionService.getSessionById(sessionId);
 
         if (!session) {
-            return res.status(404).json({
-                success: false,
-                message: 'Session not found'
-            });
+            return res.status(404).json({ message: 'Session not found' });
         }
 
+        // Verify faculty owns this session
         if (session.facultyId !== req.user.facultyId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access to this session'
-            });
+            return res.status(403).json({ message: 'Unauthorized access to this session' });
         }
 
-        res.json({
-            success: true,
-            session: {
-                sessionId: session.sessionId,
-                department: session.department,
-                semester: session.semester,
-                section: session.section,
-                status: session.status,
-                totalStudents: session.totalStudents,
-                studentsJoined: session.studentsJoined,
-                studentsPresent: session.studentsPresent,
-                currentQRToken: session.currentQRToken,
-                qrTokenExpiry: session.qrTokenExpiry,
-                qrRefreshCount: session.qrRefreshCount,
-                analytics: session.analytics,
-                createdAt: session.createdAt,
-                lockedAt: session.lockedAt,
-                startedAt: session.startedAt,
-                endedAt: session.endedAt
-            }
-        });
+        const stats = {
+            totalPresent: session.studentsPresentCount,
+            presentPercentage: session.totalStudents > 0 ? 
+                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
+        };
+
+        res.json(stats);
 
     } catch (error) {
-        console.error('Get session error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch session data'
-        });
+        console.error('Error fetching session stats:', error);
+        res.status(500).json({ message: 'Failed to fetch session stats' });
     }
 });
 
