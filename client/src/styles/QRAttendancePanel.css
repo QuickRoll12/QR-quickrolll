@@ -138,6 +138,17 @@
     to { transform: rotate(360deg); }
 }
 
+.broadcast-btn {
+    background: linear-gradient(135deg, #2196f3, #1976d2);
+    color: white;
+}
+
+.broadcast-btn:hover {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(33, 150, 243, 0.4);
+}
+
 .start-btn {
     background: linear-gradient(135deg, #4caf50, #388e3c);
     color: white;

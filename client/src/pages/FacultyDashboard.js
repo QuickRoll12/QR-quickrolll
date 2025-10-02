@@ -109,6 +109,11 @@ const FacultyDashboard = () => {
                 showErrorMessage(error.message);
             });
 
+            newSocket.on('qr-joinSessionBroadcasted', (data) => {
+                console.log('Join session broadcasted:', data);
+                showSuccessMessage('Join session notification sent to all students!');
+            });
+
             return () => newSocket.close();
         }
     }, [user]);
@@ -319,6 +324,12 @@ const FacultyDashboard = () => {
         if (!socket) return;
         
         socket.emit('qr-endSession', { sessionId });
+    };
+
+    const handleBroadcastJoinSession = (sessionId) => {
+        if (!socket) return;
+        
+        socket.emit('qr-broadcastJoinSession', { sessionId });
     };
 
     const handleQRTokenRefresh = (newQRData) => {
@@ -786,6 +797,7 @@ const FacultyDashboard = () => {
                         onUnlockSession={handleUnlockSession}
                         onStartAttendance={handleStartAttendance}
                         onEndSession={handleEndSession}
+                        onBroadcastJoinSession={handleBroadcastJoinSession}
                         onQRTokenRefresh={handleQRTokenRefresh}
                         socket={socket}
                     />

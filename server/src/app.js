@@ -695,6 +695,65 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('qr-broadcastJoinSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can broadcast join session');
+            }
+
+            // Get session data to find the room
+            const session = await qrSessionService.getSessionById(data.sessionId);
+            if (!session) {
+                throw new Error('Session not found');
+            }
+
+            // Verify faculty owns this session
+            if (session.facultyId !== socket.user.facultyId) {
+                throw new Error('You can only broadcast for your own sessions');
+            }
+
+            // Only allow broadcasting for 'created' status sessions
+            if (session.status !== 'created') {
+                throw new Error('Can only broadcast join notifications for created sessions');
+            }
+
+            // Emit to faculty confirming broadcast
+            socket.emit('qr-joinSessionBroadcasted', {
+                success: true,
+                sessionId: data.sessionId,
+                message: 'Join session notification sent to all students'
+            });
+
+            // Notify all students in this section
+            const roomName = `${session.department}-${session.semester}-${session.section}`;
+            
+            const joinNotificationData = {
+                success: true,
+                hasActiveSession: true,
+                sessionId: session.sessionId,
+                status: session.status,
+                canJoin: true,
+                canScanQR: false,
+                hasJoined: false,
+                hasMarkedAttendance: false,
+                facultyName: session.facultyName,
+                department: session.department,
+                semester: session.semester,
+                section: session.section,
+                message: '📢 Faculty has opened the session - you can now join!'
+            };
+            
+            socket.to(roomName).emit('qr-joinSessionAvailable', joinNotificationData);
+            socket.to(roomName).emit('sessionStatusUpdate', joinNotificationData);
+
+            console.log(`📢 Join session broadcasted by ${socket.user.name} for session: ${data.sessionId}`);
+
+        } catch (error) {
+            console.error('QR Broadcast join session error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
     socket.on('qr-startAttendance', async (data) => {
         try {
             if (socket.user.role !== 'faculty') {

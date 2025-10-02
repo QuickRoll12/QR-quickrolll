@@ -10,6 +10,7 @@ const QRAttendancePanel = memo(({
     onUnlockSession,
     onStartAttendance, 
     onEndSession,
+    onBroadcastJoinSession,
     onQRTokenRefresh,
     socket 
 }) => {
@@ -192,9 +193,14 @@ const QRAttendancePanel = memo(({
             {/* Control Buttons */}
             <div className="control-buttons">
                 {sessionData?.status === 'created' && (
-                    <button className="control-btn lock-btn" onClick={() => onLockSession(sessionData.sessionId)}>
-                        🔒 Lock Session
-                    </button>
+                    <>
+                        <button className="control-btn broadcast-btn" onClick={() => onBroadcastJoinSession(sessionData.sessionId)}>
+                            📢 Notify
+                        </button>
+                        <button className="control-btn lock-btn" onClick={() => onLockSession(sessionData.sessionId)}>
+                            🔒 Lock Session
+                        </button>
+                    </>
                 )}
                 
                 {sessionData?.status === 'locked' && (
