@@ -323,8 +323,6 @@ class QRSessionService {
         // Update cache
         this.activeSessions.set(sessionId, session);
 
-        console.log(`🔒 Session locked: ${sessionId}`);
-
         return {
             success: true,
             sessionId,
@@ -373,8 +371,6 @@ class QRSessionService {
 
         // Update cache
         this.activeSessions.set(sessionId, session);
-
-        console.log(`🔓 Session unlocked: ${sessionId}`);
 
         return {
             success: true,
@@ -440,8 +436,6 @@ class QRSessionService {
 
         // Start QR refresh interval (every 5 seconds)
         this.startQRRefresh(sessionId);
-
-        console.log(`📱 Attendance started: ${sessionId} with QR token`);
 
         return {
             success: true,
@@ -624,9 +618,9 @@ class QRSessionService {
             session.section
         );
 
-        console.log(
-            `🔎 Checking fingerprint for ${studentData.name}: stored=${storedDeviceId}, received=${studentData.fingerprint}`
-        );
+        // console.log(
+        //     `🔎 Checking fingerprint for ${studentData.name}: stored=${storedDeviceId}, received=${studentData.fingerprint}`
+        // );
 
         // Validate fingerprint against stored device ID
         if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
@@ -912,7 +906,6 @@ class QRSessionService {
         }, 5000); // Refresh every 5 seconds
 
         this.qrRefreshIntervals.set(sessionId, intervalId);
-        console.log(`🔄 QR refresh started for session: ${sessionId}`);
     }
 
     /**
@@ -924,7 +917,6 @@ class QRSessionService {
         if (intervalId) {
             clearInterval(intervalId);
             this.qrRefreshIntervals.delete(sessionId);
-            console.log(`⏹️ QR refresh stopped for session: ${sessionId}`);
         }
     }
 
