@@ -12,30 +12,24 @@ const QRAttendancePanel = memo(({
     onQRTokenRefresh,
     socket 
 }) => {
-    // STATE MANAGEMENT
+    // STATE MANAGEMENT - Simplified to only store necessary data
     const [timeLeft, setTimeLeft] = useState(5);
-    const [studentsJoined, setStudentsJoined] = useState(sessionData?.studentsJoined || []);
-    const [studentsPresent, setStudentsPresent] = useState(sessionData?.studentsPresent || []);
     const [liveStats, setLiveStats] = useState({
-        totalJoined: sessionData?.studentsJoined?.length || 0,
-        totalPresent: sessionData?.studentsPresent?.length || 0,
+        totalJoined: sessionData?.studentsJoinedCount || 0,
+        totalPresent: sessionData?.studentsPresentCount || 0,
         presentPercentage: 0 // Will be calculated in effect
     });
     
     const timerRef = useRef(null);
-    const qrDisplayRef = useRef(null);
 
     // EFFECT: Synchronize component state with parent props (sessionData)
-    // This acts as the master source of truth. Whenever the parent sends updated sessionData,
-    // the component's internal state resets to match it.
+    // This acts as the master source of truth for initializing and resetting state.
     useEffect(() => {
         if (sessionData) {
             const totalStudents = sessionData.totalStudents || 0;
-            const presentCount = sessionData.studentsPresent?.length || 0;
-            const joinedCount = sessionData.studentsJoined?.length || 0;
+            const presentCount = sessionData.studentsPresentCount || 0;
+            const joinedCount = sessionData.studentsJoinedCount || 0;
 
-            setStudentsJoined(sessionData.studentsJoined || []);
-            setStudentsPresent(sessionData.studentsPresent || []);
             setLiveStats({
                 totalJoined: joinedCount,
                 totalPresent: presentCount,
@@ -64,13 +58,11 @@ const QRAttendancePanel = memo(({
     }, [qrData, sessionData?.status]);
 
     // EFFECT: Sets up WebSocket listeners for real-time events.
-    // This is optimized to run only when the socket connection changes.
     useEffect(() => {
         if (!socket) return;
 
         // Handles students joining the session lobby.
-        const handleStudentJoined = (data) => {
-            setStudentsJoined(prev => [...prev, data]);
+        const handleStudentJoined = () => {
             // Safely update only the 'totalJoined' stat, preserving other stats.
             setLiveStats(prev => ({
                 ...prev,
@@ -94,15 +86,14 @@ const QRAttendancePanel = memo(({
             socket.off('qr-studentJoined', handleStudentJoined);
             socket.off('qr-tokenRefresh', handleQRTokenRefresh);
         };
-    }, [socket, onQRTokenRefresh]); // Dependencies are stable, so this effect runs once.
+    }, [socket, onQRTokenRefresh]);
 
-    // POLLING LOGIC: Fetches marked attendance stats directly from the database via an API.
-    // This is the primary source of truth for 'studentsPresent'.
+    // POLLING LOGIC: Fetches marked attendance stats from the database.
     const pollAttendanceStats = useCallback(async () => {
-        if (!sessionData?.sessionId || sessionData.status !== 'active') return;
+        if (!sessionData?.sessionId || sessionData?.status !== 'active') return;
         
         try {
-            const response = await fetch(`/api/qr-session/${sessionData.sessionId}/stats`, {
+            const response = await fetch(`/api/qr-attendance/session/${sessionData.sessionId}/stats`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
@@ -111,14 +102,10 @@ const QRAttendancePanel = memo(({
             if (response.ok) {
                 const stats = await response.json();
                 
-                // Update state with fresh data from the database.
-                // Using new array/object references ensures React re-renders.
-                setStudentsPresent([...stats.studentsPresentCount] || []);
-
-                // Safely update the presentation stats, preserving the 'totalJoined' from sockets.
+                // Safely update the presentation stats, preserving 'totalJoined' from sockets.
                 setLiveStats(prev => ({
                     ...prev,
-                    totalPresent: stats.totalPresentCount || 0,
+                    totalPresent: stats.totalPresent || 0,
                     presentPercentage: stats.presentPercentage || 0
                 }));
             } else {
@@ -127,18 +114,17 @@ const QRAttendancePanel = memo(({
         } catch (error) {
             console.error('Error polling attendance stats:', error);
         }
-    }, [sessionData?.sessionId, sessionData?.status]); // useCallback ensures this function is stable.
+    }, [sessionData?.sessionId, sessionData?.status]);
 
     // EFFECT: Manages the polling interval.
     useEffect(() => {
         if (sessionData?.status !== 'active') return;
 
-        // Poll immediately on activation and then every 3 seconds.
         pollAttendanceStats();
         const interval = setInterval(pollAttendanceStats, 3000);
 
         return () => clearInterval(interval);
-    }, [sessionData?.status, pollAttendanceStats]); // Re-runs if status changes or poll function updates.
+    }, [sessionData?.status, pollAttendanceStats]);
 
     // --- Helper Functions for Rendering ---
     const getStatusColor = (status) => {
@@ -206,7 +192,7 @@ const QRAttendancePanel = memo(({
             {/* QR Code Display */}
             {sessionData?.status === 'active' && qrData && (
                 <div className="qr-display-container">
-                    <div className="qr-display" ref={qrDisplayRef}>
+                    <div className="qr-display">
                          {/* Modern Header with Gradient */}
                          <div className="qr-header">
                             <div className="qr-title-section">
@@ -258,16 +244,7 @@ const QRAttendancePanel = memo(({
                         <div className="stat-content">
                             <div className="stat-number">{liveStats.totalPresent}</div>
                             <div className="stat-label">Present Students</div>
-                            {studentsPresent.length > 0 && (
-                                <div className="roll-numbers">
-                                    {studentsPresent.slice(0, 10).map((student) => (
-                                        <span key={student.rollNumber} className="roll-number">{student.rollNumber}</span>
-                                    ))}
-                                    {studentsPresent.length > 10 && (
-                                        <span className="roll-number more">+{studentsPresent.length - 10}</span>
-                                    )}
-                                </div>
-                            )}
+                            {/* Roll numbers display has been removed as per your request */}
                         </div>
                     </div>
                     <div className="stat-card attendance-percentage"><div className="stat-icon">📊</div><div className="stat-content"><div className="stat-number">{liveStats.presentPercentage}%</div></div></div>
@@ -278,24 +255,7 @@ const QRAttendancePanel = memo(({
                 </div>
             </div>
 
-            {/* Recent Activity */}
-            {studentsPresent.length > 0 && (
-                <div className="recent-activity">
-                    <h3>Recent Attendance</h3>
-                    <div className="activity-list">
-                        {studentsPresent.slice(-5).reverse().map((student, index) => (
-                            <div key={`${student.rollNumber}-${index}`} className="activity-item">
-                                <div className="activity-avatar">{student.studentName?.charAt(0) || '?'}</div>
-                                <div className="activity-content">
-                                    <div className="activity-name">{student.studentName}</div>
-                                    <div className="activity-details">Roll: {student.rollNumber} • {new Date(student.markedAt).toLocaleTimeString()}</div>
-                                </div>
-                                <div className="activity-status">✅</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* "Recent Activity" section has been removed as per your request */}
         </div>
     );
 });

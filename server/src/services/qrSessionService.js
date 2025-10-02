@@ -337,7 +337,7 @@ class QRSessionService {
                 section: session.section,
                 totalStudents: session.totalStudents,
                 status: 'locked',
-                studentsJoined: session.studentsJoinedCount,
+                studentsJoinedCount: session.studentsJoinedCount,
                 canLock: false,
                 canStartAttendance: true,
             }
@@ -382,7 +382,7 @@ class QRSessionService {
             sessionData: {
                 sessionId: session.sessionId,
                 status: session.status,
-                studentsJoined: session.studentsJoinedCount,
+                studentsJoinedCount: session.studentsJoinedCount,
                 canJoin: true,
                 canStartAttendance: false,
                 department: session.department,
