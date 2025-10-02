@@ -461,8 +461,8 @@ class QRSessionService {
                 section: session.section,
                 totalStudents: session.totalStudents,
                 status: 'active',
-                studentsJoined: session.studentsJoinedCount,
-                studentsPresent: session.studentsPresentCount,
+                studentsJoinedCount: session.studentsJoinedCount,
+                studentsPresentCount: session.studentsPresentCount,
                 startedAt: session.startedAt
             }
         };
