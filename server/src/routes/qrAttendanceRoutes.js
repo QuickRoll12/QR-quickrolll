@@ -192,88 +192,50 @@ router.get('/faculty-dashboard', auth, ensureFaculty, async (req, res) => {
 });
 
 /**
- * @route   GET /api/qr-attendance/session/:sessionId
- * @desc    Get detailed session information
+ * @route   GET /api/qr-attendance/session/:sessionId/stats
+ * @desc    Get live attendance stats for a specific session
  * @access  Private (Faculty only)
  */
-router.get('/session/:sessionId/stats', auth, async (req, res) => {
+router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) => {
     try {
         const { sessionId } = req.params;
         const session = await qrSessionService.getSessionById(sessionId);
 
         if (!session) {
-            return res.status(404).json({ message: 'Session not found' });
+            return res.status(404).json({ 
+                success: false,
+                message: 'Session not found' 
+            });
         }
 
-        // Verify faculty owns this session
+        // Ensure the faculty owns this session
         if (session.facultyId !== req.user.facultyId) {
-            return res.status(403).json({ message: 'Unauthorized access to this session' });
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized access to this session'
+            });
         }
-
+        
+        // This is the exact structure the frontend poll expects
         const stats = {
             totalPresent: session.studentsPresentCount,
-            presentPercentage: session.totalStudents > 0 ? 
-                Math.round((session.studentsPresentCount / session.totalStudents) * 100) : 0,
+            presentPercentage: session.totalStudents > 0 
+                ? Math.round((session.studentsPresentCount / session.totalStudents) * 100) 
+                : 0
         };
 
         res.json(stats);
 
-    } catch (error) {
-        console.error('Error fetching session stats:', error);
-        res.status(500).json({ message: 'Failed to fetch session stats' });
+    } catch (error)
+    {
+        console.error('Get session stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch session stats'
+        });
     }
 });
 
-// /**
-//  * @route   GET /api/qr-attendance/session/:sessionId/stats
-//  * @desc    Get live attendance stats for a specific session
-//  * @access  Private (Faculty only)
-//  */
-// router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) => {
-//     try {
-//         const { sessionId } = req.params;
-//         const session = await qrSessionService.getSessionById(sessionId);
-
-//         if (!session) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'Session not found'
-//             });
-//         }
-
-//         // Ensure the faculty owns this session
-//         if (session.facultyId !== req.user.facultyId) {
-//             return res.status(403).json({
-//                 success: false,
-//                 message: 'Unauthorized access to this session'
-//             });
-//         }
-
-//         const totalStudents = session.totalStudents || 0;
-//         const studentsPresent = session.studentsPresent || [];
-//         const totalPresent = studentsPresent.length;
-//         const presentPercentage = totalStudents > 0 
-//             ? Math.round((totalPresent / totalStudents) * 100) 
-//             : 0;
-        
-//         // This is the exact structure the frontend expects
-//         const stats = {
-//             studentsPresent: studentsPresent,
-//             totalPresent: totalPresent,
-//             presentPercentage: presentPercentage,
-//             totalJoined: session.studentsJoined?.length || 0 // Good to send this too
-//         };
-
-//         res.json(stats);
-
-//     } catch (error) {
-//         console.error('Get session stats error:', error);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Failed to fetch session stats'
-//         });
-//     }
-// });
 
 // ==================== STUDENT ROUTES ====================
 
