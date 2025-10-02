@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import QRCode from 'react-qr-code';
+import axios from 'axios';
 import '../styles/QRAttendancePanel.css';
 
 const QRAttendancePanel = memo(({ 
@@ -90,29 +91,54 @@ const QRAttendancePanel = memo(({
 
     // POLLING LOGIC: Fetches marked attendance stats from the database.
     const pollAttendanceStats = useCallback(async () => {
+        // This condition remains the same, preventing unnecessary API calls.
         if (!sessionData?.sessionId || sessionData?.status !== 'active') return;
         
         try {
-            const response = await fetch(`/api/qr-attendance/session/${sessionData.sessionId}/stats`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            // 1. Get the authentication token from local storage.
+            const token = localStorage.getItem('token');
+    
+            // 2. Define the backend URL from environment variables, with a fallback for local development.
+            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
             
-            if (response.ok) {
-                const stats = await response.json();
-                
-                // Safely update the presentation stats, preserving 'totalJoined' from sockets.
-                setLiveStats(prev => ({
-                    ...prev,
-                    totalPresent: stats.totalPresent || 0,
-                    presentPercentage: stats.presentPercentage || 0
-                }));
-            } else {
-                console.error('Failed to fetch stats:', response.status);
-            }
+            // 3. Construct the complete, absolute URL for the API endpoint.
+            const url = `${BACKEND_URL}/api/qr-attendance/session/${sessionData.sessionId}/stats`;
+    
+            // 4. Make the GET request using axios.
+            const response = await axios.get(
+                url,
+                {
+                    headers: {
+                        // Pass the token in the Authorization header.
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+    
+            // 5. With axios, the JSON data is directly available on `response.data`.
+            const stats = response.data;
+            
+            // 6. Safely update the component's state with the new stats.
+            setLiveStats(prev => ({
+                ...prev,
+                totalPresent: stats.totalPresent || 0,
+                presentPercentage: stats.presentPercentage || 0
+            }));
+    
         } catch (error) {
-            console.error('Error polling attendance stats:', error);
+            // Axios automatically throws an error for non-2xx responses, which will be caught here.
+            // We can log more detailed error information from the axios error object.
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                console.error('Failed to fetch stats:', error.response.status, error.response.data);
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.error('Error polling attendance stats: No response from server.', error.request);
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                console.error('Error polling attendance stats:', error.message);
+            }
         }
     }, [sessionData?.sessionId, sessionData?.status]);
 
