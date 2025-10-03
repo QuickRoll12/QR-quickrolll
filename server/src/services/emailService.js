@@ -8,7 +8,7 @@ const sendVerificationEmail = async (email, token) => {
   const frontendVerificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: 'qrquickroll@quickrollattendance.live',
     to: email,
     subject: 'Verify Your Email - Attendance System',
     html: `
@@ -30,7 +30,7 @@ const sendVerificationEmail = async (email, token) => {
 
 const sendPasswordResetCode = async (email, code) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: 'qrquickroll@quickrollattendance.live',
     to: email,
     subject: 'Password Reset Code - Attendance System',
     html: `
@@ -52,7 +52,7 @@ const sendPasswordResetCode = async (email, code) => {
 
 const sendFacultyCredentials = async (email, name, facultyId, tempPassword) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: 'qrquickroll@quickrollattendance.live',
     to: email,
     subject: 'Your Faculty Account Credentials - QuickRoll Attendance System',
     html: `
@@ -89,7 +89,7 @@ const sendFacultyCredentials = async (email, name, facultyId, tempPassword) => {
 
 const sendFacultyRejectionEmail = async (email, name, reason = '') => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: 'qrquickroll@quickrollattendance.live',
     to: email,
     subject: 'Faculty Request Status - QuickRoll Attendance System',
     html: `
