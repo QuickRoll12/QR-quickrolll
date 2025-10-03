@@ -46,7 +46,7 @@ const Signup = () => {
 
   // Course options
   const courses = ['BTech', 'BCA', 'BCom', 'BBA', 'Law', 'MCA', 'MBA', 'BPharm','BSc']; // we will add more courses here
-  const sections = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2','D1','D2','E1','E2','F1','F2','G1','G2', 'H1', 'H2', 'I1', 'I2', 'J1', 'J2', 'K1', 'K2', 'L1', 'L2'];
+  const sections = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2','D1','D2','E1','E2','F1','F2','G1','G2', 'H1', 'H2', 'I1', 'I2', 'J1', 'J2', 'K1', 'K2', 'L1', 'L2','ML1','ML2','ML3','DS1','DS2','Placement Group 1', 'Placement Group 2', 'Placement Group 3', 'Placement Group 4', 'Placement Group 5'];
   const semesters = ['1', '2', '3', '4', '5', '6', '7', '8'];
   const handleSubmit = async (e) => {
     e.preventDefault();

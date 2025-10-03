@@ -20,8 +20,8 @@ const AdminDataUpload = () => {
     // Create sample data with required headers
     const sampleData = [
       {
-        name: 'John Doe',
-        email: 'johndoe@example.com',
+        name: 'Himanshu Rawat',
+        email: 'himanshu.rawat@vit.edu',
         studentId: 'STU123456',
         course: 'BTech',
         section: 'A1',
@@ -31,8 +31,8 @@ const AdminDataUpload = () => {
         photo_url: 'https://example.com/photo.jpg' // Optional
       },
       {
-        name: 'Jane Smith',
-        email: 'janesmith@example.com',
+        name: 'Himanshu Rawat',
+        email: 'himanshu.rawat@vit.edu',
         studentId: 'STU123457',
         course: 'BCA',
         section: 'B2',
