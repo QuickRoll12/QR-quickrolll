@@ -1,5 +1,4 @@
 // Make sure to configure your .env file with your MailerSend API_KEY
-import 'dotenv/config';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 
 // Initialize MailerSend
