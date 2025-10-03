@@ -221,69 +221,92 @@ const QRAttendancePanel = memo(({
                 )}
             </div>
 
-            {/* QR Code Display */}
-            {sessionData?.status === 'active' && qrData && (
-                <div className="qr-display-container">
-                    <div className="qr-display">
-                         {/* Modern Header with Gradient */}
-                         <div className="qr-header">
-                            <div className="qr-title-section">
-                                <div className="qr-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 11V3H11V11H3ZM5 9H9V5H5V9ZM13 3H21V11H13V3ZM15 5V9H19V5H15ZM3 21V13H11V21H3ZM5 19H9V15H5V19ZM18 13H16V15H18V13ZM20 13H22V15H20V13ZM16 15H14V17H16V15ZM14 17H12V19H14V17ZM16 17H18V19H16V17ZM18 19H20V21H18V19ZM20 19H22V21H20V19Z" fill="url(#qrGradient)"/><defs><linearGradient id="qrGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#667eea"/><stop offset="100%" stopColor="#764ba2"/></linearGradient></defs></svg>
-                                </div>
-                                <div className="qr-title-text">
-                                    <h3>Scan QR Code to Mark Attendance</h3>
-                                    <p className="qr-subtitle">Point your camera at the QR code below</p>
-                                </div>
+            {/* Main Interactive Panel */}
+            <div className="interactive-panel">
+                <div className="panel-content-wrapper">
+                    {/* Panel Header */}
+                    <div className="qr-header">
+                        <div className="qr-title-section">
+                            <div className="qr-icon">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 11V3H11V11H3ZM5 9H9V5H5V9ZM13 3H21V11H13V3ZM15 5V9H19V5H15ZM3 21V13H11V21H3ZM5 19H9V15H5V19ZM18 13H16V15H18V13ZM20 13H22V15H20V13ZM16 15H14V17H16V15ZM14 17H12V19H14V17ZM16 17H18V19H16V17ZM18 19H20V21H18V19ZM20 19H22V21H20V19Z" fill="url(#qrGradient)"/>
+                                    <defs><linearGradient id="qrGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#667eea"/><stop offset="100%" stopColor="#764ba2"/></linearGradient></defs>
+                                </svg>
                             </div>
-                            <div className="qr-timer">
-                                <div className="timer-circle">
-                                    <svg className="timer-svg" viewBox="0 0 36 36"><path className="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/><path className="timer-progress" strokeDasharray={`${(timeLeft / 5) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/></svg>
-                                    <div className="timer-text">{timeLeft}s</div>
-                                </div>
-                                <span className="timer-label">Next Refresh</span>
+                            <div className="qr-title-text">
+                                <h3>Live Attendance Panel</h3>
+                                <p className="qr-subtitle">Scan QR or monitor live statistics</p>
+                            </div>
+                        </div>
+                        <div className="qr-timer">
+                            <div className="timer-circle">
+                                <svg className="timer-svg" viewBox="0 0 36 36">
+                                    <path className="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                    <path className="timer-progress" strokeDasharray={`${(timeLeft / 5) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                </svg>
+                                <div className="timer-text">{timeLeft}s</div>
+                            </div>
+                            <span className="timer-label">Next Refresh</span>
+                        </div>
+                    </div>
+                    
+                    {/* Panel Body */}
+                    <div className="qr-stats-body">
+                        {/* Left Stats */}
+                        <div className="stats-column">
+                            <div className="stat-card">
+                                <div className="stat-icon">👥</div>
+                                <div className="stat-number">{sessionData?.totalStudents || 0}</div>
+                                <div className="stat-label">Total Students</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="stat-icon">🚪</div>
+                                <div className="stat-number">{liveStats.totalJoined}</div>
+                                <div className="stat-label">Joined Session</div>
                             </div>
                         </div>
                         
-                        {/* QR Code Container */}
-                        <div className="qr-main-container">
+                        {/* QR Code */}
+                        {sessionData?.status === 'active' && qrData && (
                             <div className="qr-code-wrapper">
                                 <div className="qr-code-frame">
-                                    <div className="qr-corner-tl"></div><div className="qr-corner-tr"></div><div className="qr-corner-bl"></div><div className="qr-corner-br"></div>
+                                    <div className="qr-corner-tl"></div>
+                                    <div className="qr-corner-tr"></div>
+                                    <div className="qr-corner-bl"></div>
+                                    <div className="qr-corner-br"></div>
                                     <div className="qr-code">
                                         <QRCode value={qrData.token} size={380} style={{ height: "380px", width: "380px" }} bgColor="#ffffff" fgColor="#1a1a1a" level="H" includeMargin={false} />
                                     </div>
                                     <div className="qr-scan-line"></div>
                                 </div>
-                                <div className="qr-refresh-indicator"><div className="refresh-pulse"></div></div>
+                            </div>
+                        )}
+
+                        {/* Right Stats */}
+                        <div className="stats-column">
+                            <div className="stat-card">
+                                <div className="stat-icon">✅</div>
+                                <div className="stat-number">{liveStats.totalPresent}</div>
+                                <div className="stat-label">Present</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="stat-icon">📊</div>
+                                <div className="stat-number">{liveStats.presentPercentage}%</div>
+                                <div className="stat-label">Attendance</div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
 
-            {/* Live Statistics */}
-            <div className="live-stats">
-                <div className="stats-header">
-                    <h3>Live Statistics</h3>
-                    <div className="stats-refresh"><div className="pulse-dot"></div><span>Live</span></div>
-                </div>
-                <div className="stats-grid">
-                    <div className="stat-card total-students"><div className="stat-icon">👥</div><div className="stat-content"><div className="stat-number">{sessionData?.totalStudents || 0}</div><div className="stat-label">Total Students</div></div></div>
-                    <div className="stat-card joined-students"><div className="stat-icon">🚪</div><div className="stat-content"><div className="stat-number">{liveStats.totalJoined}</div><div className="stat-label">Joined Students</div></div></div>
-                    <div className="stat-card present-students">
-                        <div className="stat-icon">👥</div>
-                        <div className="stat-content">
-                            <div className="stat-number">{liveStats.totalPresent}</div>
-                            <div className="stat-label">Present Students</div>
-                            {/* Roll numbers display has been removed as per your request */}
+                    {/* Progress Bar */}
+                    <div className="attendance-progress">
+                        <div className="progress-label">
+                            <span>Attendance Progress</span>
+                            <span>{liveStats.totalPresent}/{sessionData?.totalStudents || 0}</span>
+                        </div>
+                        <div className="progress-bar">
+                            <div className="progress-fill" style={{ width: `${liveStats.presentPercentage}%` }}></div>
                         </div>
                     </div>
-                    <div className="stat-card attendance-percentage"><div className="stat-icon">📊</div><div className="stat-content"><div className="stat-number">{liveStats.presentPercentage}%</div></div></div>
-                </div>
-                <div className="attendance-progress">
-                    <div className="progress-label"><span>Attendance Progress</span><span>{liveStats.totalPresent}/{sessionData?.totalStudents || 0}</span></div>
-                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${liveStats.presentPercentage}%` }}></div></div>
                 </div>
             </div>
 
