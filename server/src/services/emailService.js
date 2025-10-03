@@ -1,5 +1,7 @@
 // Make sure to configure your .env file with your MailerSend API_KEY
-import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
+// TO THIS (CommonJS syntax):
+require('dotenv/config');
+const { MailerSend, EmailParams, Sender, Recipient } = require("mailersend");
 
 // Initialize MailerSend
 const mailerSend = new MailerSend({
