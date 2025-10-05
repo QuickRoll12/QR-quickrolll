@@ -31,7 +31,6 @@ const ensureOwnAttendance = async (req, res, next) => {
     req.attendanceRecord = record;
     next();
   } catch (error) {
-    console.error('Error in ensureOwnAttendance middleware:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

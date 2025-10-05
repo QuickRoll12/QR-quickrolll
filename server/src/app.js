@@ -161,10 +161,9 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
-    console.log('👤 User connected:', socket.user.name);
-
     // Join users to their specific rooms
     if (socket.user.role === 'faculty') {
+        console.log('👤 Faculty connected:', socket.user.name);
         socket.join(`faculty-${socket.user.facultyId}`);
         console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
         
@@ -1085,7 +1084,9 @@ io.on('connection', (socket) => {
     // ==================== END MOBILE APP HANDLERS ====================
 
     socket.on('disconnect', () => {
-        console.log('👋 User disconnected:', socket.user.name);
+        if(socket.user.role=='faculty'){
+            console.log('👋 Faculty disconnected:', socket.user.name);
+        }
     });
 });
 

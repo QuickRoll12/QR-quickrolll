@@ -114,7 +114,6 @@ router.get('/faculty-requests', ensureAdmin, async (req, res) => {
     const requests = await FacultyRequest.find().sort({ createdAt: -1 });
     res.json(requests);
   } catch (error) {
-    console.error('Error fetching faculty requests:', error);
     res.status(500).json({ message: 'Server error while fetching faculty requests' });
   }
 });

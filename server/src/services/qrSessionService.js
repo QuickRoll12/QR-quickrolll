@@ -683,7 +683,7 @@ class QRSessionService {
             // Update cache with new counters
             this.activeSessions.set(session.sessionId, updatedSession);
 
-            console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
+            // console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
 
             return {
                 success: true,
