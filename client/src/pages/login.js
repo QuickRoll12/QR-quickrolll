@@ -17,7 +17,7 @@ const Login = () => {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [userType, setUserType] = useState('student'); // student or faculty
+  const [userType, setUserType] = useState('faculty'); // student or faculty
   const [errorMessage, setError] = useState('');
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState('error');
@@ -264,12 +264,14 @@ const Login = () => {
         ) : (
           <>
             <div className="user-type-toggle">
+              {/*
               <button 
                 className={`toggle-btn ${userType === 'student' ? 'active' : ''}`}
                 onClick={() => setUserType('student')}
               >
                 Student
               </button>
+              */}
               <button 
                 className={`toggle-btn ${userType === 'faculty' ? 'active' : ''}`}
                 onClick={() => setUserType('faculty')}
@@ -293,7 +295,7 @@ const Login = () => {
                   type='email' 
                   value={credentials.identifier} 
                   onChange={(e) => setCredentials({...credentials, identifier: e.target.value})} 
-                  placeholder="E-mail Address" 
+                  placeholder="E-mail" 
                   required
                 />
               )}
