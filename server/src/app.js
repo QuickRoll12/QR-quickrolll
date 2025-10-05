@@ -179,340 +179,339 @@ io.on('connection', (socket) => {
         // Students join section room for session updates
         const sectionRoom = `${socket.user.course}-${socket.user.semester}-${socket.user.section}`;
         socket.join(sectionRoom);
-        console.log(`Student ${socket.user.studentId} joined section room: ${sectionRoom}`);
     }
 
     // Send available courses and sections to client
-    socket.emit('courseData', { courses, sections });
+    // socket.emit('courseData', { courses, sections });
     
-    // Handle explicit request for course data
-    socket.on('getCourseData', () => {
-        socket.emit('courseData', { courses, sections });
-    });
+    // // Handle explicit request for course data
+    // socket.on('getCourseData', () => {
+    //     socket.emit('courseData', { courses, sections });
+    // });
 
-    socket.on('getSessionStatus', ({ department, semester, section }) => {
-        try {
-            const status = attendanceService.getSessionStatus(department, semester, section);
-            socket.emit('sessionStatus', {
-                active: status.active,
-                grid: status.grid,
-                department: status.department,
-                semester: status.semester,
-                section: status.section,
-                totalStudents: status.totalStudents,
-                photoVerificationRequired: true // Always require photo verification
-            });
-        } catch (error) {
-            console.error('Error getting session status:', error.message);
-            socket.emit('error', { message: error.message });
-        }
-    });
+    // socket.on('getSessionStatus', ({ department, semester, section }) => {
+    //     try {
+    //         const status = attendanceService.getSessionStatus(department, semester, section);
+    //         socket.emit('sessionStatus', {
+    //             active: status.active,
+    //             grid: status.grid,
+    //             department: status.department,
+    //             semester: status.semester,
+    //             section: status.section,
+    //             totalStudents: status.totalStudents,
+    //             photoVerificationRequired: true // Always require photo verification
+    //         });
+    //     } catch (error) {
+    //         console.error('Error getting session status:', error.message);
+    //         socket.emit('error', { message: error.message });
+    //     }
+    // });
 
     // New event for photo upload
-    socket.on('uploadAttendancePhoto', async ({ department, semester, section, photoData }) => {
+    // socket.on('uploadAttendancePhoto', async ({ department, semester, section, photoData }) => {
         
-        try {
-            // Only students can upload photos
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can upload attendance photos');
-            }
+    //     try {
+    //         // Only students can upload photos
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can upload attendance photos');
+    //         }
             
-            // Verify that the department and section match the user's data
-            if (department !== socket.user.course) {
-                throw new Error('Department does not match your profile');
-            }
+    //         // Verify that the department and section match the user's data
+    //         if (department !== socket.user.course) {
+    //             throw new Error('Department does not match your profile');
+    //         }
 
-            if (section !== socket.user.section) {
-                throw new Error('Section does not match your profile');
-            }
+    //         if (section !== socket.user.section) {
+    //             throw new Error('Section does not match your profile');
+    //         }
             
-            // Get student ID and roll number
-            const studentId = socket.user._id;
-            const rollNumber = socket.user.classRollNumber;
+    //         // Get student ID and roll number
+    //         const studentId = socket.user._id;
+    //         const rollNumber = socket.user.classRollNumber;
             
-            // Save the photo
-            const photoInfo = await photoVerificationService.savePhoto(
-                photoData,
-                department,
-                semester,
-                section,
-                rollNumber || studentId
-            );
+    //         // Save the photo
+    //         const photoInfo = await photoVerificationService.savePhoto(
+    //             photoData,
+    //             department,
+    //             semester,
+    //             section,
+    //             rollNumber || studentId
+    //         );
             
-            // Send success response
-            socket.emit('photoUploadResponse', {
-                success: true,
-                message: 'Photo uploaded successfully',
-                photoInfo: {
-                    filename: photoInfo.filename,
-                    cloudinaryUrl: photoInfo.cloudinaryUrl,
-                    timestamp: photoInfo.timestamp
-                }
-            });
+    //         // Send success response
+    //         socket.emit('photoUploadResponse', {
+    //             success: true,
+    //             message: 'Photo uploaded successfully',
+    //             photoInfo: {
+    //                 filename: photoInfo.filename,
+    //                 cloudinaryUrl: photoInfo.cloudinaryUrl,
+    //                 timestamp: photoInfo.timestamp
+    //             }
+    //         });
             
-        } catch (error) {
-            socket.emit('photoUploadResponse', {
-                success: false,
-                message: error.message
-            });
-        }
-    });
+    //     } catch (error) {
+    //         socket.emit('photoUploadResponse', {
+    //             success: false,
+    //             message: error.message
+    //         });
+    //     }
+    // });
 
-    socket.on('startSession', async ({ department, semester, section, totalStudents, sessionType }) => {
-        console.log(`📝 Starting session - Department: ${department}, Semester: ${semester}, Section: ${section}, Session Type: ${sessionType || 'roll-based'}, Total Students: ${totalStudents}`);
+    // socket.on('startSession', async ({ department, semester, section, totalStudents, sessionType }) => {
+    //     console.log(`📝 Starting session - Department: ${department}, Semester: ${semester}, Section: ${section}, Session Type: ${sessionType || 'roll-based'}, Total Students: ${totalStudents}`);
         
-        try {
-            // Only faculty can start sessions
-            if (socket.user.role !== 'faculty') {
-                throw new Error('Only faculty members can start attendance sessions');
-            }
+    //     try {
+    //         // Only faculty can start sessions
+    //         if (socket.user.role !== 'faculty') {
+    //             throw new Error('Only faculty members can start attendance sessions');
+    //         }
 
-            // For roll-based sessions, totalStudents is required
-            if (sessionType !== 'gmail' && (!totalStudents || isNaN(totalStudents) || totalStudents < 1)) {
-                throw new Error('Please specify a valid number of students');
-            }
+    //         // For roll-based sessions, totalStudents is required
+    //         if (sessionType !== 'gmail' && (!totalStudents || isNaN(totalStudents) || totalStudents < 1)) {
+    //             throw new Error('Please specify a valid number of students');
+    //         }
 
-            const result = await attendanceService.startSession(department, semester, section, parseInt(totalStudents || 0), sessionType);
-            // Notify all clients about the new session
-            io.emit('sessionStatus', {
-                active: true,
-                grid: result.grid,
-                department,
-                semester,
-                section,
-                totalStudents: result.totalStudents,
-                sessionType: result.sessionType
-            });
-        } catch (error) {
-            console.error('Error starting session:', error.message);
-            socket.emit('error', { message: error.message });
-        }
-    });
+    //         const result = await attendanceService.startSession(department, semester, section, parseInt(totalStudents || 0), sessionType);
+    //         // Notify all clients about the new session
+    //         io.emit('sessionStatus', {
+    //             active: true,
+    //             grid: result.grid,
+    //             department,
+    //             semester,
+    //             section,
+    //             totalStudents: result.totalStudents,
+    //             sessionType: result.sessionType
+    //         });
+    //     } catch (error) {
+    //         console.error('Error starting session:', error.message);
+    //         socket.emit('error', { message: error.message });
+    //     }
+    // });
 
-    socket.on('markAttendance', async (data) => {
-        // Determine if this is a roll-based or Gmail-based attendance
-        const sessionStatus = attendanceService.getSessionStatus(data.department, data.semester, data.section);
-        const isGmailSession = sessionStatus.sessionType === 'gmail';
+    // socket.on('markAttendance', async (data) => {
+    //     // Determine if this is a roll-based or Gmail-based attendance
+    //     const sessionStatus = attendanceService.getSessionStatus(data.department, data.semester, data.section);
+    //     const isGmailSession = sessionStatus.sessionType === 'gmail';
             
-        // Get client IP address - try different socket properties for IP
-        let ipAddress = socket.handshake.headers['x-forwarded-for'] || 
-                       socket.handshake.headers['x-real-ip'] ||
-                       socket.handshake.address;
+    //     // Get client IP address - try different socket properties for IP
+    //     let ipAddress = socket.handshake.headers['x-forwarded-for'] || 
+    //                    socket.handshake.headers['x-real-ip'] ||
+    //                    socket.handshake.address;
                        
-        // If IP is IPv6 localhost, convert to IPv4
-        if (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
-            ipAddress = '127.0.0.1';
-        }
+    //     // If IP is IPv6 localhost, convert to IPv4
+    //     if (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
+    //         ipAddress = '127.0.0.1';
+    //     }
         
-        // Remove IPv6 prefix if present
-        ipAddress = ipAddress.replace(/^::ffff:/, '');
+    //     // Remove IPv6 prefix if present
+    //     ipAddress = ipAddress.replace(/^::ffff:/, '');
         
-        try {
-            // Only students can mark attendance
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can mark attendance');
-            }
+    //     try {
+    //         // Only students can mark attendance
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can mark attendance');
+    //         }
 
-            // For roll-based sessions, verify roll number
-            if (!isGmailSession && data.rollNumber !== socket.user.classRollNumber) {
-                throw new Error('Roll number does not match your profile');
-            }
+    //         // For roll-based sessions, verify roll number
+    //         if (!isGmailSession && data.rollNumber !== socket.user.classRollNumber) {
+    //             throw new Error('Roll number does not match your profile');
+    //         }
             
-            // For Gmail-based sessions, use the user's email from their profile if not provided
-            let gmail = data.gmail;
-            if (isGmailSession) {
-                if (!gmail || gmail.trim() === '') {
-                    // If no email provided, use the one from the user's profile
-                    gmail = socket.user.email;
-                }
-            }
+    //         // For Gmail-based sessions, use the user's email from their profile if not provided
+    //         let gmail = data.gmail;
+    //         if (isGmailSession) {
+    //             if (!gmail || gmail.trim() === '') {
+    //                 // If no email provided, use the one from the user's profile
+    //                 gmail = socket.user.email;
+    //             }
+    //         }
 
-            // Verify that the department and section match the user's data
-            if (data.department !== socket.user.course) {
-                throw new Error('Department does not match your profile');
-            }
+    //         // Verify that the department and section match the user's data
+    //         if (data.department !== socket.user.course) {
+    //             throw new Error('Department does not match your profile');
+    //         }
 
-            if (data.section !== socket.user.section) {
-                throw new Error('Section does not match your profile');
-            }
+    //         if (data.section !== socket.user.section) {
+    //             throw new Error('Section does not match your profile');
+    //         }
             
-            // Check if photo verification is required and a photo was provided
-            if (sessionStatus.photoVerificationRequired && !data.photoFilename) {
-                throw new Error('Photo verification is required for this session');
-            }
+    //         // Check if photo verification is required and a photo was provided
+    //         if (sessionStatus.photoVerificationRequired && !data.photoFilename) {
+    //             throw new Error('Photo verification is required for this session');
+    //         }
 
-            const result = await attendanceService.markAttendance(
-                data.department,
-                data.semester,
-                data.section,
-                data.rollNumber,
-                data.code,
-                data.fingerprint,
-                data.webRTCIPs,
-                socket.user._id,
-                { 
-                    ip: ipAddress,
-                    userName: socket.user.name,
-                    userAgent: socket.handshake.headers['user-agent'] || 'Unknown'
-                },
-                gmail, // Pass the gmail parameter explicitly
-                data.photoFilename, // Pass the photo filename
-                data.photoCloudinaryUrl // Pass the Cloudinary URL
-            );
+    //         const result = await attendanceService.markAttendance(
+    //             data.department,
+    //             data.semester,
+    //             data.section,
+    //             data.rollNumber,
+    //             data.code,
+    //             data.fingerprint,
+    //             data.webRTCIPs,
+    //             socket.user._id,
+    //             { 
+    //                 ip: ipAddress,
+    //                 userName: socket.user.name,
+    //                 userAgent: socket.handshake.headers['user-agent'] || 'Unknown'
+    //             },
+    //             gmail, // Pass the gmail parameter explicitly
+    //             data.photoFilename, // Pass the photo filename
+    //             data.photoCloudinaryUrl // Pass the Cloudinary URL
+    //         );
             
-            socket.emit('attendanceResponse', {
-                success: result.success,
-                message: result.message,
-                photoVerified: !!data.photoFilename
-            });
+    //         socket.emit('attendanceResponse', {
+    //             success: result.success,
+    //             message: result.message,
+    //             photoVerified: !!data.photoFilename
+    //         });
 
-            if (result.success) {
-                io.emit('updateGrid', {
-                    grid: result.grid,
-                    department: data.department,
-                    semester: data.semester,
-                    section: data.section
-                });
+    //         if (result.success) {
+    //             io.emit('updateGrid', {
+    //                 grid: result.grid,
+    //                 department: data.department,
+    //                 semester: data.semester,
+    //                 section: data.section
+    //             });
 
-                // Also emit attendance update for live stats (for faculty dashboard)
-                const attendanceUpdateData = {
-                    studentName: socket.user.name,
-                    rollNumber: socket.user.classRollNumber,
-                    markedAt: new Date(),
-                    totalPresent: result.presentCount || 0,
-                    totalJoined: result.totalStudents || 0,
-                    presentPercentage: result.presentCount && result.totalStudents ? 
-                        Math.round((result.presentCount / result.totalStudents) * 100) : 0,
-                    sessionId: `${data.department}-${data.semester}-${data.section}`,
-                    status: 'active',
-                    canJoin: true,
-                    canScanQR: false
-                };
+    //             // Also emit attendance update for live stats (for faculty dashboard)
+    //             const attendanceUpdateData = {
+    //                 studentName: socket.user.name,
+    //                 rollNumber: socket.user.classRollNumber,
+    //                 markedAt: new Date(),
+    //                 totalPresent: result.presentCount || 0,
+    //                 totalJoined: result.totalStudents || 0,
+    //                 presentPercentage: result.presentCount && result.totalStudents ? 
+    //                     Math.round((result.presentCount / result.totalStudents) * 100) : 0,
+    //                 sessionId: `${data.department}-${data.semester}-${data.section}`,
+    //                 status: 'active',
+    //                 canJoin: true,
+    //                 canScanQR: false
+    //             };
                 
-                console.log(`📊 Emitting traditional attendance update:`, {
-                    studentName: attendanceUpdateData.studentName,
-                    rollNumber: attendanceUpdateData.rollNumber,
-                    totalPresent: attendanceUpdateData.totalPresent
-                });
+    //             console.log(`📊 Emitting traditional attendance update:`, {
+    //                 studentName: attendanceUpdateData.studentName,
+    //                 rollNumber: attendanceUpdateData.rollNumber,
+    //                 totalPresent: attendanceUpdateData.totalPresent
+    //             });
                 
-                // Emit to all connected clients for live stats
-                io.emit('qr-attendanceUpdate', attendanceUpdateData);
-            }
-        } catch (error) {
-            console.error('Error marking attendance:', error.message);
-            socket.emit('attendanceResponse', {
-                success: false,
-                message: error.message
-            });
-        }
-    });
+    //             // Emit to all connected clients for live stats
+    //             io.emit('qr-attendanceUpdate', attendanceUpdateData);
+    //         }
+    //     } catch (error) {
+    //         console.error('Error marking attendance:', error.message);
+    //         socket.emit('attendanceResponse', {
+    //             success: false,
+    //             message: error.message
+    //         });
+    //     }
+    // });
 
-    socket.on('endSession', async ({ department, semester, section }) => {
-        console.log(`🛑 Ending session - Department: ${department}, Semester: ${semester}, Section: ${section}`);
+    // socket.on('endSession', async ({ department, semester, section }) => {
+    //     console.log(`🛑 Ending session - Department: ${department}, Semester: ${semester}, Section: ${section}`);
         
-        try {
-            // Only faculty can end sessions
-            if (socket.user.role !== 'faculty') {
-                throw new Error('Only faculty members can end attendance sessions');
-            }
+    //     try {
+    //         // Only faculty can end sessions
+    //         if (socket.user.role !== 'faculty') {
+    //             throw new Error('Only faculty members can end attendance sessions');
+    //         }
 
-            // Pass the faculty user information to ensure correct faculty data in attendance records
-            const result = await attendanceService.endSession(department, semester, section, socket.user);
+    //         // Pass the faculty user information to ensure correct faculty data in attendance records
+    //         const result = await attendanceService.endSession(department, semester, section, socket.user);
             
-            // Clean up temporary photos for this session
-            try {
-                const deletedCount = await photoVerificationService.deleteSessionPhotos(
-                    department,
-                    semester,
-                    section
-                );
-                console.log(`Cleaned up ${deletedCount} photos for session ${department}-${semester}-${section}`);
-            } catch (photoError) {
-                console.error('Error cleaning up session photos:', photoError);
-                // Continue with session end even if photo cleanup fails
-            }
+    //         // Clean up temporary photos for this session
+    //         try {
+    //             const deletedCount = await photoVerificationService.deleteSessionPhotos(
+    //                 department,
+    //                 semester,
+    //                 section
+    //             );
+    //             console.log(`Cleaned up ${deletedCount} photos for session ${department}-${semester}-${section}`);
+    //         } catch (photoError) {
+    //             console.error('Error cleaning up session photos:', photoError);
+    //             // Continue with session end even if photo cleanup fails
+    //         }
             
-            // If this was a Gmail-based session, update the Google Sheet
-            if (result.sessionType === 'gmail') {
-                try {
-                    const { updateAttendanceSheet } = require('./services/googleSheetsService');
+    //         // If this was a Gmail-based session, update the Google Sheet
+    //         if (result.sessionType === 'gmail') {
+    //             try {
+    //                 const { updateAttendanceSheet } = require('./services/googleSheetsService');
                     
-                    // Create attendance data map for Google Sheets
-                    const attendanceData = {};
+    //                 // Create attendance data map for Google Sheets
+    //                 const attendanceData = {};
                     
-                    // Set all students as absent (0) by default
-                    if (result.allEmails && result.allEmails.length > 0) {
-                        result.allEmails.forEach(email => {
-                            if (email && email.trim() !== '') {
-                                attendanceData[email] = '0';
-                            }
-                        });
-                    }
+    //                 // Set all students as absent (0) by default
+    //                 if (result.allEmails && result.allEmails.length > 0) {
+    //                     result.allEmails.forEach(email => {
+    //                         if (email && email.trim() !== '') {
+    //                             attendanceData[email] = '0';
+    //                         }
+    //                     });
+    //                 }
                     
-                    // Set present students to 1
-                    if (result.presentStudents && result.presentStudents.length > 0) {
-                        result.presentStudents.forEach(email => {
-                            if (email && email.trim() !== '') {
-                                attendanceData[email] = '1';
-                                console.log(`Marking ${email} as present in Google Sheet`);
-                            }
-                        });
-                    }
+    //                 // Set present students to 1
+    //                 if (result.presentStudents && result.presentStudents.length > 0) {
+    //                     result.presentStudents.forEach(email => {
+    //                         if (email && email.trim() !== '') {
+    //                             attendanceData[email] = '1';
+    //                             console.log(`Marking ${email} as present in Google Sheet`);
+    //                         }
+    //                     });
+    //                 }
                     
-                    // Only update if we have attendance data
-                    if (Object.keys(attendanceData).length > 0) {
-                        // Update Google Sheet
-                        await updateAttendanceSheet(department, semester, section, attendanceData);
-                        console.log('Google Sheet updated successfully');
-                    } else {
-                        console.warn('No attendance data to update in Google Sheet');
-                    }
-                } catch (sheetError) {
-                    console.error('Error updating Google Sheet:', sheetError);
-                    socket.emit('error', { message: 'Session ended but failed to update Google Sheet: ' + sheetError.message });
-                }
-            }
+    //                 // Only update if we have attendance data
+    //                 if (Object.keys(attendanceData).length > 0) {
+    //                     // Update Google Sheet
+    //                     await updateAttendanceSheet(department, semester, section, attendanceData);
+    //                     console.log('Google Sheet updated successfully');
+    //                 } else {
+    //                     console.warn('No attendance data to update in Google Sheet');
+    //                 }
+    //             } catch (sheetError) {
+    //                 console.error('Error updating Google Sheet:', sheetError);
+    //                 socket.emit('error', { message: 'Session ended but failed to update Google Sheet: ' + sheetError.message });
+    //             }
+    //         }
             
-            // Notify all clients about the session ending
-            io.emit('sessionEnded', {
-                success: true,
-                department,
-                semester,
-                section,
-                totalStudents: result.totalStudents,
-                presentCount: result.presentCount,
-                absentees: result.absentees,
-                presentStudents: result.presentStudents,
-                sessionType: result.sessionType
-            });
-        } catch (error) {
-            console.error('Error ending session:', error.message);
-            socket.emit('error', { message: error.message });
-        }
-    });
+    //         // Notify all clients about the session ending
+    //         io.emit('sessionEnded', {
+    //             success: true,
+    //             department,
+    //             semester,
+    //             section,
+    //             totalStudents: result.totalStudents,
+    //             presentCount: result.presentCount,
+    //             absentees: result.absentees,
+    //             presentStudents: result.presentStudents,
+    //             sessionType: result.sessionType
+    //         });
+    //     } catch (error) {
+    //         console.error('Error ending session:', error.message);
+    //         socket.emit('error', { message: error.message });
+    //     }
+    // });
 
-    socket.on('refreshCodes', ({ department, semester, section }) => {
+    // socket.on('refreshCodes', ({ department, semester, section }) => {
         
-        try {
-            // Only faculty can refresh codes
-            if (socket.user.role !== 'faculty') {
-                throw new Error('Only faculty members can refresh attendance codes');
-            }
+    //     try {
+    //         // Only faculty can refresh codes
+    //         if (socket.user.role !== 'faculty') {
+    //             throw new Error('Only faculty members can refresh attendance codes');
+    //         }
 
-            const result = attendanceService.refreshCodes(department, semester, section);
+    //         const result = attendanceService.refreshCodes(department, semester, section);
             
-            // Notify all clients about the code refresh
-            io.emit('updateGrid', {
-                grid: result.grid,
-                department,
-                semester,
-                section
-            });
-        } catch (error) {
-            console.error('Error refreshing codes:', error.message);
-            socket.emit('error', { message: error.message });
-        }
-    });
+    //         // Notify all clients about the code refresh
+    //         io.emit('updateGrid', {
+    //             grid: result.grid,
+    //             department,
+    //             semester,
+    //             section
+    //         });
+    //     } catch (error) {
+    //         console.error('Error refreshing codes:', error.message);
+    //         socket.emit('error', { message: error.message });
+    //     }
+    // });
 
     // Handle full-screen violation - TEMPORARILY COMMENTED OUT FOR TESTING
     /*
@@ -618,8 +617,6 @@ io.on('connection', (socket) => {
             
             socket.to(roomName).emit('qr-sessionStarted', sessionStatusData);
             socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
-
-            console.log(`📱 QR Session started by ${socket.user.name}: ${result.sessionId}`);
 
         } catch (error) {
             console.error('QR Start session error:', error);
@@ -790,48 +787,46 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('qr-joinSession', async (data) => {
-        try {
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can join QR sessions');
-            }
+    // socket.on('qr-joinSession', async (data) => {
+    //     try {
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can join QR sessions');
+    //         }
 
-            const studentData = {
-                studentId: socket.user.studentId,
-                name: socket.user.name,
-                classRollNumber: socket.user.classRollNumber,
-                email: socket.user.email,
-                course: socket.user.course,
-                semester: socket.user.semester,
-                section: socket.user.section,
-                fingerprint: data.fingerprint,
-                webRTCIPs: data.webRTCIPs,
-                userAgent: socket.handshake.headers['user-agent'],
-                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
-            };
+    //         const studentData = {
+    //             studentId: socket.user.studentId,
+    //             name: socket.user.name,
+    //             classRollNumber: socket.user.classRollNumber,
+    //             email: socket.user.email,
+    //             course: socket.user.course,
+    //             semester: socket.user.semester,
+    //             section: socket.user.section,
+    //             fingerprint: data.fingerprint,
+    //             webRTCIPs: data.webRTCIPs,
+    //             userAgent: socket.handshake.headers['user-agent'],
+    //             ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
+    //         };
 
-            const result = await qrSessionService.joinSession(data.sessionId, studentData);
+    //         const result = await qrSessionService.joinSession(data.sessionId, studentData);
 
-            // Join student to room for real-time updates
-            const roomName = `${studentData.course}-${studentData.semester}-${studentData.section}`;
-            socket.join(roomName);
+    //         // Join student to room for real-time updates
+    //         const roomName = `${studentData.course}-${studentData.semester}-${studentData.section}`;
+    //         socket.join(roomName);
 
-            socket.emit('qr-sessionJoined', result);
+    //         socket.emit('qr-sessionJoined', result);
 
-            // Notify faculty about new student joined
-            socket.to(roomName).emit('qr-studentJoined', {
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                totalJoined: result.sessionData?.studentsJoined?.length || 0
-            });
+    //         // Notify faculty about new student joined
+    //         socket.to(roomName).emit('qr-studentJoined', {
+    //             studentName: studentData.name,
+    //             rollNumber: studentData.classRollNumber,
+    //             totalJoined: result.sessionData?.studentsJoined?.length || 0
+    //         });
 
-            console.log(`👤 Student joined QR session: ${studentData.name} (${data.sessionId})`);
-
-        } catch (error) {
-            console.error('QR Token refresh error:', error);
-            socket.emit('qr-error', { message: error.message });
-        }
-    });
+    //     } catch (error) {
+    //         console.error('QR Token refresh error:', error);
+    //         socket.emit('qr-error', { message: error.message });
+    //     }
+    // });
 
     // ========== NEW MOBILE APP SOCKET HANDLERS ==========
 
@@ -877,7 +872,7 @@ io.on('connection', (socket) => {
                 });
             }
 
-            console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
+            // console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
         } catch (error) {
             console.error('Join session error:', error);
@@ -919,8 +914,6 @@ io.on('connection', (socket) => {
             };
             
             socket.to(sectionRoom).emit('sessionStatusUpdate', sessionStatusData);
-
-            console.log(`🎯 QR Session ended: ${data.sessionId}`);
 
         } catch (error) {
             console.error('QR End session error:', error);
@@ -1000,80 +993,77 @@ io.on('connection', (socket) => {
     // });
 
     // Handle QR attendance marking via socket (replacing API)
-    socket.on('markAttendance', async (data) => {
-        try {
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can mark attendance');
-            }
+    // socket.on('markAttendance', async (data) => {
+    //     try {
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can mark attendance');
+    //         }
 
-            const studentData = {
-                studentId: socket.user.studentId,
-                name: socket.user.name,
-                classRollNumber: socket.user.classRollNumber,
-                email: socket.user.email,
-                course: socket.user.course,
-                semester: socket.user.semester,
-                section: socket.user.section,
-                fingerprint: data.fingerprint || 'socket-connection',
-                webRTCIPs: data.webRTCIPs || [],
-                userAgent: socket.handshake.headers['user-agent'],
-                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address,
-                photoFilename: data.photoFilename,
-                photoCloudinaryUrl: data.photoCloudinaryUrl
-            };
+    //         const studentData = {
+    //             studentId: socket.user.studentId,
+    //             name: socket.user.name,
+    //             classRollNumber: socket.user.classRollNumber,
+    //             email: socket.user.email,
+    //             course: socket.user.course,
+    //             semester: socket.user.semester,
+    //             section: socket.user.section,
+    //             fingerprint: data.fingerprint || 'socket-connection',
+    //             webRTCIPs: data.webRTCIPs || [],
+    //             userAgent: socket.handshake.headers['user-agent'],
+    //             ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address,
+    //             photoFilename: data.photoFilename,
+    //             photoCloudinaryUrl: data.photoCloudinaryUrl
+    //         };
 
-            const result = await qrSessionService.markAttendance(data.qrToken, studentData);
+    //         const result = await qrSessionService.markAttendance(data.qrToken, studentData);
 
-            // Send success response to student
-            socket.emit('attendanceMarked', {
-                success: true,
-                message: result.message,
-                attendanceData: result.attendanceData,
-                sessionStats: result.sessionStats
-            });
+    //         // Send success response to student
+    //         socket.emit('attendanceMarked', {
+    //             success: true,
+    //             message: result.message,
+    //             attendanceData: result.attendanceData,
+    //             sessionStats: result.sessionStats
+    //         });
 
-            // Notify faculty and other students with standardized format
-            const sectionRoom = `${studentData.course}-${studentData.semester}-${studentData.section}`;
+    //         // Notify faculty and other students with standardized format
+    //         const sectionRoom = `${studentData.course}-${studentData.semester}-${studentData.section}`;
             
-            const attendanceUpdateData = {
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                markedAt: result.attendanceData.markedAt,
-                totalPresent: result.sessionStats.studentsPresent, // This is already the count (length)
-                totalJoined: result.sessionStats.studentsJoined,   // Add total joined count
-                presentPercentage: result.sessionStats.presentPercentage,
-                sessionId: result.attendanceData.sessionId,
-                status: 'active',
-                canJoin: false,
-                canScanQR: true
-            };
+    //         const attendanceUpdateData = {
+    //             studentName: studentData.name,
+    //             rollNumber: studentData.classRollNumber,
+    //             markedAt: result.attendanceData.markedAt,
+    //             totalPresent: result.sessionStats.studentsPresent, // This is already the count (length)
+    //             totalJoined: result.sessionStats.studentsJoined,   // Add total joined count
+    //             presentPercentage: result.sessionStats.presentPercentage,
+    //             sessionId: result.attendanceData.sessionId,
+    //             status: 'active',
+    //             canJoin: false,
+    //             canScanQR: true
+    //         };
             
-            // Emit to section room and broadcast to all connected clients
-            console.log(`📊 Emitting attendance update to section room: ${sectionRoom}`);
-            console.log(`📊 Attendance data:`, {
-                studentName: attendanceUpdateData.studentName,
-                rollNumber: attendanceUpdateData.rollNumber,
-                totalPresent: attendanceUpdateData.totalPresent,
-                totalJoined: attendanceUpdateData.totalJoined
-            });
+    //         // Emit to section room and broadcast to all connected clients
+    //         console.log(`📊 Emitting attendance update to section room: ${sectionRoom}`);
+    //         console.log(`📊 Attendance data:`, {
+    //             studentName: attendanceUpdateData.studentName,
+    //             rollNumber: attendanceUpdateData.rollNumber,
+    //             totalPresent: attendanceUpdateData.totalPresent,
+    //             totalJoined: attendanceUpdateData.totalJoined
+    //         });
             
-            socket.to(sectionRoom).emit('qr-attendanceUpdate', attendanceUpdateData);
-            socket.broadcast.emit('qr-attendanceUpdate', attendanceUpdateData);
+    //         socket.to(sectionRoom).emit('qr-attendanceUpdate', attendanceUpdateData);
+    //         socket.broadcast.emit('qr-attendanceUpdate', attendanceUpdateData);
 
-            console.log(`✅ Attendance marked via socket: ${studentData.name} (${studentData.classRollNumber})`);
-
-        } catch (error) {
-            console.error('Mark attendance error:', error);
-            socket.emit('attendanceError', { message: error.message });
-        }
-    });
+    //     } catch (error) {
+    //         console.error('Mark attendance error:', error);
+    //         socket.emit('attendanceError', { message: error.message });
+    //     }
+    // });
 
     // Handle session status requests (for mobile app)
     socket.on('getSessionStatus', async () => {
         try {
             // Only handle for students - faculty doesn't need this
             if (socket.user.role !== 'student') {
-                console.log(`Faculty ${socket.user.name} requested session status - ignoring`);
                 return; // Just ignore, don't throw error
             }
 

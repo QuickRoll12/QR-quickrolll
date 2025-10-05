@@ -17,9 +17,6 @@ const AdminLogin = () => {
   
   // Check if user is already logged in as admin
   useEffect(() => {
-    // Clear any console to help with debugging
-    console.clear();
-    console.log('Admin login component mounted');
     
     // Check for token and user in localStorage
     const token = localStorage.getItem('token');
@@ -27,16 +24,10 @@ const AdminLogin = () => {
     
     if (token && storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        console.log('Stored user found:', parsedUser);
-        
-        // We no longer auto-redirect if admin is found
-        // This allows admins to log out and switch accounts
+        const parsedUser = JSON.parse(storedUser);        
         if (parsedUser.role === 'admin') {
-          console.log('Admin user detected, but not auto-redirecting');
           setError('You are already logged in as an admin. You can continue to the dashboard or log out to switch accounts.');
         } else if (parsedUser.role === 'faculty' || parsedUser.role === 'student') {
-          console.log('Non-admin user detected');
           setError('You are currently logged in as a ' + parsedUser.role + '. Please log out first before accessing admin features.');
         }
       } catch (e) {
@@ -50,8 +41,7 @@ const AdminLogin = () => {
   }, [navigate]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log('Login form submitted');
+    e.preventDefault();    
     
     if (!adminId || !password) {
       setError('Please enter both Admin ID and password');
@@ -60,24 +50,16 @@ const AdminLogin = () => {
     
     try {
       setLoading(true);
-      setError('');
+      setError('');      
       
-      console.log('Attempting to login with:', { adminId });
-      
-      // Make sure we're using the correct endpoint
       const loginUrl = `${BACKEND_URL}/api/admin/login`;
-      console.log('Login URL:', loginUrl);
       
       const response = await axios.post(loginUrl, {
         adminId,
         password
-      });
+      });      
       
-      console.log('Login response:', response.data);
-      
-      if (response.data.success) {
-        console.log('Login successful, token received');
-        
+      if (response.data.success) {        
         // Store the token
         localStorage.setItem('token', response.data.token);
         
@@ -88,7 +70,6 @@ const AdminLogin = () => {
           email: adminId
         };
         localStorage.setItem('user', JSON.stringify(adminUser));
-        console.log('User data saved to localStorage');
         
         // Set auth header for future requests
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
@@ -96,12 +77,9 @@ const AdminLogin = () => {
         // Redirect to admin dashboard
         navigate('/admin/dashboard');
       } else {
-        console.error('Login response missing token:', response.data);
         setError('Login failed. Invalid response from server.');
       }
     } catch (error) {
-      console.error('Admin login error:', error);
-      console.error('Error details:', error.response?.data);
       setError(error.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);

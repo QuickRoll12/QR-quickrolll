@@ -24,11 +24,6 @@ const initializeSheets = () => {
     // Process the private key to handle potential formatting issues
     let privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
     
-    // For Render and similar platforms where the key might be stored with actual newlines
-    // We don't need to do any replacement, as the key is already properly formatted
-    console.log('Using service account:', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL);
-    console.log('Private key format check - contains actual newlines:', privateKey.includes('\n') === false && privateKey.includes('\r\n') === false);
-    
     // Create JWT client using service account credentials
     const auth = new google.auth.JWT(
       process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,

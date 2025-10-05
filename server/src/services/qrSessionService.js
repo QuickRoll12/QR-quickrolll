@@ -797,8 +797,6 @@ class QRSessionService {
                 SessionJoin.deleteMany({ sessionId }),
                 SessionAttendance.deleteMany({ sessionId })
             ]);
-            
-            console.log(`🧹 Cleaned up session data: ${joinDeleteResult.deletedCount} join records, ${attendanceDeleteResult.deletedCount} attendance records`);
         } catch (cleanupError) {
             console.error('⚠️ Error cleaning up session documents:', cleanupError);
             // Don't throw - this is cleanup, not critical for the main flow
@@ -822,7 +820,6 @@ class QRSessionService {
                     endedAt: new Date() 
                 }
             );
-            console.log(`🧹 Cleaned up conflicting sessions for ${session.department}-${session.semester}-${session.section}`);
         } catch (cleanupError) {
             console.error('⚠️ Error cleaning up conflicting sessions:', cleanupError);
             // Don't throw - this is cleanup, not critical
@@ -1198,8 +1195,6 @@ class QRSessionService {
     async cleanupOldSessionData(daysOld = 7) {
         const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
         
-        console.log(`🧹 Starting cleanup of session data older than ${daysOld} days`);
-        
         // Get ended sessions older than cutoff
         const oldSessions = await QRSession.find({
             status: 'ended',
@@ -1217,8 +1212,6 @@ class QRSessionService {
             const attendanceDeleted = await SessionAttendance.deleteMany({ 
                 sessionId: { $in: sessionIds } 
             });
-            
-            console.log(`🧹 Cleanup completed: ${joinDeleted.deletedCount} join records, ${attendanceDeleted.deletedCount} attendance records deleted`);
         }
         
         return {

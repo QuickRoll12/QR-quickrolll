@@ -77,19 +77,14 @@ router.post('/login', async (req, res) => {
   
   // Check if environment variables are set
   if (!process.env.ADMIN_ID || !process.env.ADMIN_PASSWORD) {
-    console.error('Admin credentials not configured in environment variables');
     return res.status(500).json({ message: 'Server configuration error' });
   }
-  
-  console.log('Checking admin credentials...');
   // Hard-coded admin credentials (should be stored in environment variables in production)
   if (adminId === process.env.ADMIN_ID && password === process.env.ADMIN_PASSWORD) {
     const payload = { id: 'admin', role: 'admin' };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
     return res.json({ success: true, token, user: { role: 'admin' } });
   }
-  
-  console.log('Admin login failed for:', adminId);
   return res.status(401).json({ message: 'Invalid admin credentials' });
 });
 

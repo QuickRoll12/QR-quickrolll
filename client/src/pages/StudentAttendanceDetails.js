@@ -34,7 +34,6 @@ const StudentAttendanceDetails = () => {
         setFacultyName(response.data.facultyName);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching attendance details:', error);
         setError(error.response?.data?.message || 'Failed to fetch attendance details');
         setLoading(false);
       }

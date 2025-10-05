@@ -42,12 +42,9 @@ export const authAPI = {
 
   register: async (userData) => {
     try {
-      console.log('Sending request to:', `${API_URL}/auth/register`); // Add this for debugging
-      console.log("User data: ",userData)
       const response = await api.post('/auth/register', userData);
       return response.data;
     } catch (error) {
-      console.error('API Error:', error); // Add this for debugging
       throw error.response?.data || error.message;
     }
   },

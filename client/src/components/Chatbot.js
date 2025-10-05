@@ -480,7 +480,6 @@ const Chatbot = ({ redirectToChat = false }) => {
         }]);
       }, 500 + Math.random() * 1000); // Simulate network delay for natural feel
     } catch (error) {
-      console.error('Chatbot error:', error);
       
       // Add error message
       setTimeout(() => {

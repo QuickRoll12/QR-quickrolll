@@ -26,10 +26,8 @@ const SuspiciousActivity = () => {
                 const response = await axios.get(`${BACKEND_URL}/api/suspicious-activity`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                console.log('Suspicious activity response:', response.data);
                 setSuspiciousUsers(response.data);
             } catch (err) {
-                console.error('Error fetching suspicious activity:', err);
                 setError(err.response?.data?.message || 'Failed to fetch suspicious activity');
             } finally {
                 setIsLoading(false);

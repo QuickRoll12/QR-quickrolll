@@ -102,13 +102,10 @@ const Signup = () => {
         universityRollNumber: formData.universityRollNumber,
       };
 
-      console.log('Registration Data:', registrationData);
-
       await authAPI.register(registrationData);
       alert('Please check your email to verify your account');
       navigate('/');
-    } catch (err) {
-      console.error('Registration error:', err);
+    } catch (err) {      
       let errorMessage = 'Registration failed';
       
       // Extract error message from response if available

@@ -37,12 +37,8 @@ const FacultyPastAttendance = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
-      console.log('Fetching attendance records...');
       const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
       const url = `${BACKEND_URL}/api/attendance/records`;
-      console.log('API URL:', url);
-      console.log('Token available:', !!token);
       
       const response = await axios.get(
         url,
@@ -53,12 +49,10 @@ const FacultyPastAttendance = () => {
         }
       );
       
-      console.log('Attendance records response:', response.data);
       setRecords(response.data);
       setFilteredRecords(response.data);
       setError('');
     } catch (error) {
-      console.error('Error fetching attendance records:', error);
       setError(`Failed to fetch attendance records: ${error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -133,8 +127,6 @@ const FacultyPastAttendance = () => {
       
       const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
       const url = `${BACKEND_URL}/api/attendance/records/${recordId}/download-pdf`;
-      
-      console.log('Downloading PDF from:', url);
       
       // Use fetch for blob response
       const response = await fetch(url, {

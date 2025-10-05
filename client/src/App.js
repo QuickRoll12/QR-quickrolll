@@ -46,12 +46,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
         if (storedUser && token) {
           const parsedUser = JSON.parse(storedUser);
           if (parsedUser.role === 'admin') {
-            console.log('Admin found in localStorage');
             return true;
           }
         }
       } catch (e) {
-        console.error('Error checking admin in localStorage:', e);
       }
     }
     return false;
@@ -86,7 +84,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (isAdminInLocalStorage) {
       return children;
     } else {
-      console.log('Admin not found in localStorage, redirecting to admin login');
       return <Navigate to="/admin/login" replace />;
     }
   }

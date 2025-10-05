@@ -154,7 +154,6 @@ const CameraCapture = ({ onClose, onPhotoCapture, department, semester, section 
           };
         }
       } catch (err) {
-        console.error('Error accessing camera:', err);
         setError(`Camera access error: ${err.message || 'Could not access camera'}`);
         setLoading(false);
       }
@@ -225,7 +224,6 @@ const CameraCapture = ({ onClose, onPhotoCapture, department, semester, section 
       // Close the camera component
       onClose();
     } catch (err) {
-      console.error('Error submitting photo:', err);
       setError(`Failed to submit photo: ${err.message || 'Unknown error'}`);
       setLoading(false);
     }

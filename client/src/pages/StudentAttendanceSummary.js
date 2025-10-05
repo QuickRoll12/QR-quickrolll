@@ -31,7 +31,6 @@ const StudentAttendanceSummary = () => {
         setAttendanceSummary(response.data);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching attendance summary:', error);
         setError(error.response?.data?.message || 'Failed to fetch attendance data');
         setLoading(false);
       }

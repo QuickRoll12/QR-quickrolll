@@ -63,13 +63,10 @@ const AdminChatbotContent = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
+      setError(null);      
       const response = await axios.get('/api/chatbot/admin/documents');
-      console.log('Documents response:', response.data);
       setDocuments(response.data.documents || []);
     } catch (err) {
-      console.error('Failed to fetch documents:', err);
       setError('Failed to load documents. Please try again.');
     } finally {
       setLoading(false);
@@ -102,11 +99,8 @@ const AdminChatbotContent = () => {
           setUploadProgress(percentCompleted);
         },
       });
-      
-      console.log('Upload response:', response.data);
       fetchDocuments();
     } catch (err) {
-      console.error('Upload failed:', err);
       setError(`Failed to upload document: ${err.response?.data?.error || err.message}`);
     } finally {
       setIsUploading(false);
@@ -139,8 +133,6 @@ const AdminChatbotContent = () => {
         content: directInput,
         category: selectedCategory,
       });
-
-      console.log('Text submission response:', response.data);
       
       clearInterval(interval);
       setUploadProgress(100);
@@ -150,7 +142,6 @@ const AdminChatbotContent = () => {
       
       fetchDocuments();
     } catch (err) {
-      console.error('Text submission failed:', err);
       setError(`Failed to submit text content: ${err.response?.data?.error || err.message}`);
     } finally {
       setIsUploading(false);
@@ -165,10 +156,8 @@ const AdminChatbotContent = () => {
     try {
       setError(null);
       const response = await axios.delete(`/api/chatbot/admin/documents/${documentId}`);
-      console.log('Delete response:', response.data);
       fetchDocuments();
     } catch (err) {
-      console.error('Delete failed:', err);
       setError(`Failed to delete document: ${err.response?.data?.error || err.message}`);
     }
   };

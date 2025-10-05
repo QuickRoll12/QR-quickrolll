@@ -20,7 +20,6 @@ export const AuthProvider = ({ children }) => {
           const userData = await authAPI.getProfile();
           setUser(userData);
         } catch (error) {
-          console.error('Error fetching user profile:', error);
           localStorage.removeItem('token');
           authAPI.removeAuthToken();
           setUser(null);
@@ -43,7 +42,6 @@ export const AuthProvider = ({ children }) => {
           const userData = await authAPI.getProfile();
           setUser(userData);
         } catch (error) {
-          console.error('Error fetching user profile:', error);
           localStorage.removeItem('token');
           authAPI.removeAuthToken();
           setUser(null);

@@ -53,9 +53,7 @@ const StudentDashboard = () => {
                 // Get WebRTC IPs
                 const ips = await getWebRTCIPs();
                 setWebRTCIPs(ips);
-                console.log('WebRTC IPs detected:', ips);
             } catch (error) {
-                console.error('Error generating device identifiers:', error);
                 setError('Failed to generate device identifiers');
             }
         };
@@ -106,7 +104,6 @@ const StudentDashboard = () => {
         if (!socket) return;
 
         const handleSessionStatus = (status) => {
-            console.log('Received session status:', status);
             if (status && status.department === user.course && 
                 status.semester === selectedSemester && 
                 status.section === user.section) {
@@ -155,7 +152,6 @@ const StudentDashboard = () => {
         };
 
         const handleUpdateGrid = (updatedData) => {
-            console.log('Received grid update:', updatedData);
             if (updatedData && updatedData.grid && 
                 updatedData.department === user.course && 
                 updatedData.semester === selectedSemester && 
@@ -165,7 +161,6 @@ const StudentDashboard = () => {
         };
 
         const handleSessionEnded = (data) => {
-            console.log('Session ended:', data);
             if (data.success && 
                 data.department === user.course && 
                 data.semester === selectedSemester && 
@@ -188,7 +183,6 @@ const StudentDashboard = () => {
         };
 
         const handleError = (data) => {
-            console.error('Error:', data);
             setError(data.message);
             setTimeout(() => setError(''), 3000);
         };
@@ -356,8 +350,6 @@ const StudentDashboard = () => {
 
     // Function to initialize security checks without requiring full-screen
     const requestFullScreen = () => {
-        console.log('Initializing security checks without full-screen requirement');
-        
         // Set a flag to bypass the fullscreen requirement for all devices
         setIsFullScreen(true); // Pretend we're in fullscreen for all devices
         fullScreenRequestedRef.current = true;
@@ -404,17 +396,6 @@ const StudentDashboard = () => {
         // Calculate area utilization (should be close to 1.0 in true full-screen)
         const areaUtilization = (windowWidth * windowHeight) / (screenWidth * screenHeight);
         
-        console.log('Initial full-screen verification:', { 
-            screenAspectRatio,
-            windowAspectRatio,
-            aspectRatioDiff,
-            areaUtilization,
-            windowWidth,
-            windowHeight,
-            screenWidth,
-            screenHeight
-        });
-        
         // In true full-screen, area utilization should be > 0.9 (90%)
         // and aspect ratio difference should be minimal
         const ASPECT_RATIO_THRESHOLD = 0.1; // 10% difference in aspect ratio
@@ -422,7 +403,6 @@ const StudentDashboard = () => {
         
         // If not in true full-screen, show warning
         if (aspectRatioDiff > ASPECT_RATIO_THRESHOLD || areaUtilization < AREA_UTILIZATION_THRESHOLD) {
-            console.log('Initial verification detected split-screen or floating window');
             handleSplitScreenDetected();
             return false;
         }
@@ -466,17 +446,6 @@ const StudentDashboard = () => {
         // Calculate area utilization (should be close to 1.0 in true full-screen)
         const areaUtilization = (windowWidth * windowHeight) / (screenWidth * screenHeight);
         
-        console.log('Full-screen check:', { 
-            screenAspectRatio,
-            windowAspectRatio,
-            aspectRatioDiff,
-            areaUtilization,
-            windowWidth,
-            windowHeight,
-            screenWidth,
-            screenHeight
-        });
-        
         // In true full-screen, area utilization should be > 0.9 (90%)
         // and aspect ratio difference should be minimal
         const ASPECT_RATIO_THRESHOLD = 0.1; // 10% difference in aspect ratio
@@ -491,11 +460,9 @@ const StudentDashboard = () => {
         
         // Detect split-screen or floating window
         if (aspectRatioDiff > ASPECT_RATIO_THRESHOLD || areaUtilization < AREA_UTILIZATION_THRESHOLD) {
-            console.log('Detected possible split-screen or floating window');
             
             // If browser thinks we're in full-screen but dimensions don't match, it's likely split-screen
             if (isInFullScreen) {
-                console.log('Browser reports full-screen but dimensions don\'t match - likely split-screen');
                 handleSplitScreenDetected();
             } else {
                 // If browser also reports not in full-screen, handle as a regular exit
@@ -639,7 +606,6 @@ const StudentDashboard = () => {
             
             // Response will be handled by the photoUploadResponse event handler
         } catch (error) {
-            console.error('Error uploading photo:', error);
             setError('Failed to upload photo: ' + (error.message || 'Unknown error'));
             setPhotoUploading(false);
         }

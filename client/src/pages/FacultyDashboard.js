@@ -143,97 +143,97 @@ const FacultyDashboard = () => {
         }
     }, [user, loading, navigate]);
 
-    useEffect(() => {
-        if (!socket) return;
+    // useEffect(() => {
+    //     if (!socket) return;
 
-        const handleSessionStatus = (status) => {
-            console.log('Received session status:', status);
-            if (status && status.department === selectedDepartment && 
-                status.semester === selectedSemester && 
-                status.section === selectedSection) {
-                setSessionActive(status.active);
-                // Reset loading states when we get a response
-                setStartingSession(false);
-                setEndingSession(false);
+    //     const handleSessionStatus = (status) => {
+    //         console.log('Received session status:', status);
+    //         if (status && status.department === selectedDepartment && 
+    //             status.semester === selectedSemester && 
+    //             status.section === selectedSection) {
+    //             setSessionActive(status.active);
+    //             // Reset loading states when we get a response
+    //             setStartingSession(false);
+    //             setEndingSession(false);
                 
-                if (status.grid) {
-                    setGrid(status.grid);
-                }
-                if (status.totalStudents) {
-                    setTotalStudents(status.totalStudents.toString());
-                }
-                if (status.sessionType) {
-                    setAttendanceType(status.sessionType);
-                }
-            }
-        };
+    //             if (status.grid) {
+    //                 setGrid(status.grid);
+    //             }
+    //             if (status.totalStudents) {
+    //                 setTotalStudents(status.totalStudents.toString());
+    //             }
+    //             if (status.sessionType) {
+    //                 setAttendanceType(status.sessionType);
+    //             }
+    //         }
+    //     };
 
-        const handleUpdateGrid = (updatedData) => {
-            console.log('Received grid update:', updatedData);
-            if (updatedData && updatedData.grid && 
-                updatedData.department === selectedDepartment && 
-                updatedData.semester === selectedSemester && 
-                updatedData.section === selectedSection) {
-                setGrid(updatedData.grid);
-            }
-        };
+    //     const handleUpdateGrid = (updatedData) => {
+    //         console.log('Received grid update:', updatedData);
+    //         if (updatedData && updatedData.grid && 
+    //             updatedData.department === selectedDepartment && 
+    //             updatedData.semester === selectedSemester && 
+    //             updatedData.section === selectedSection) {
+    //             setGrid(updatedData.grid);
+    //         }
+    //     };
 
-        const handleSessionEnded = (data) => {
-            console.log('Session ended:', data);
-            if (data.success && 
-                data.department === selectedDepartment && 
-                data.semester === selectedSemester && 
-                data.section === selectedSection) {
-                setSessionActive(false);
-                setSessionStats({
-                    totalStudents: data.totalStudents,
-                    presentCount: data.presentCount,
-                    absentees: data.absentees,
-                    presentStudents: data.presentStudents,
-                    sessionType: data.sessionType
-                });
+    //     const handleSessionEnded = (data) => {
+    //         console.log('Session ended:', data);
+    //         if (data.success && 
+    //             data.department === selectedDepartment && 
+    //             data.semester === selectedSemester && 
+    //             data.section === selectedSection) {
+    //             setSessionActive(false);
+    //             setSessionStats({
+    //                 totalStudents: data.totalStudents,
+    //                 presentCount: data.presentCount,
+    //                 absentees: data.absentees,
+    //                 presentStudents: data.presentStudents,
+    //                 sessionType: data.sessionType
+    //             });
                 
-                // Clear session stats after 1 minute
-                setTimeout(() => {
-                    setSessionStats(null);
-                }, 60000); // Clear stats after 1 minute
-            }
-        };
+    //             // Clear session stats after 1 minute
+    //             setTimeout(() => {
+    //                 setSessionStats(null);
+    //             }, 60000); // Clear stats after 1 minute
+    //         }
+    //     };
 
-        const handleSuccess = (data) => {
-            console.log('Success:', data);
-            showSuccessMessage(data.message);
-            setTimeout(() => setShowNotification(false), 3000);
-        };
+    //     const handleSuccess = (data) => {
+    //         console.log('Success:', data);
+    //         showSuccessMessage(data.message);
+    //         setTimeout(() => setShowNotification(false), 3000);
+    //     };
 
-        const handleError = (data) => {
-            console.error('Error:', data);
-            showErrorMessage(data.message);
-            setTimeout(() => setShowNotification(false), 3000);
-        };
+    //     const handleError = (data) => {
+    //         console.error('Error:', data);
+    //         showErrorMessage(data.message);
+    //         setTimeout(() => setShowNotification(false), 3000);
+    //     };
 
-        socket.on('sessionStatus', handleSessionStatus);
-        socket.on('updateGrid', handleUpdateGrid);
-        socket.on('sessionEnded', handleSessionEnded);
-        socket.on('success', handleSuccess);
-        socket.on('error', handleError);
+    //     socket.on('sessionStatus', handleSessionStatus);
+    //     socket.on('updateGrid', handleUpdateGrid);
+    //     socket.on('sessionEnded', handleSessionEnded);
+    //     socket.on('success', handleSuccess);
+    //     socket.on('error', handleError);
 
-        if (selectedDepartment && selectedSemester && selectedSection) {
-            socket.emit('getSessionStatus', {
-                department: selectedDepartment,
-                semester: selectedSemester,
-                section: selectedSection
-            });
-        }
+    //     if (selectedDepartment && selectedSemester && selectedSection) {
+    //         socket.emit('getSessionStatus', {
+    //             department: selectedDepartment,
+    //             semester: selectedSemester,
+    //             section: selectedSection
+    //         });
+    //     }
 
-        return () => {
-            socket.off('sessionStatus', handleSessionStatus);
-            socket.off('updateGrid', handleUpdateGrid);
-            socket.off('sessionEnded', handleSessionEnded);
-            socket.off('success', handleSuccess);
-            socket.off('error', handleError);
-        };
-    }, [socket, selectedDepartment, selectedSemester, selectedSection]);
+    //     return () => {
+    //         socket.off('sessionStatus', handleSessionStatus);
+    //         socket.off('updateGrid', handleUpdateGrid);
+    //         socket.off('sessionEnded', handleSessionEnded);
+    //         socket.off('success', handleSuccess);
+    //         socket.off('error', handleError);
+    //     };
+    // }, [socket, selectedDepartment, selectedSemester, selectedSection]);
 
     useEffect(() => {
         if (sessionActive) {

@@ -15,7 +15,6 @@ const generateToken = (userId) => {
 
 exports.register = async (req, res) => {
   try {
-    console.log("Request: ",req.body);
     const { name, email, password, role, studentId, course, section, semester, classRollNumber, universityRollNumber } = req.body;
 
     // Check if user exists
@@ -669,7 +668,6 @@ exports.verifyCode = async (req, res) => {
 // Handle faculty account requests
 exports.facultyRequest = async (req, res) => {
   try {
-    console.log('Faculty request received:', req.body);
     const { name, email, department, photoUrl } = req.body;
     
     // Parse teaching assignments from the request body
@@ -728,7 +726,6 @@ exports.facultyRequest = async (req, res) => {
       photoUrl
     });
     
-    console.log('Saving new faculty request:', newRequest);
     await newRequest.save();
     console.log('Faculty request saved successfully');
     

@@ -90,8 +90,7 @@ const Login = () => {
       } else {
         navigate('/student');
       }
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch (err) {      
       setError(err.message || 'Invalid credentials or access denied');
       setShowNotification(true);
       setNotificationType('error');
