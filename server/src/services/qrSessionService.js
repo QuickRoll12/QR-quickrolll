@@ -16,14 +16,14 @@ class QRSessionService {
         this.deviceCache = new Map(); // studentId -> deviceId mapping
         this.sectionDeviceCache = new Map(); // sectionKey -> Map(studentId -> deviceId)
         this.cacheExpiry = new Map(); // Track cache expiry times
-        this.CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache TTL
+        this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
         this.cacheHits = 0; // Track cache performance
         this.cacheMisses = 0;
         
-        // Start periodic cache cleanup (every 10 minutes)
+        // Start periodic cache cleanup (every 6 minutes)
         setInterval(() => {
             this.clearExpiredCache();
-        }, 10 * 60 * 1000);
+        }, 6 * 60 * 1000);
     }
 
     /**
