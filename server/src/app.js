@@ -106,8 +106,9 @@ app.use('/api/qr-attendance', qrAttendanceRoutes);
 
 // MongoDB connection with proper options
 mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+    maxPoolSize: 20, // Increase from default 10
+    minPoolSize: 5,
+    maxIdleTimeMS: 30000,
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
 })
