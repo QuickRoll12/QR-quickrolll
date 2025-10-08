@@ -86,7 +86,6 @@ qrSessionService.setSocketIO(io);
 
 // Sample course data (you can replace this with database queries)
 const courses = [
-    { id: 'CSE101', name: 'Introduction to Programming' },
     { id: 'CSE201', name: 'Data Structures' },
     { id: 'CSE301', name: 'Database Management' },
     { id: 'CSE401', name: 'Software Engineering' },
@@ -100,8 +99,8 @@ const sections = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 // Middleware
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, '../public')));

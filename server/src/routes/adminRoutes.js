@@ -14,7 +14,24 @@ const adminController = require('../controllers/adminController');
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fieldSize: 10 * 1024 * 1024, // 10MB field size
+    fields: 10, // Max 10 fields
+    files: 1 // Max 1 file
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only Excel files
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Please upload Excel (.xlsx, .xls) or CSV files only.'));
+    }
   }
 });
 
@@ -124,10 +141,31 @@ router.post('/approve-faculty/:requestId', ensureAdmin, adminController.approveF
 // Reject faculty request - use the controller instead of implementing in the route
 router.post('/reject-faculty/:requestId', ensureAdmin, adminController.rejectFacultyRequest);
 
+// Multer error handling middleware
+const handleMulterError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        switch (err.code) {
+            case 'LIMIT_FILE_SIZE':
+                return res.status(400).json({ message: 'File too large. Maximum size is 10MB.' });
+            case 'LIMIT_FILE_COUNT':
+                return res.status(400).json({ message: 'Too many files. Please upload only one file.' });
+            case 'LIMIT_FIELD_COUNT':
+                return res.status(400).json({ message: 'Too many fields in the form.' });
+            case 'LIMIT_UNEXPECTED_FILE':
+                return res.status(400).json({ message: 'Unexpected file field.' });
+            default:
+                return res.status(400).json({ message: `Upload error: ${err.message}` });
+        }
+    } else if (err) {
+        return res.status(400).json({ message: err.message });
+    }
+    next();
+};
+
 // Preview student data from Excel file
-router.post('/preview-student-data', ensureAdmin, upload.single('file'), adminController.previewStudentData);
+router.post('/preview-student-data', ensureAdmin, upload.single('file'), handleMulterError, adminController.previewStudentData);
 
 // Upload and process student data from Excel file
-router.post('/upload-student-data', ensureAdmin, upload.single('file'), adminController.uploadStudentData);
+router.post('/upload-student-data', ensureAdmin, upload.single('file'), handleMulterError, adminController.uploadStudentData);
 
 module.exports = router;
