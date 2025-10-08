@@ -1129,11 +1129,18 @@ app.use('/api/admin', facultyAssignmentRoutes);
 app.use('/api/student/attendance', studentAttendanceRoutes);
 
 // Admin route to check server status
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
+    const redisCache = require('./services/redisCache');
+    
     res.json({
         status: 'online',
         time: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        cluster: {
+            isWorker: cluster.isWorker,
+            workerId: cluster.worker ? cluster.worker.id : 'master'
+        },
+        redis: redisCache.getStatus()
     });
 });
 

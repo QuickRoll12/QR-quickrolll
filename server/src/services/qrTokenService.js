@@ -278,9 +278,13 @@ class QRTokenService {
 // Create singleton instance
 const qrTokenService = new QRTokenService();
 
-// Cleanup expired tokens every 30 seconds
-setInterval(() => {
-    qrTokenService.cleanupExpiredTokens();
-}, 30000);
+// Cleanup expired tokens every 30 seconds - Only master process
+const cluster = require('cluster');
+if (!cluster.isWorker) {
+    setInterval(() => {
+        qrTokenService.cleanupExpiredTokens();
+    }, 30000);
+    console.log('🧹 QR Token cleanup scheduled (master process only)');
+}
 
 module.exports = qrTokenService;

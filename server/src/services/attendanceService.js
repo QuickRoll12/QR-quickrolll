@@ -502,31 +502,37 @@ class AttendanceService {
         const sessionData = this.sessions.get(sessionKey);
         if (!sessionData) return;
         
-        // Create a new timer
-        const timer = setInterval(() => {
-            try {
-                // Extract department, semester, section from sessionKey
-                const [department, semester, section] = sessionKey.split('_');
-                
-                // Refresh the codes
-                const result = this.refreshCodes(department, semester, section);
-                
-                // If there's a callback registered, call it with the result
-                if (this.codeRegenerationCallback) {
-                    this.codeRegenerationCallback({
-                        grid: result.grid,
-                        department,
-                        semester,
-                        section
-                    });
+        // Create a new timer - Only master process to avoid duplication
+        const cluster = require('cluster');
+        if (!cluster.isWorker) {
+            const timer = setInterval(() => {
+                try {
+                    // Extract department, semester, section from sessionKey
+                    const [department, semester, section] = sessionKey.split('_');
+                    
+                    // Refresh the codes
+                    const result = this.refreshCodes(department, semester, section);
+                    
+                    // If there's a callback registered, call it with the result
+                    if (this.codeRegenerationCallback) {
+                        this.codeRegenerationCallback({
+                            grid: result.grid,
+                            department,
+                            semester,
+                            section
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error in auto-refresh for session ${sessionKey}:`, error.message);
                 }
-            } catch (error) {
-                console.error(`Error in auto-refresh for session ${sessionKey}:`, error.message);
-            }
-        }, this.autoRefreshInterval);
-        
-        // Store the timer
-        this.autoRefreshTimers.set(sessionKey, timer);
+            }, this.autoRefreshInterval);
+            
+            // Store the timer
+            this.autoRefreshTimers.set(sessionKey, timer);
+            console.log(`🔄 Auto-refresh started for session ${sessionKey} (master process only)`);
+        } else {
+            console.log(`🔄 Auto-refresh skipped for session ${sessionKey} (worker process)`);
+        }
     }
     
     /**

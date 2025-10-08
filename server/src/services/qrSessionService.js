@@ -4,26 +4,28 @@ const SessionAttendance = require('../models/SessionAttendance');
 const AttendanceRecord = require('../models/AttendanceRecord');
 const User = require('../models/User');
 const qrTokenService = require('./qrTokenService');
+const redisCache = require('./redisCache');
 const { v4: uuidv4 } = require('uuid');
+const cluster = require('cluster');
 
 class QRSessionService {
     constructor() {
-        this.activeSessions = new Map(); // In-memory cache for active sessions
-        this.qrRefreshIntervals = new Map(); // Store interval IDs for QR refresh
+        // Keep QR refresh intervals per worker (needed for cleanup)
+        this.qrRefreshIntervals = new Map();
         this.io = null; // Socket.io instance for real-time updates
         
-        // 🚀 OPTIMIZED: Device fingerprint cache to minimize DB calls
-        this.deviceCache = new Map(); // studentId -> deviceId mapping
-        this.sectionDeviceCache = new Map(); // sectionKey -> Map(studentId -> deviceId)
-        this.cacheExpiry = new Map(); // Track cache expiry times
-        this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+        // 🚀 REDIS OPTIMIZED: Use Redis for shared caching
+        this.CACHE_TTL = 5 * 60; // 5 minutes cache TTL in seconds
         this.cacheHits = 0; // Track cache performance
         this.cacheMisses = 0;
         
-        // Start periodic cache cleanup (every 6 minutes)
-        setInterval(() => {
-            this.clearExpiredCache();
-        }, 6 * 60 * 1000);
+        // Start periodic cache cleanup (every 6 minutes) - Only master process
+        if (!cluster.isWorker) {
+            setInterval(() => {
+                this.clearExpiredCache();
+            }, 6 * 60 * 1000);
+            console.log('🧹 QR Session cache cleanup scheduled (master process only)');
+        }
     }
 
     /**
@@ -35,7 +37,7 @@ class QRSessionService {
     }
 
     /**
-     * 🚀 OPTIMIZED: Get device ID for a student with intelligent caching
+     * 🚀 REDIS OPTIMIZED: Get device ID for a student with Redis caching
      * @param {string} studentId - Student ID
      * @param {string} department - Department
      * @param {string} semester - Semester  
@@ -43,45 +45,29 @@ class QRSessionService {
      * @returns {string|null} - Device ID or null
      */
     async getStudentDeviceId(studentId, department, semester, section) {
-        const sectionKey = `${department}-${semester}-${section}`;
-        const now = Date.now();
+        const deviceCacheKey = `device:${studentId}`;
+        const sectionCacheKey = `section:${department}-${semester}-${section}`;
 
-        // Check individual cache first (fastest)
-        if (this.deviceCache.has(studentId)) {
-            const cacheTime = this.cacheExpiry.get(studentId);
-            if (cacheTime && now < cacheTime) {
-                this.cacheHits++;
-                return this.deviceCache.get(studentId);
-            }
-            // Expired - remove from cache
-            this.deviceCache.delete(studentId);
-            this.cacheExpiry.delete(studentId);
+        // Check individual device cache first (fastest)
+        let deviceId = await redisCache.get(deviceCacheKey);
+        if (deviceId) {
+            this.cacheHits++;
+            return deviceId;
         }
 
         // Check section cache (batch cache)
-        if (this.sectionDeviceCache.has(sectionKey)) {
-            const sectionCache = this.sectionDeviceCache.get(sectionKey);
-            const cacheTime = this.cacheExpiry.get(sectionKey);
-            
-            if (cacheTime && now < cacheTime && sectionCache.has(studentId)) {
-                const deviceId = sectionCache.get(studentId);
-                // Also cache individually for faster future access
-                this.deviceCache.set(studentId, deviceId);
-                this.cacheExpiry.set(studentId, now + this.CACHE_TTL);
-                this.cacheHits++;
-                return deviceId;
-            }
-            
-            // Section cache expired
-            if (!cacheTime || now >= cacheTime) {
-                this.sectionDeviceCache.delete(sectionKey);
-                this.cacheExpiry.delete(sectionKey);
-            }
+        let sectionCache = await redisCache.get(sectionCacheKey);
+        if (sectionCache && sectionCache[studentId]) {
+            deviceId = sectionCache[studentId];
+            // Cache individually for faster future access
+            await redisCache.set(deviceCacheKey, deviceId, this.CACHE_TTL);
+            this.cacheHits++;
+            return deviceId;
         }
 
         // Cache miss - fetch from database
         this.cacheMisses++;
-        console.log(`📊 Cache miss for section ${sectionKey}, fetching device IDs from DB`);
+        console.log(`📊 Cache miss for section ${sectionCacheKey}, fetching device IDs from DB`);
         
         try {
             // Fetch all students in this section at once (batch optimization)
@@ -92,24 +78,26 @@ class QRSessionService {
                 role: 'student'
             }).select('studentId deviceId').lean();
 
-            // Create section cache
-            const sectionCache = new Map();
+            // Create section cache object
+            const newSectionCache = {};
             sectionStudents.forEach(student => {
                 if (student.deviceId) {
-                    sectionCache.set(student.studentId, student.deviceId);
-                    // Also cache individually
-                    this.deviceCache.set(student.studentId, student.deviceId);
-                    this.cacheExpiry.set(student.studentId, now + this.CACHE_TTL);
+                    newSectionCache[student.studentId] = student.deviceId;
                 }
             });
 
-            // Cache the entire section
-            this.sectionDeviceCache.set(sectionKey, sectionCache);
-            this.cacheExpiry.set(sectionKey, now + this.CACHE_TTL);
+            // Cache the entire section in Redis
+            await redisCache.set(sectionCacheKey, newSectionCache, this.CACHE_TTL);
 
-            console.log(`✅ Cached ${sectionStudents.length} device IDs for section ${sectionKey}`);
+            // Cache individual device ID
+            deviceId = newSectionCache[studentId] || null;
+            if (deviceId) {
+                await redisCache.set(deviceCacheKey, deviceId, this.CACHE_TTL);
+            }
+
+            console.log(`✅ Cached ${sectionStudents.length} device IDs for section ${sectionCacheKey}`);
             
-            return sectionCache.get(studentId) || null;
+            return deviceId;
 
         } catch (error) {
             console.error('❌ Error fetching device IDs:', error);
@@ -132,36 +120,51 @@ class QRSessionService {
         }
 
         console.log(`🚀 Preloading device cache for section ${sectionKey}`);
-        
         // This will populate the cache
         await this.getStudentDeviceId('dummy', session.department, session.semester, session.section);
     }
 
     /**
-     * Clear expired cache entries (maintenance method)
+     * Clear expired cache entries (called periodically) - Redis handles TTL automatically
      */
     clearExpiredCache() {
-        const now = Date.now();
-        let expiredCount = 0;
-        
-        // Clear individual cache
-        for (const [key, expiry] of this.cacheExpiry.entries()) {
-            if (now >= expiry) {
-                this.deviceCache.delete(key);
-                this.sectionDeviceCache.delete(key);
-                this.cacheExpiry.delete(key);
-                expiredCount++;
-            }
-        }
-        
-        if (expiredCount > 0) {
-            console.log(`🧹 Cleared ${expiredCount} expired cache entries`);
-        }
+        // Redis handles TTL automatically, but we can do cleanup here if needed
+        console.log(`🧹 Redis cache cleanup completed (TTL managed automatically)`);
+    }
+
+    /**
+     * Get active session from cache
+     * @param {string} sessionId - Session ID
+     * @returns {Object|null} - Session data or null
+     */
+    async getActiveSession(sessionId) {
+        const cacheKey = `session:${sessionId}`;
+        return await redisCache.get(cacheKey);
+    }
+
+    /**
+     * Set active session in cache
+     * @param {string} sessionId - Session ID
+     * @param {Object} sessionData - Session data
+     */
+    async setActiveSession(sessionId, sessionData) {
+        const cacheKey = `session:${sessionId}`;
+        await redisCache.set(cacheKey, sessionData, this.CACHE_TTL);
+    }
+
+    /**
+     * Remove active session from cache
+     * @param {string} sessionId - Session ID
+     */
+    async removeActiveSession(sessionId) {
+        const cacheKey = `session:${sessionId}`;
+        await redisCache.del(cacheKey);
     }
 
     /**
      * Get cache statistics for monitoring
      * @returns {Object} Cache statistics
+{{ ... }}
      */
     getCacheStats() {
         return {
@@ -891,19 +894,33 @@ class QRSessionService {
      * @param {string} sessionId - Session ID
      */
     startQRRefresh(sessionId) {
-        // Clear any existing interval
-        this.stopQRRefresh(sessionId);
+        // Only master process handles QR refresh to avoid duplication
+        if (!cluster.isWorker) {
+            // Clear any existing interval
+            this.stopQRRefresh(sessionId);
 
-        const intervalId = setInterval(async () => {
-            try {
-                await this.refreshQRToken(sessionId);
-            } catch (error) {
-                console.error(`Error refreshing QR for session ${sessionId}:`, error);
-                this.stopQRRefresh(sessionId);
-            }
-        }, 5000); // Refresh every 5 seconds
+            const intervalId = setInterval(async () => {
+                try {
+                    const newToken = await this.refreshQRToken(sessionId);
+                    // Broadcast to all workers via Socket.IO
+                    if (this.io && newToken) {
+                        this.io.emit('qr-tokenRefreshed', { 
+                            sessionId, 
+                            token: newToken.token,
+                            qrData: newToken.qrData 
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error refreshing QR for session ${sessionId}:`, error);
+                    this.stopQRRefresh(sessionId);
+                }
+            }, 5000); // Refresh every 5 seconds
 
-        this.qrRefreshIntervals.set(sessionId, intervalId);
+            this.qrRefreshIntervals.set(sessionId, intervalId);
+            console.log(`🔄 QR refresh started for session ${sessionId} (master process only)`);
+        } else {
+            console.log(`🔄 QR refresh skipped for session ${sessionId} (worker process)`);
+        }
     }
 
     /**

@@ -324,12 +324,15 @@ const verifyPhoto = async (photoFilename, referencePhotoUrl = null) => {
   }
 };
 
-// Schedule regular cleanup
+// Schedule regular cleanup - Only master process
 const scheduleCleanup = () => {
-  // Run cleanup every 6 hours
-  const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
-  setInterval(cleanupOldPhotos, CLEANUP_INTERVAL_MS);
-  console.log('Scheduled regular photo cleanup');
+  const cluster = require('cluster');
+  if (!cluster.isWorker) {
+    // Run cleanup every 6 hours
+    const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+    setInterval(cleanupOldPhotos, CLEANUP_INTERVAL_MS);
+    console.log('🧹 Scheduled regular photo cleanup (master process only)');
+  }
 };
 
 // Initialize storage and schedule cleanup on module load
