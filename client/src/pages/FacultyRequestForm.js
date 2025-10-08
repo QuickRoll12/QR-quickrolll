@@ -23,7 +23,7 @@ const FacultyRequestForm = () => {
   const [notificationType, setNotificationType] = useState('error');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [availableSections, setAvailableSections] = useState([
-    'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2', 'E1', 'E2', 'F1', 'F2', 'G1', 'G2', 'H1', 'H2', 'I1', 'I2', 'J1', 'J2', 'K1', 'K2', 'L1', 'L2','ML1','ML2','ML3','DS1','DS2','A1 ML1','B1 C1','CS1 DS1 D1 D2','ML2 ML3','A2 E1 E2','B2 C2 F1 F2 G1','Placement Group 1', 'Placement Group 2', 'Placement Group 3', 'Placement Group 4', 'Placement Group 5'
+    'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2', 'E1', 'E2', 'F1', 'F2', 'G1', 'G2', 'H1', 'H2', 'I1', 'I2', 'J1', 'J2', 'K1', 'K2', 'L1', 'L2','ML1','ML2','ML3','DS1','DS2','A1 ML1','B1 C1','CS1 DS1 D1 D2','ML2 ML3','A2 E1 E2','B2 C2 F1 F2 G1','E1 E2 F1 F2','Placement Group 1', 'Placement Group 2', 'Placement Group 3', 'Placement Group 4', 'Placement Group 5'
   ]);
   const navigate = useNavigate();
   
