@@ -66,6 +66,21 @@ const io = new Server(server, {
     cors: corsOptions
 });
 
+// Setup cluster adapter for Socket.IO if running in cluster mode
+const cluster = require('cluster');
+if (cluster.isWorker) {
+    const { setupWorker } = require('@socket.io/sticky');
+    const { createAdapter } = require('@socket.io/cluster-adapter');
+    
+    // Setup cluster adapter for inter-process communication
+    io.adapter(createAdapter());
+    
+    // Setup worker for sticky sessions
+    setupWorker(io);
+    
+    console.log(`🔧 Worker ${process.pid} configured with cluster adapter`);
+}
+
 // Initialize QR session service with socket.io instance
 qrSessionService.setSocketIO(io);
 
@@ -104,9 +119,11 @@ app.use('/api/attendance', attendanceRecordRoutes);
 app.use('/api/photo-verification', photoVerificationRoutes);
 app.use('/api/qr-attendance', qrAttendanceRoutes);
 
-// MongoDB connection with proper options
+// MongoDB connection with proper options for cluster mode
 mongoose.connect(process.env.MONGODB_URI, {
-    maxPoolSize: 20, // Increase from default 10
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    maxPoolSize: 20, // Increase for cluster mode (10 per worker)
     minPoolSize: 5,
     maxIdleTimeMS: 30000,
     serverSelectionTimeoutMS: 5000,
@@ -1121,7 +1138,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
