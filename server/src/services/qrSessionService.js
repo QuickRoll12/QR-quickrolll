@@ -10,8 +10,9 @@ const cluster = require('cluster');
 
 class QRSessionService {
     constructor() {
-        // Keep QR refresh intervals per worker (needed for cleanup)
-        this.qrRefreshIntervals = new Map();
+        // Keep existing in-memory caches for backward compatibility
+        this.activeSessions = new Map(); // In-memory cache for active sessions
+        this.qrRefreshIntervals = new Map(); // Store interval IDs for QR refresh
         this.io = null; // Socket.io instance for real-time updates
         
         // 🚀 REDIS OPTIMIZED: Use Redis for shared caching
@@ -62,6 +63,7 @@ class QRSessionService {
             // Cache individually for faster future access
             await redisCache.set(deviceCacheKey, deviceId, this.CACHE_TTL);
             this.cacheHits++;
+            console.log(`Redis cache hit !`);
             return deviceId;
         }
 
@@ -110,11 +112,11 @@ class QRSessionService {
      * @param {Object} session - QR Session object
      */
     async preloadDeviceCache(session) {
-        const sectionKey = `${session.department}-${session.semester}-${session.section}`;
+        const sectionKey = `section:${session.department}-${session.semester}-${session.section}`;
         
-        // Skip if already cached and not expired
-        const cacheTime = this.cacheExpiry.get(sectionKey);
-        if (cacheTime && Date.now() < cacheTime) {
+        // Check if already cached in Redis
+        const existingCache = await redisCache.exists(sectionKey);
+        if (existingCache) {
             console.log(`📋 Device cache already loaded for section ${sectionKey}`);
             return;
         }
@@ -164,15 +166,13 @@ class QRSessionService {
     /**
      * Get cache statistics for monitoring
      * @returns {Object} Cache statistics
-{{ ... }}
      */
     getCacheStats() {
         return {
-            deviceCacheSize: this.deviceCache.size,
-            sectionCacheSize: this.sectionDeviceCache.size,
-            totalCacheEntries: this.cacheExpiry.size,
-            cacheTTL: this.CACHE_TTL / 1000 / 60, // minutes
-            cacheHitRate: this.cacheHits / (this.cacheHits + this.cacheMisses) || 0
+            activeSessionsSize: this.activeSessions.size,
+            cacheTTL: this.CACHE_TTL / 60, // minutes
+            cacheHitRate: this.cacheHits / (this.cacheHits + this.cacheMisses) || 0,
+            redisStatus: redisCache.getStatus()
         };
     }
 
@@ -183,11 +183,10 @@ class QRSessionService {
      * @param {string} section - Section
      */
     async refreshSectionCache(department, semester, section) {
-        const sectionKey = `${department}-${semester}-${section}`;
+        const sectionKey = `section:${department}-${semester}-${section}`;
         
-        // Clear existing cache
-        this.sectionDeviceCache.delete(sectionKey);
-        this.cacheExpiry.delete(sectionKey);
+        // Clear existing Redis cache
+        await redisCache.del(sectionKey);
         
         // Reload cache
         await this.getStudentDeviceId('dummy', department, semester, section);
@@ -894,33 +893,20 @@ class QRSessionService {
      * @param {string} sessionId - Session ID
      */
     startQRRefresh(sessionId) {
-        // Only master process handles QR refresh to avoid duplication
-        if (!cluster.isWorker) {
-            // Clear any existing interval
-            this.stopQRRefresh(sessionId);
+        // Clear any existing interval
+        this.stopQRRefresh(sessionId);
 
-            const intervalId = setInterval(async () => {
-                try {
-                    const newToken = await this.refreshQRToken(sessionId);
-                    // Broadcast to all workers via Socket.IO
-                    if (this.io && newToken) {
-                        this.io.emit('qr-tokenRefreshed', { 
-                            sessionId, 
-                            token: newToken.token,
-                            qrData: newToken.qrData 
-                        });
-                    }
-                } catch (error) {
-                    console.error(`Error refreshing QR for session ${sessionId}:`, error);
-                    this.stopQRRefresh(sessionId);
-                }
-            }, 5000); // Refresh every 5 seconds
+        const intervalId = setInterval(async () => {
+            try {
+                await this.refreshQRToken(sessionId);
+            } catch (error) {
+                console.error(`Error refreshing QR for session ${sessionId}:`, error);
+                this.stopQRRefresh(sessionId);
+            }
+        }, 5000); // Refresh every 5 seconds
 
-            this.qrRefreshIntervals.set(sessionId, intervalId);
-            console.log(`🔄 QR refresh started for session ${sessionId} (master process only)`);
-        } else {
-            console.log(`🔄 QR refresh skipped for session ${sessionId} (worker process)`);
-        }
+        this.qrRefreshIntervals.set(sessionId, intervalId);
+        console.log(`🔄 QR refresh started for session ${sessionId}`);
     }
 
     /**
