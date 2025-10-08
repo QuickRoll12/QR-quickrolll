@@ -1137,10 +1137,15 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
-
-module.exports = app;
+// Start server - Only if not running in cluster mode
+// In cluster mode, the master process handles the listening
+const cluster = require('cluster');
+if (!cluster.isWorker) {
+    const PORT = process.env.PORT || 3000;
+    server.listen(PORT, () => {
+        console.log(`🔧 Server running on port ${PORT}`);
+    });
+} else {
+    // Worker process - don't listen, just export the server for cluster master
+    console.log(`🔧 Worker ${process.pid} ready (not listening on port)`);
+}

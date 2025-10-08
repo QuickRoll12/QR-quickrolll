@@ -42,6 +42,9 @@ if (cluster.isMaster) {
   // Worker process - load your existing app
   console.log(`🔧 Worker ${process.pid} starting...`);
   
+  // Set environment variable to indicate this is a worker
+  process.env.CLUSTER_WORKER = 'true';
+  
   // Import your existing app.js
   require('./src/app.js');
   
