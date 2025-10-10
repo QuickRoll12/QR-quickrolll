@@ -576,6 +576,11 @@ const FacultyDashboard = () => {
         }, 10000);
     };
 
+    
+    const showSuccessMessage = (msg) => {
+        showNotificationMessage(msg, 'success');
+    };
+
     // ==================== GROUP SESSION HANDLERS ====================
     
     const handleSectionToggle = (assignment) => {
