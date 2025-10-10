@@ -13,6 +13,7 @@ class QRSessionService {
         // Keep existing in-memory caches for backward compatibility
         this.activeSessions = new Map(); // In-memory cache for active sessions
         this.qrRefreshIntervals = new Map(); // Store interval IDs for QR refresh
+        this.groupQRRefreshIntervals = new Map(); // Store interval IDs for Group QR refresh
         this.io = null; // Socket.io instance for real-time updates
         
         // 🚀 REDIS OPTIMIZED: Use Redis for shared caching
@@ -1210,6 +1211,100 @@ class QRSessionService {
             joinRecordsDeleted: sessionIds.length > 0 ? (await SessionJoin.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0,
             attendanceRecordsDeleted: sessionIds.length > 0 ? (await SessionAttendance.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0
         };
+    }
+
+    // ==================== GROUP QR REFRESH METHODS ====================
+
+    /**
+     * Start Group QR refresh interval for a group session
+     * @param {string} groupSessionId - Group Session ID
+     */
+    startGroupQRRefresh(groupSessionId) {
+        // Clear any existing interval
+        this.stopGroupQRRefresh(groupSessionId);
+
+        const intervalId = setInterval(async () => {
+            try {
+                await this.refreshGroupQRToken(groupSessionId);
+            } catch (error) {
+                console.error(`Error refreshing Group QR for session ${groupSessionId}:`, error);
+                this.stopGroupQRRefresh(groupSessionId);
+            }
+        }, 5000); // Refresh every 5 seconds
+
+        this.groupQRRefreshIntervals.set(groupSessionId, intervalId);
+        console.log(`🔄 Group QR refresh started for session ${groupSessionId}`);
+    }
+
+    /**
+     * Stop Group QR refresh interval for a group session
+     * @param {string} groupSessionId - Group Session ID
+     */
+    stopGroupQRRefresh(groupSessionId) {
+        const intervalId = this.groupQRRefreshIntervals.get(groupSessionId);
+        if (intervalId) {
+            clearInterval(intervalId);
+            this.groupQRRefreshIntervals.delete(groupSessionId);
+            console.log(`🛑 Group QR refresh stopped for session ${groupSessionId}`);
+        }
+    }
+
+    /**
+     * Refresh Group QR token for a group session
+     * @param {string} groupSessionId - Group Session ID
+     * @returns {Object} - New Group QR token data
+     */
+    async refreshGroupQRToken(groupSessionId) {
+        const GroupSession = require('../models/GroupSession');
+        const QRSession = require('../models/QRSession');
+        
+        const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+        
+        if (!groupSession || groupSession.status !== 'active') {
+            this.stopGroupQRRefresh(groupSessionId);
+            return null;
+        }
+
+        // Generate new group QR token
+        const groupQRData = qrTokenService.generateGroupQRToken({
+            groupSessionId: groupSessionId,
+            facultyId: groupSession.facultyId,
+            sections: groupSession.sections
+        });
+
+        // Update group session
+        groupSession.currentGroupQRToken = groupQRData.token;
+        groupSession.qrTokenExpiry = groupQRData.expiryTime;
+        groupSession.qrRefreshCount += 1;
+        await groupSession.save();
+
+        // Update all individual sessions with the new group QR token
+        for (const sectionInfo of groupSession.sections) {
+            await QRSession.updateOne(
+                { sessionId: sectionInfo.sessionId },
+                { 
+                    currentQRToken: groupQRData.token,
+                    qrTokenExpiry: groupQRData.expiryTime,
+                    qrRefreshCount: groupSession.qrRefreshCount
+                }
+            );
+        }
+
+        const qrData = {
+            token: groupQRData.token,
+            expiryTime: groupQRData.expiryTime,
+            refreshCount: groupSession.qrRefreshCount,
+            timerSeconds: 5
+        };
+
+        // Emit new Group QR token to connected faculty clients
+        if (this.io) {
+            const roomName = `faculty-${groupSession.facultyId}`;
+            this.io.to(roomName).emit('qr-tokenRefreshed', qrData);
+        }
+
+        console.log(`🔄 Group QR token refreshed for ${groupSessionId}, count: ${groupSession.qrRefreshCount}`);
+        return qrData;
     }
 }
 

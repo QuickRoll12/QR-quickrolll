@@ -862,6 +862,9 @@ io.on('connection', (socket) => {
             for (const sectionInfo of groupSession.sections) {
                 await qrSessionService.startAttendance(sectionInfo.sessionId, socket.user.facultyId);
                 
+                // Stop individual QR refresh to avoid conflicts with group QR refresh
+                qrSessionService.stopQRRefresh(sectionInfo.sessionId);
+                
                 // Update individual session with group QR token
                 const QRSession = require('./models/QRSession');
                 await QRSession.updateOne(
@@ -898,6 +901,9 @@ io.on('connection', (socket) => {
             groupSession.qrTokenExpiry = groupQRData.expiryTime;
             groupSession.qrRefreshCount = 1;
             await groupSession.save();
+
+            // Start Group QR refresh interval (every 5 seconds)
+            qrSessionService.startGroupQRRefresh(groupSessionId);
 
             // Emit to faculty with group QR data
             socket.emit('qr-groupAttendanceStarted', {
@@ -999,6 +1005,9 @@ io.on('connection', (socket) => {
             groupSession.totalStudentsJoined = totalJoined;
             groupSession.totalStudentsPresent = totalPresent;
             await groupSession.save();
+
+            // Stop Group QR refresh interval
+            qrSessionService.stopGroupQRRefresh(groupSessionId);
 
             // Emit to faculty with aggregated stats
             socket.emit('qr-groupSessionEnded', {
