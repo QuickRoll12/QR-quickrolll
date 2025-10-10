@@ -587,20 +587,20 @@ const FacultyDashboard = () => {
         if (!groupMode) return;
         
         const isSelected = selectedSections.some(s => 
-            s.department === assignment.department && 
+            s.department === user.department && 
             s.semester === assignment.semester && 
             s.section === assignment.section
         );
         
         if (isSelected) {
             setSelectedSections(prev => prev.filter(s => 
-                !(s.department === assignment.department && 
+                !(s.department === user.department && 
                   s.semester === assignment.semester && 
                   s.section === assignment.section)
             ));
         } else {
             setSelectedSections(prev => [...prev, {
-                department: assignment.department,
+                department: user.department,
                 semester: assignment.semester,
                 section: assignment.section,
                 totalStudents: assignment.totalStudents || 50 // Default value
@@ -805,7 +805,7 @@ const FacultyDashboard = () => {
                                     {availableTeachingAssignments.map((assignment, index) => {
                                         const isSelected = groupMode 
                                             ? selectedSections.some(s => 
-                                                s.department === assignment.department && 
+                                                s.department === user.department && 
                                                 s.semester === assignment.semester && 
                                                 s.section === assignment.section
                                               )
