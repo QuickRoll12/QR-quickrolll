@@ -65,11 +65,12 @@ class QRTokenService {
     }
 
     /**
-     * Validate a QR token
+     * Validate a QR token (handles both single and group tokens)
      * @param {string} token - The QR token to validate
+     * @param {Object} studentData - Student information (required for group tokens)
      * @returns {Object} - Validation result
      */
-    validateQRToken(token) {
+    validateQRToken(token, studentData = null) {
         try {
             // First check cache for quick validation
             const cachedToken = this.tokenCache.get(token);
@@ -81,9 +82,6 @@ class QRTokenService {
                     code: 'TOKEN_NOT_FOUND'
                 };
             }
-
-            // NOTE: We don't check if token is "used" because multiple students should be able to scan the same QR
-            // Individual duplicate prevention is handled at the session level per student
 
             // Check expiry
             if (new Date() > cachedToken.expiryTime) {
@@ -101,7 +99,19 @@ class QRTokenService {
                 audience: 'quickroll-students'
             });
 
-            // Additional validation
+            // Handle group tokens
+            if (decoded.type === 'group_qr_attendance') {
+                if (!studentData) {
+                    return {
+                        valid: false,
+                        error: 'Student data required for group token validation',
+                        code: 'STUDENT_DATA_REQUIRED'
+                    };
+                }
+                return this.validateGroupQRToken(token, studentData);
+            }
+
+            // Handle single session tokens
             if (decoded.type !== 'qr_attendance') {
                 return {
                     valid: false,
@@ -112,6 +122,7 @@ class QRTokenService {
 
             return {
                 valid: true,
+                isGroupToken: false,
                 sessionData: {
                     sessionId: decoded.sessionId,
                     facultyId: decoded.facultyId,
@@ -217,6 +228,173 @@ class QRTokenService {
             expiredTokens,
             usedTokens
         };
+    }
+
+    /**
+     * Generate a group QR token for multiple sections
+     * @param {Object} groupData - Group session information
+     * @returns {Object} - Token and expiry information
+     */
+    generateGroupQRToken(groupData) {
+        const { groupSessionId, facultyId, sections } = groupData;
+        
+        // Create a unique token with timestamp
+        const timestamp = Date.now();
+        const randomBytes = crypto.randomBytes(16).toString('hex');
+        
+        // Create JWT payload for group session
+        const payload = {
+            groupSessionId,
+            facultyId,
+            sections: sections.map(s => ({
+                department: s.department,
+                semester: s.semester,
+                section: s.section,
+                sessionId: s.sessionId
+            })),
+            timestamp,
+            random: randomBytes,
+            type: 'group_qr_attendance'
+        };
+
+        // Generate JWT token with 7-second expiry (5s frontend + 2s buffer)
+        const token = jwt.sign(payload, this.jwtSecret, { 
+            expiresIn: '7s',
+            issuer: 'quickroll-qr',
+            audience: 'quickroll-students'
+        });
+
+        // Calculate expiry time
+        const expiryTime = new Date(timestamp + 7000); // 7 seconds from now
+
+        // Store in cache for quick validation
+        this.tokenCache.set(token, {
+            groupSessionId,
+            facultyId,
+            sections: payload.sections,
+            timestamp,
+            expiryTime,
+            used: false,
+            isGroupToken: true
+        });
+
+        // Clean up expired tokens from cache
+        this.cleanupExpiredTokens();
+
+        return {
+            token,
+            expiryTime,
+            validitySeconds: 7,
+            frontendTimer: 5 // What to show in frontend
+        };
+    }
+
+    /**
+     * Validate a group QR token and determine which section the student belongs to
+     * @param {string} token - The QR token to validate
+     * @param {Object} studentData - Student information to match section
+     * @returns {Object} - Validation result with matched section
+     */
+    validateGroupQRToken(token, studentData) {
+        try {
+            // First check cache for quick validation
+            const cachedToken = this.tokenCache.get(token);
+            
+            if (!cachedToken) {
+                return {
+                    valid: false,
+                    error: 'Token not found or expired',
+                    code: 'TOKEN_NOT_FOUND'
+                };
+            }
+
+            // Check if it's a group token
+            if (!cachedToken.isGroupToken) {
+                return {
+                    valid: false,
+                    error: 'Not a group token',
+                    code: 'INVALID_TOKEN_TYPE'
+                };
+            }
+
+            // Check expiry
+            if (new Date() > cachedToken.expiryTime) {
+                this.tokenCache.delete(token);
+                return {
+                    valid: false,
+                    error: 'QR code expired',
+                    code: 'TOKEN_EXPIRED'
+                };
+            }
+
+            // Verify JWT signature
+            const decoded = jwt.verify(token, this.jwtSecret, {
+                issuer: 'quickroll-qr',
+                audience: 'quickroll-students'
+            });
+
+            // Additional validation
+            if (decoded.type !== 'group_qr_attendance') {
+                return {
+                    valid: false,
+                    error: 'Invalid token type',
+                    code: 'INVALID_TOKEN_TYPE'
+                };
+            }
+
+            // Find the section that matches the student
+            const matchedSection = decoded.sections.find(section => 
+                section.department === studentData.course &&
+                section.semester === studentData.semester &&
+                section.section === studentData.section
+            );
+
+            if (!matchedSection) {
+                return {
+                    valid: false,
+                    error: 'You are not enrolled in any section of this group session',
+                    code: 'SECTION_NOT_FOUND'
+                };
+            }
+
+            return {
+                valid: true,
+                isGroupToken: true,
+                groupSessionId: decoded.groupSessionId,
+                sessionData: {
+                    sessionId: matchedSection.sessionId,
+                    facultyId: decoded.facultyId,
+                    department: matchedSection.department,
+                    semester: matchedSection.semester,
+                    section: matchedSection.section,
+                    timestamp: decoded.timestamp
+                },
+                allSections: decoded.sections,
+                tokenInfo: cachedToken
+            };
+
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                return {
+                    valid: false,
+                    error: 'QR code expired',
+                    code: 'TOKEN_EXPIRED'
+                };
+            } else if (error.name === 'JsonWebTokenError') {
+                return {
+                    valid: false,
+                    error: 'Invalid QR code',
+                    code: 'INVALID_TOKEN'
+                };
+            } else {
+                console.error('Group QR Token validation error:', error);
+                return {
+                    valid: false,
+                    error: 'Token validation failed',
+                    code: 'VALIDATION_ERROR'
+                };
+            }
+        }
     }
 
     /**

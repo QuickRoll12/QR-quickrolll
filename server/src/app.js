@@ -20,6 +20,9 @@ const facultyAssignmentRoutes = require('./routes/facultyAssignmentRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
 const qrSessionService = require('./services/qrSessionService');
+const GroupSession = require('./models/GroupSession');
+const qrTokenService = require('./services/qrTokenService');
+const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const photoVerificationService = require('./services/photoVerificationService'); // Import photoVerificationService
 const auth = require('./middleware/auth'); // Import auth middleware
@@ -522,6 +525,506 @@ io.on('connection', (socket) => {
             socket.emit('qr-error', { message: error.message });
         }
     });
+
+    // ==================== GROUP SESSION SOCKET HANDLERS ====================
+    
+    // Group Session Start - Wrapper that calls individual startSession for each section
+    socket.on('qr-startGroupSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can start group QR sessions');
+            }
+
+            const { sections } = data; // Array of section objects with {department, semester, section, totalStudents}
+            if (!sections || !Array.isArray(sections) || sections.length === 0) {
+                throw new Error('At least one section must be selected for group session');
+            }
+
+            const facultyData = {
+                facultyId: socket.user.facultyId,
+                name: socket.user.name,
+                email: socket.user.email
+            };
+
+            // Create group session record
+            const groupSessionId = uuidv4();
+            const individualSessions = [];
+
+            // Start individual sessions for each section
+            for (const sectionData of sections) {
+                const sessionData = {
+                    department: sectionData.department,
+                    semester: sectionData.semester,
+                    section: sectionData.section,
+                    totalStudents: parseInt(sectionData.totalStudents),
+                    sessionType: data.sessionType || 'roll'
+                };
+
+                // Call existing startSession function
+                const result = await qrSessionService.startSession(sessionData, facultyData);
+                
+                individualSessions.push({
+                    sessionId: result.sessionId,
+                    department: sectionData.department,
+                    semester: sectionData.semester,
+                    section: sectionData.section,
+                    totalStudents: parseInt(sectionData.totalStudents)
+                });
+
+                // Emit existing qr-sessionStarted event for each section (mobile app compatibility)
+                const roomName = `${sectionData.department}-${sectionData.semester}-${sectionData.section}`;
+                const sessionStatusData = {
+                    sessionId: result.sessionId,
+                    status: 'created',
+                    canJoin: true,
+                    canScanQR: false,
+                    facultyName: socket.user.name,
+                    department: sectionData.department,
+                    semester: sectionData.semester,
+                    section: sectionData.section,
+                    message: 'New session started - you can join now!'
+                };
+                
+                socket.to(roomName).emit('qr-sessionStarted', sessionStatusData);
+                socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
+            }
+
+            // Create group session record
+            const groupSession = new GroupSession({
+                groupSessionId,
+                facultyId: socket.user.facultyId,
+                facultyName: socket.user.name,
+                facultyEmail: socket.user.email,
+                sections: individualSessions,
+                status: 'created',
+                totalStudentsAcrossSections: individualSessions.reduce((sum, s) => sum + s.totalStudents, 0)
+            });
+
+            await groupSession.save();
+
+            // Emit to faculty
+            socket.emit('qr-groupSessionStarted', {
+                success: true,
+                groupSessionId,
+                status: 'created',
+                message: 'Group session started successfully for all sections!',
+                groupSessionData: {
+                    groupSessionId,
+                    sections: individualSessions,
+                    status: 'created',
+                    totalSections: individualSessions.length,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
+                    canLock: true,
+                    canStartAttendance: false
+                }
+            });
+
+            console.log(`✅ Group Session started: ${groupSessionId} for ${individualSessions.length} sections`);
+
+        } catch (error) {
+            console.error('Group session start error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // Group Session Lock - Wrapper that calls lockSession for each individual session
+    socket.on('qr-lockGroupSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can lock group QR sessions');
+            }
+
+            const { groupSessionId } = data;
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+
+            if (groupSession.facultyId !== socket.user.facultyId) {
+                throw new Error('Unauthorized: You can only lock your own group sessions');
+            }
+
+            if (groupSession.status !== 'created') {
+                throw new Error('Group session cannot be locked in current state');
+            }
+
+            // Lock each individual session
+            for (const sectionInfo of groupSession.sections) {
+                await qrSessionService.lockSession(sectionInfo.sessionId, socket.user.facultyId);
+                
+                // Emit existing qr-sessionLocked event for each section (mobile app compatibility)
+                const roomName = `${sectionInfo.department}-${sectionInfo.semester}-${sectionInfo.section}`;
+                const sessionStatusData = {
+                    sessionId: sectionInfo.sessionId,
+                    status: 'locked',
+                    canJoin: false,
+                    canScanQR: false,
+                    facultyName: socket.user.name,
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    message: 'Session locked by faculty'
+                };
+                
+                socket.to(roomName).emit('qr-sessionLocked', sessionStatusData);
+                socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
+            }
+
+            // Update group session status
+            groupSession.status = 'locked';
+            groupSession.lockedAt = new Date();
+            await groupSession.save();
+
+            // Emit to faculty
+            socket.emit('qr-groupSessionLocked', {
+                success: true,
+                groupSessionId,
+                status: 'locked',
+                message: 'Group session locked successfully for all sections!',
+                groupSessionData: {
+                    groupSessionId,
+                    sections: groupSession.sections,
+                    status: 'locked',
+                    canLock: false,
+                    canStartAttendance: true
+                }
+            });
+
+        } catch (error) {
+            console.error('Group session lock error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // Group Session Unlock - Wrapper that calls unlockSession for each individual session
+    socket.on('qr-unlockGroupSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can unlock group QR sessions');
+            }
+
+            const { groupSessionId } = data;
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+
+            if (groupSession.facultyId !== socket.user.facultyId) {
+                throw new Error('Unauthorized: You can only unlock your own group sessions');
+            }
+
+            if (groupSession.status !== 'locked') {
+                throw new Error('Group session is not locked');
+            }
+
+            // Unlock each individual session
+            for (const sectionInfo of groupSession.sections) {
+                await qrSessionService.unlockSession(sectionInfo.sessionId, socket.user.facultyId);
+                
+                // Emit existing qr-sessionUnlocked event for each section (mobile app compatibility)
+                const roomName = `${sectionInfo.department}-${sectionInfo.semester}-${sectionInfo.section}`;
+                const sessionStatusData = {
+                    sessionId: sectionInfo.sessionId,
+                    status: 'created',
+                    canJoin: true,
+                    canScanQR: false,
+                    facultyName: socket.user.name,
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    message: 'Session unlocked - you can join again'
+                };
+                
+                socket.to(roomName).emit('qr-sessionUnlocked', sessionStatusData);
+                socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
+            }
+
+            // Update group session status
+            groupSession.status = 'created';
+            groupSession.lockedAt = null;
+            await groupSession.save();
+
+            // Emit to faculty
+            socket.emit('qr-groupSessionUnlocked', {
+                success: true,
+                groupSessionId,
+                status: 'created',
+                message: 'Group session unlocked successfully for all sections!',
+                groupSessionData: {
+                    groupSessionId,
+                    sections: groupSession.sections,
+                    status: 'created',
+                    canLock: true,
+                    canStartAttendance: false
+                }
+            });
+
+        } catch (error) {
+            console.error('Group session unlock error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // Group Session Broadcast Join - Wrapper that calls broadcastJoinSession for each individual session
+    socket.on('qr-broadcastJoinGroupSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can broadcast join for group sessions');
+            }
+
+            const { groupSessionId } = data;
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+
+            if (groupSession.facultyId !== socket.user.facultyId) {
+                throw new Error('Unauthorized: You can only broadcast for your own group sessions');
+            }
+
+            if (groupSession.status !== 'created') {
+                throw new Error('Can only broadcast join notifications for created group sessions');
+            }
+
+            // Broadcast join for each individual session
+            for (const sectionInfo of groupSession.sections) {
+                // Emit existing qr-joinSessionBroadcasted event for each section (mobile app compatibility)
+                const roomName = `${sectionInfo.department}-${sectionInfo.semester}-${sectionInfo.section}`;
+                
+                const joinNotificationData = {
+                    success: true,
+                    hasActiveSession: true,
+                    sessionId: sectionInfo.sessionId,
+                    status: 'created',
+                    canJoin: true,
+                    canScanQR: false,
+                    hasJoined: false,
+                    hasMarkedAttendance: false,
+                    facultyName: socket.user.name,
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    message: '📢 Faculty has opened the session - you can now join!'
+                };
+                
+                socket.to(roomName).emit('qr-joinSessionAvailable', joinNotificationData);
+                socket.to(roomName).emit('sessionStatusUpdate', joinNotificationData);
+            }
+
+            // Emit to faculty
+            socket.emit('qr-groupJoinSessionBroadcasted', {
+                success: true,
+                groupSessionId,
+                message: 'Join session notification sent to all students in all sections'
+            });
+
+            console.log(`📢 Group join session broadcasted by ${socket.user.name} for group: ${groupSessionId}`);
+
+        } catch (error) {
+            console.error('Group session broadcast join error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // Group Session Start Attendance - Wrapper that generates single QR and calls startAttendance for each session
+    socket.on('qr-startGroupAttendance', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can start group attendance');
+            }
+
+            const { groupSessionId } = data;
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+
+            if (groupSession.facultyId !== socket.user.facultyId) {
+                throw new Error('Unauthorized: You can only start attendance for your own group sessions');
+            }
+
+            if (groupSession.status !== 'locked') {
+                throw new Error('Group session must be locked before starting attendance');
+            }
+
+            // Generate single group QR token for all sections
+            const groupQRData = qrTokenService.generateGroupQRToken({
+                groupSessionId: groupSessionId,
+                facultyId: socket.user.facultyId,
+                sections: groupSession.sections
+            });
+
+            // Start attendance for each individual session and apply the group QR token
+            for (const sectionInfo of groupSession.sections) {
+                await qrSessionService.startAttendance(sectionInfo.sessionId, socket.user.facultyId);
+                
+                // Update individual session with group QR token
+                const QRSession = require('./models/QRSession');
+                await QRSession.updateOne(
+                    { sessionId: sectionInfo.sessionId },
+                    { 
+                        currentQRToken: groupQRData.token,
+                        qrTokenExpiry: groupQRData.expiryTime,
+                        qrRefreshCount: 1
+                    }
+                );
+                
+                // Emit existing qr-attendanceStarted event for each section (mobile app compatibility)
+                const roomName = `${sectionInfo.department}-${sectionInfo.semester}-${sectionInfo.section}`;
+                const sessionStatusData = {
+                    sessionId: sectionInfo.sessionId,
+                    status: 'active',
+                    canJoin: false,
+                    canScanQR: true,
+                    facultyName: socket.user.name,
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    message: 'Attendance started - scan QR code now!'
+                };
+                
+                socket.to(roomName).emit('qr-attendanceStarted', sessionStatusData);
+                socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
+            }
+
+            // Update group session status
+            groupSession.status = 'active';
+            groupSession.startedAt = new Date();
+            groupSession.currentGroupQRToken = groupQRData.token;
+            groupSession.qrTokenExpiry = groupQRData.expiryTime;
+            groupSession.qrRefreshCount = 1;
+            await groupSession.save();
+
+            // Emit to faculty with group QR data
+            socket.emit('qr-groupAttendanceStarted', {
+                success: true,
+                groupSessionId,
+                status: 'active',
+                message: 'Group attendance started successfully for all sections!',
+                qrData: {
+                    token: groupQRData.token,
+                    expiryTime: groupQRData.expiryTime,
+                    refreshCount: 1,
+                    timerSeconds: 5
+                },
+                groupSessionData: {
+                    groupSessionId,
+                    sections: groupSession.sections,
+                    status: 'active',
+                    totalSections: groupSession.sections.length,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections
+                }
+            });
+
+            console.log(`📱 Group QR Attendance started: ${groupSessionId} with single QR token`);
+
+        } catch (error) {
+            console.error('Group session start attendance error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // Group Session End - Wrapper that calls endSession for each individual session
+    socket.on('qr-endGroupSession', async (data) => {
+        try {
+            if (socket.user.role !== 'faculty') {
+                throw new Error('Only faculty members can end group QR sessions');
+            }
+
+            const { groupSessionId } = data;
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+
+            if (groupSession.facultyId !== socket.user.facultyId) {
+                throw new Error('Unauthorized: You can only end your own group sessions');
+            }
+
+            if (groupSession.status === 'ended') {
+                throw new Error('Group session already ended');
+            }
+
+            let totalJoined = 0;
+            let totalPresent = 0;
+            const sectionResults = [];
+
+            // End each individual session
+            for (const sectionInfo of groupSession.sections) {
+                const result = await qrSessionService.endSession(sectionInfo.sessionId, socket.user.facultyId);
+                
+                totalJoined += result.finalStats.studentsJoined;
+                totalPresent += result.finalStats.studentsPresent;
+                
+                sectionResults.push({
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    totalStudents: sectionInfo.totalStudents,
+                    studentsJoined: result.finalStats.studentsJoined,
+                    studentsPresent: result.finalStats.studentsPresent,
+                    presentPercentage: result.finalStats.presentPercentage
+                });
+                
+                // Emit existing qr-sessionEnded event for each section (mobile app compatibility)
+                const roomName = `${sectionInfo.department}-${sectionInfo.semester}-${sectionInfo.section}`;
+                const sessionStatusData = {
+                    sessionId: sectionInfo.sessionId,
+                    status: 'ended',
+                    canJoin: false,
+                    canScanQR: false,
+                    facultyName: socket.user.name,
+                    department: sectionInfo.department,
+                    semester: sectionInfo.semester,
+                    section: sectionInfo.section,
+                    message: 'Attendance session has ended'
+                };
+                
+                socket.to(roomName).emit('qr-sessionEnded', {
+                    sessionId: sectionInfo.sessionId,
+                    message: 'Attendance session has ended',
+                    finalStats: result.finalStats
+                });
+                socket.to(roomName).emit('sessionStatusUpdate', sessionStatusData);
+            }
+
+            // Update group session status
+            groupSession.status = 'ended';
+            groupSession.endedAt = new Date();
+            groupSession.totalStudentsJoined = totalJoined;
+            groupSession.totalStudentsPresent = totalPresent;
+            await groupSession.save();
+
+            // Emit to faculty with aggregated stats
+            socket.emit('qr-groupSessionEnded', {
+                success: true,
+                groupSessionId,
+                message: 'Group session ended successfully for all sections!',
+                finalStats: {
+                    totalSections: groupSession.sections.length,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
+                    totalStudentsJoined: totalJoined,
+                    totalStudentsPresent: totalPresent,
+                    overallPresentPercentage: Math.round((totalPresent / groupSession.totalStudentsAcrossSections) * 100),
+                    sectionResults: sectionResults,
+                    sessionDuration: Math.round((groupSession.endedAt - groupSession.createdAt) / 1000 / 60) // minutes
+                }
+            });
+
+            console.log(`🏁 Group Session ended: ${groupSessionId} for ${groupSession.sections.length} sections`);
+
+        } catch (error) {
+            console.error('Group session end error:', error);
+            socket.emit('qr-error', { message: error.message });
+        }
+    });
+
+    // ==================== END GROUP SESSION HANDLERS ====================
 
     // ==================== MOBILE APP SOCKET HANDLERS ====================
 

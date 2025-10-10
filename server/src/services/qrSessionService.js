@@ -561,21 +561,9 @@ class QRSessionService {
      * @returns {Object} - Attendance result
      */
     async markAttendance(qrToken, studentData) {
-        // Validate QR token
-        const tokenValidation = qrTokenService.validateQRToken(qrToken);
+        // Validate QR token (pass student data for group token validation)
+        const tokenValidation = qrTokenService.validateQRToken(qrToken, studentData);
         if (!tokenValidation.valid) {
-            // // Increment invalid attempts
-            // const session = await QRSession.findOne({ 
-            //     department: studentData.course,
-            //     semester: studentData.semester,
-            //     section: studentData.section,
-            //     status: 'active'
-            // });
-            // if (session) {
-            //     session.analytics.invalidQRAttempts += 1;
-            //     await session.save();
-            // }
-            
             throw new Error(tokenValidation.error);
         }
 

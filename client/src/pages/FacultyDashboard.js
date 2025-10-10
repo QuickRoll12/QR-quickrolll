@@ -31,16 +31,22 @@ const FacultyDashboard = () => {
     const [availableTeachingAssignments, setAvailableTeachingAssignments] = useState([]);
     const [availableSemesterSections, setAvailableSemesterSections] = useState({});
     const [sessionStats, setSessionStats] = useState(null);
-    const [copiedText, setCopiedText] = useState('');
     const [attendanceType, setAttendanceType] = useState('roll'); // 'roll' or 'gmail'
     const [downloadingPdf, setDownloadingPdf] = useState(false);
     const [startingSession, setStartingSession] = useState(false);
     const [endingSession, setEndingSession] = useState(false);
+    const [copiedText, setCopiedText] = useState('');
     
     // QR Attendance State
     const [qrSessionData, setQrSessionData] = useState(null);
     const [qrData, setQrData] = useState(null);
     const [qrSessionActive, setQrSessionActive] = useState(false);
+
+    // Group Session State
+    const [groupMode, setGroupMode] = useState(false);
+    const [selectedSections, setSelectedSections] = useState([]);
+    const [groupSessionData, setGroupSessionData] = useState(null);
+    const [groupSessionActive, setGroupSessionActive] = useState(false);
 
     useEffect(() => {
         if (user?.role === 'faculty') {
@@ -112,6 +118,46 @@ const FacultyDashboard = () => {
             newSocket.on('qr-joinSessionBroadcasted', (data) => {
                 console.log('Join session broadcasted:', data);
                 showSuccessMessage('Join session notification sent to all students!');
+            });
+
+            // Group Session Socket Listeners
+            newSocket.on('qr-groupSessionStarted', (data) => {
+                console.log('Group Session started:', data);
+                setGroupSessionData(data.groupSessionData);
+                setGroupSessionActive(true);
+                showSuccessMessage('Group Session started successfully!');
+            });
+
+            newSocket.on('qr-groupSessionLocked', (data) => {
+                console.log('Group Session locked:', data);
+                setGroupSessionData(data.groupSessionData);
+                showSuccessMessage('Group Session locked successfully!');
+            });
+
+            newSocket.on('qr-groupSessionUnlocked', (data) => {
+                console.log('Group Session unlocked:', data);
+                setGroupSessionData(data.groupSessionData);
+                showSuccessMessage('Group Session unlocked successfully!');
+            });
+
+            newSocket.on('qr-groupAttendanceStarted', (data) => {
+                console.log('Group Attendance started:', data);
+                setGroupSessionData(data.groupSessionData);
+                setQrData(data.qrData);
+                showSuccessMessage('Group Attendance started!');
+            });
+
+            newSocket.on('qr-groupJoinSessionBroadcasted', (data) => {
+                console.log('Group join session broadcasted:', data);
+                showSuccessMessage('Join session notification sent to all students in all sections!');
+            });
+
+            newSocket.on('qr-groupSessionEnded', (data) => {
+                console.log('Group Session ended:', data);
+                setGroupSessionData(null);
+                setQrData(null);
+                setGroupSessionActive(false);
+                showSuccessMessage('Group Session ended successfully!');
             });
 
             return () => newSocket.close();
@@ -530,9 +576,124 @@ const FacultyDashboard = () => {
         }, 10000);
     };
 
-    const showSuccessMessage = (msg) => {
-        showNotificationMessage(msg, 'success');
+    // ==================== GROUP SESSION HANDLERS ====================
+    
+    const handleSectionToggle = (assignment) => {
+        if (!groupMode) return;
+        
+        const isSelected = selectedSections.some(s => 
+            s.department === assignment.department && 
+            s.semester === assignment.semester && 
+            s.section === assignment.section
+        );
+        
+        if (isSelected) {
+            setSelectedSections(prev => prev.filter(s => 
+                !(s.department === assignment.department && 
+                  s.semester === assignment.semester && 
+                  s.section === assignment.section)
+            ));
+        } else {
+            setSelectedSections(prev => [...prev, {
+                department: assignment.department,
+                semester: assignment.semester,
+                section: assignment.section,
+                totalStudents: assignment.totalStudents || 50 // Default value
+            }]);
+        }
     };
+
+    const startGroupSession = () => {
+        if (selectedSections.length === 0) {
+            showErrorMessage('Please select at least one section for group session');
+            return;
+        }
+
+        if (selectedSections.some(s => !s.totalStudents || s.totalStudents <= 0)) {
+            showErrorMessage('Please set total students for all selected sections');
+            return;
+        }
+
+        setStartingSession(true);
+        
+        socket.emit('qr-startGroupSession', {
+            sections: selectedSections,
+            sessionType: attendanceType
+        });
+
+        setTimeout(() => {
+            setStartingSession(false);
+        }, 10000);
+    };
+
+    const lockGroupSession = () => {
+        if (!groupSessionData?.groupSessionId) {
+            showErrorMessage('No active group session found');
+            return;
+        }
+
+        socket.emit('qr-lockGroupSession', {
+            groupSessionId: groupSessionData.groupSessionId
+        });
+    };
+
+    const unlockGroupSession = () => {
+        if (!groupSessionData?.groupSessionId) {
+            showErrorMessage('No active group session found');
+            return;
+        }
+
+        socket.emit('qr-unlockGroupSession', {
+            groupSessionId: groupSessionData.groupSessionId
+        });
+    };
+
+    const startGroupAttendance = () => {
+        if (!groupSessionData?.groupSessionId) {
+            showErrorMessage('No active group session found');
+            return;
+        }
+
+        socket.emit('qr-startGroupAttendance', {
+            groupSessionId: groupSessionData.groupSessionId
+        });
+    };
+
+    const broadcastJoinGroupSession = () => {
+        if (!groupSessionData?.groupSessionId) {
+            showErrorMessage('No active group session found');
+            return;
+        }
+
+        socket.emit('qr-broadcastJoinGroupSession', {
+            groupSessionId: groupSessionData.groupSessionId
+        });
+    };
+
+    const endGroupSession = () => {
+        if (!groupSessionData?.groupSessionId) {
+            showErrorMessage('No active group session found');
+            return;
+        }
+
+        setEndingSession(true);
+        
+        socket.emit('qr-endGroupSession', {
+            groupSessionId: groupSessionData.groupSessionId
+        });
+
+        setTimeout(() => {
+            setEndingSession(false);
+        }, 5000);
+    };
+
+    const updateSectionTotalStudents = (sectionIndex, totalStudents) => {
+        setSelectedSections(prev => prev.map((section, index) => 
+            index === sectionIndex ? { ...section, totalStudents: parseInt(totalStudents) || 0 } : section
+        ));
+    };
+
+    // ==================== END GROUP SESSION HANDLERS ====================
 
     const showErrorMessage = (msg) => {
         showNotificationMessage(msg, 'error');
@@ -591,8 +752,38 @@ const FacultyDashboard = () => {
                         </div>
                     </div>
 
+                    {/* Group Mode Toggle */}
+                    <div style={styles.groupModeContainer}>
+                        <label style={styles.groupModeLabel}>
+                            <input
+                                type="checkbox"
+                                checked={groupMode}
+                                onChange={(e) => {
+                                    setGroupMode(e.target.checked);
+                                    if (!e.target.checked) {
+                                        setSelectedSections([]);
+                                    }
+                                }}
+                                style={styles.groupModeCheckbox}
+                                disabled={qrSessionActive || groupSessionActive}
+                            />
+                            <span style={styles.groupModeText}>Group Session Mode</span>
+                        </label>
+                        <p style={styles.groupModeDescription}>
+                            {groupMode 
+                                ? "Select multiple sections to take attendance for all at once with a single QR code"
+                                : "Single section mode - select one section for attendance"
+                            }
+                        </p>
+                    </div>
+
                     <div style={styles.assignmentsTableContainer}>
-                        <p style={styles.tableSubtitle}>Click on a row to select a class for attendance</p>
+                        <p style={styles.tableSubtitle}>
+                            {groupMode 
+                                ? "Select multiple sections for group attendance" 
+                                : "Click on a row to select a class for attendance"
+                            }
+                        </p>
                         
                         <div style={styles.tableWrapper}>
                             <table style={styles.assignmentsTable}>
@@ -607,10 +798,15 @@ const FacultyDashboard = () => {
                                 </thead>
                                 <tbody>
                                     {availableTeachingAssignments.map((assignment, index) => {
-                                        const isSelected = 
-                                            selectedDepartment === user.department && 
-                                            selectedSemester === assignment.semester && 
-                                            selectedSection === assignment.section;
+                                        const isSelected = groupMode 
+                                            ? selectedSections.some(s => 
+                                                s.department === assignment.department && 
+                                                s.semester === assignment.semester && 
+                                                s.section === assignment.section
+                                              )
+                                            : (selectedDepartment === user.department && 
+                                               selectedSemester === assignment.semester && 
+                                               selectedSection === assignment.section);
                                             
                                         return (
                                             <tr 
@@ -618,14 +814,18 @@ const FacultyDashboard = () => {
                                                 style={{
                                                     ...styles.tableRow,
                                                     backgroundColor: isSelected ? '#e8f5e9' : 'transparent',
-                                                    cursor: sessionActive ? 'not-allowed' : 'pointer',
+                                                    cursor: (qrSessionActive || groupSessionActive) ? 'not-allowed' : 'pointer',
                                                     border: isSelected ? '1px solid #4caf50' : '1px solid #eee'
                                                 }}
                                                 onClick={() => {
-                                                    if (!sessionActive) {
-                                                        setSelectedDepartment(user.department);
-                                                        setSelectedSemester(assignment.semester);
-                                                        setSelectedSection(assignment.section);
+                                                    if (!qrSessionActive && !groupSessionActive) {
+                                                        if (groupMode) {
+                                                            handleSectionToggle(assignment);
+                                                        } else {
+                                                            setSelectedDepartment(user.department);
+                                                            setSelectedSemester(assignment.semester);
+                                                            setSelectedSection(assignment.section);
+                                                        }
                                                     }
                                                 }}
                                             >
@@ -645,20 +845,38 @@ const FacultyDashboard = () => {
                                                     {attendanceType === 'roll' && (
                                                         <input
                                                             type="number"
-                                                            value={isSelected ? totalStudents : ''}
+                                                            value={groupMode 
+                                                                ? (selectedSections.find(s => 
+                                                                    s.department === assignment.department && 
+                                                                    s.semester === assignment.semester && 
+                                                                    s.section === assignment.section
+                                                                  )?.totalStudents || '')
+                                                                : (isSelected ? totalStudents : '')
+                                                            }
                                                             onChange={(e) => {
-                                                                if (isSelected) {
+                                                                if (groupMode) {
+                                                                    const sectionIndex = selectedSections.findIndex(s => 
+                                                                        s.department === assignment.department && 
+                                                                        s.semester === assignment.semester && 
+                                                                        s.section === assignment.section
+                                                                    );
+                                                                    if (sectionIndex !== -1) {
+                                                                        updateSectionTotalStudents(sectionIndex, e.target.value);
+                                                                    }
+                                                                } else if (isSelected) {
                                                                     setTotalStudents(e.target.value);
                                                                 }
                                                             }}
                                                             onClick={(e) => {
-                                                                // Prevent the row click event from triggering
                                                                 e.stopPropagation();
-                                                                // Select this row if not already selected
-                                                                if (!sessionActive && !isSelected) {
-                                                                    setSelectedDepartment(user.department);
-                                                                    setSelectedSemester(assignment.semester);
-                                                                    setSelectedSection(assignment.section);
+                                                                if (!qrSessionActive && !groupSessionActive && !isSelected) {
+                                                                    if (groupMode) {
+                                                                        handleSectionToggle(assignment);
+                                                                    } else {
+                                                                        setSelectedDepartment(user.department);
+                                                                        setSelectedSemester(assignment.semester);
+                                                                        setSelectedSection(assignment.section);
+                                                                    }
                                                                 }
                                                             }}
                                                             style={{
@@ -668,7 +886,7 @@ const FacultyDashboard = () => {
                                                             }}
                                                             placeholder="Enter total"
                                                             min="1"
-                                                            disabled={sessionActive}
+                                                            disabled={qrSessionActive || groupSessionActive}
                                                         />
                                                     )}
                                                 </td>
@@ -682,23 +900,32 @@ const FacultyDashboard = () => {
 
                     <div style={styles.buttonGroup}>
                         <button
-                            onClick={sessionActive ? endSession : startSession}
+                            onClick={groupMode 
+                                ? (groupSessionActive ? endGroupSession : startGroupSession)
+                                : (qrSessionActive ? endSession : startSession)
+                            }
                             style={{
                                 ...styles.button,
-                                backgroundColor: sessionActive ? '#f44336' : '#4caf50',
+                                backgroundColor: (qrSessionActive || groupSessionActive) ? '#f44336' : '#4caf50',
                                 flex: 2,
                                 opacity: startingSession || endingSession ? 0.7 : 1,
                                 cursor: startingSession || endingSession ? 'not-allowed' : 'pointer'
                             }}
                             disabled={startingSession || endingSession}
                         >
-                            {sessionActive 
-                                ? (endingSession ? 'Ending Session...' : 'End Session') 
-                                : (startingSession ? 'Starting Session...' : 'Start Session')
+                            {groupMode 
+                                ? (groupSessionActive 
+                                    ? (endingSession ? 'Ending Group Session...' : 'End Group Session') 
+                                    : (startingSession ? 'Starting Group Session...' : 'Start Group Session')
+                                  )
+                                : (qrSessionActive 
+                                    ? (endingSession ? 'Ending Session...' : 'End Session') 
+                                    : (startingSession ? 'Starting Session...' : 'Start Session')
+                                  )
                             }
                         </button>
 
-                        {sessionActive && (
+                        {(qrSessionActive || groupSessionActive) && (
                             <button
                                 onClick={refreshCodes}
                                 style={{
@@ -803,6 +1030,22 @@ const FacultyDashboard = () => {
                     />
                 )}
 
+                {/* GROUP SESSION QR ATTENDANCE SYSTEM */}
+                {groupSessionActive && groupSessionData && (
+                    <QRAttendancePanel
+                        qrData={qrData}
+                        sessionData={groupSessionData}
+                        isGroupSession={true}
+                        onLockSession={lockGroupSession}
+                        onUnlockSession={unlockGroupSession}
+                        onStartAttendance={startGroupAttendance}
+                        onEndSession={endGroupSession}
+                        onBroadcastJoinSession={broadcastJoinGroupSession}
+                        onQRTokenRefresh={handleQRTokenRefresh}
+                        socket={socket}
+                    />
+                )}
+
                 {sessionStats && sessionStats.sessionType !== 'gmail' && (
                     <div style={styles.sessionStats}>
                         <h3 style={styles.statsTitle}>Session Statistics</h3>
@@ -810,7 +1053,7 @@ const FacultyDashboard = () => {
                         <div style={styles.statsGrid}>
                             <div style={styles.statsItem}>
                                 <div style={styles.statsLabel}>Attendance Type</div>
-                                <div style={styles.statsValue}>Roll Number-based</div>
+                                <div style={styles.statsValue}>{sessionStats.sessionType === 'roll' ? 'Roll Number-based' : 'QR-based'}</div>
                             </div>
                             
                             <div style={styles.statsItem}>
@@ -1014,6 +1257,34 @@ const styles = {
         color: 'white',
         fontSize: '16px',
         fontWeight: 'bold'
+    },
+    // Group Mode Styles
+    groupModeContainer: {
+        marginBottom: '20px',
+        padding: '15px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef'
+    },
+    groupModeLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        cursor: 'pointer',
+        fontSize: '16px',
+        fontWeight: 'bold'
+    },
+    groupModeCheckbox: {
+        marginRight: '10px',
+        transform: 'scale(1.2)'
+    },
+    groupModeText: {
+        color: '#333'
+    },
+    groupModeDescription: {
+        marginTop: '8px',
+        fontSize: '14px',
+        color: '#666',
+        fontStyle: 'italic'
     },
     title: {
         fontSize: '32px',
