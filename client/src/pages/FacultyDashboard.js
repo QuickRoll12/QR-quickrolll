@@ -603,7 +603,7 @@ const FacultyDashboard = () => {
                 department: user.department,
                 semester: assignment.semester,
                 section: assignment.section,
-                totalStudents: assignment.totalStudents || 50 // Default value
+                totalStudents: assignment.totalStudents || '' // User must enter value
             }]);
         }
     };
@@ -852,7 +852,7 @@ const FacultyDashboard = () => {
                                                             type="number"
                                                             value={groupMode 
                                                                 ? (selectedSections.find(s => 
-                                                                    s.department === assignment.department && 
+                                                                    s.department === user.department && 
                                                                     s.semester === assignment.semester && 
                                                                     s.section === assignment.section
                                                                   )?.totalStudents || '')
@@ -861,7 +861,7 @@ const FacultyDashboard = () => {
                                                             onChange={(e) => {
                                                                 if (groupMode) {
                                                                     const sectionIndex = selectedSections.findIndex(s => 
-                                                                        s.department === assignment.department && 
+                                                                        s.department === user.department && 
                                                                         s.semester === assignment.semester && 
                                                                         s.section === assignment.section
                                                                     );
