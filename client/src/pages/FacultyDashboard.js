@@ -1279,6 +1279,7 @@ const styles = {
         fontWeight: 'bold'
     },
     groupModeCheckbox: {
+        width: 'auto',
         marginRight: '10px',
         transform: 'scale(1.2)'
     },
