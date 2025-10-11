@@ -115,7 +115,7 @@ const QRAttendancePanel = memo(({
             const token = localStorage.getItem('token');
     
             // 2. Define the backend URL from environment variables, with a fallback for local development.
-            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
             
             // 3. Construct the complete, absolute URL for the API endpoint based on session type.
             let url;
@@ -327,7 +327,7 @@ const QRAttendancePanel = memo(({
                     <div className="attendance-progress">
                         <div className="progress-label">
                             <span>Attendance Progress</span>
-                            <span>{liveStats.totalPresent}/{sessionData?.totalStudents || 0}</span>
+                            <span>{liveStats.totalPresent}/{(isGroupSession)?sessionData?.totalStudentsAcrossSections || 0:sessionData?.totalStudents || 0}</span>
                         </div>
                         <div className="progress-bar">
                             <div className="progress-fill" style={{ width: `${liveStats.presentPercentage}%` }}></div>
