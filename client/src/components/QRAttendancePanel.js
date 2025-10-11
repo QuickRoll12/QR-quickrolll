@@ -13,7 +13,7 @@ const QRAttendancePanel = memo(({
     onBroadcastJoinSession,
     onQRTokenRefresh,
     socket,
-    isGroupSession = false
+    isGroupSession
 }) => {
     // STATE MANAGEMENT - Simplified to only store necessary data
     const [timeLeft, setTimeLeft] = useState(5);

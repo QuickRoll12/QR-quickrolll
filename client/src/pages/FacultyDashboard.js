@@ -189,98 +189,6 @@ const FacultyDashboard = () => {
         }
     }, [user, loading, navigate]);
 
-    // useEffect(() => {
-    //     if (!socket) return;
-
-    //     const handleSessionStatus = (status) => {
-    //         console.log('Received session status:', status);
-    //         if (status && status.department === selectedDepartment && 
-    //             status.semester === selectedSemester && 
-    //             status.section === selectedSection) {
-    //             setSessionActive(status.active);
-    //             // Reset loading states when we get a response
-    //             setStartingSession(false);
-    //             setEndingSession(false);
-                
-    //             if (status.grid) {
-    //                 setGrid(status.grid);
-    //             }
-    //             if (status.totalStudents) {
-    //                 setTotalStudents(status.totalStudents.toString());
-    //             }
-    //             if (status.sessionType) {
-    //                 setAttendanceType(status.sessionType);
-    //             }
-    //         }
-    //     };
-
-    //     const handleUpdateGrid = (updatedData) => {
-    //         console.log('Received grid update:', updatedData);
-    //         if (updatedData && updatedData.grid && 
-    //             updatedData.department === selectedDepartment && 
-    //             updatedData.semester === selectedSemester && 
-    //             updatedData.section === selectedSection) {
-    //             setGrid(updatedData.grid);
-    //         }
-    //     };
-
-    //     const handleSessionEnded = (data) => {
-    //         console.log('Session ended:', data);
-    //         if (data.success && 
-    //             data.department === selectedDepartment && 
-    //             data.semester === selectedSemester && 
-    //             data.section === selectedSection) {
-    //             setSessionActive(false);
-    //             setSessionStats({
-    //                 totalStudents: data.totalStudents,
-    //                 presentCount: data.presentCount,
-    //                 absentees: data.absentees,
-    //                 presentStudents: data.presentStudents,
-    //                 sessionType: data.sessionType
-    //             });
-                
-    //             // Clear session stats after 1 minute
-    //             setTimeout(() => {
-    //                 setSessionStats(null);
-    //             }, 60000); // Clear stats after 1 minute
-    //         }
-    //     };
-
-    //     const handleSuccess = (data) => {
-    //         console.log('Success:', data);
-    //         showSuccessMessage(data.message);
-    //         setTimeout(() => setShowNotification(false), 3000);
-    //     };
-
-    //     const handleError = (data) => {
-    //         console.error('Error:', data);
-    //         showErrorMessage(data.message);
-    //         setTimeout(() => setShowNotification(false), 3000);
-    //     };
-
-    //     socket.on('sessionStatus', handleSessionStatus);
-    //     socket.on('updateGrid', handleUpdateGrid);
-    //     socket.on('sessionEnded', handleSessionEnded);
-    //     socket.on('success', handleSuccess);
-    //     socket.on('error', handleError);
-
-    //     if (selectedDepartment && selectedSemester && selectedSection) {
-    //         socket.emit('getSessionStatus', {
-    //             department: selectedDepartment,
-    //             semester: selectedSemester,
-    //             section: selectedSection
-    //         });
-    //     }
-
-    //     return () => {
-    //         socket.off('sessionStatus', handleSessionStatus);
-    //         socket.off('updateGrid', handleUpdateGrid);
-    //         socket.off('sessionEnded', handleSessionEnded);
-    //         socket.off('success', handleSuccess);
-    //         socket.off('error', handleError);
-    //     };
-    // }, [socket, selectedDepartment, selectedSemester, selectedSection]);
-
     useEffect(() => {
         if (sessionActive) {
             // Start the timer when session becomes active
@@ -929,96 +837,8 @@ const FacultyDashboard = () => {
                                   )
                             }
                         </button>
-
-                        {(qrSessionActive || groupSessionActive) && (
-                            <button
-                                onClick={refreshCodes}
-                                style={{
-                                    ...styles.button,
-                                    backgroundColor: '#ff9800',
-                                    flex: 1
-                                }}
-                            >
-                                Refresh Codes
-                            </button>
-                        )}
                     </div>
                 </div>
-
-                {/* OLD GRID SYSTEM - COMMENTED OUT FOR QR SYSTEM */}
-                {/* 
-                {sessionActive && (
-                    <div style={styles.sessionTimer}>
-                        <span style={styles.timerLabel}>Session Time:</span>
-                        <span style={styles.timerValue}>{formatTime(sessionTimer)}</span>
-                    </div>
-                )}
-
-                {sessionActive && (
-                    <div style={styles.gridContainer}>
-                        <h3 style={styles.subtitle}>Attendance Grid</h3>
-                        <div style={styles.grid}>
-                            {grid.map((row, i) => (
-                                <div key={i} style={styles.row}>
-                                    {row.map((cell, j) => (
-                                        <div
-                                            key={`${i}-${j}`}
-                                            style={{
-                                                ...styles.gridCell,
-                                                ...(cell.used ? styles.gridCellUsed : styles.gridCellUnused),
-                                                cursor: 'pointer',
-                                            }}
-                                            className="grid-cell"
-                                        >
-                                            <div className="student-info-card">
-                                                {cell.used ? (
-                                                    <div className="student-info-content">
-                                                        <h3>Student Information</h3>
-                                                        <p><strong>Name:</strong> {cell.studentName || 'N/A'}</p>
-                                                        <p><strong>Roll Number:</strong> {cell.studentRoll || 'N/A'}</p>
-                                                        <p><strong>Section:</strong> {selectedSection}</p>
-                                                        <p><strong>Email:</strong> {cell.studentEmail || 'N/A'}</p>
-                                                        <p><strong>Status:</strong> <span className="verified">{cell.photoFilename ? 'Verified' : 'No Photo'}</span></p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="student-info-content">
-                                                        <p>Not used</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
-                                            {cell.used && cell.photoFilename && (
-                                                <div style={styles.gridCellPhotoContainer}>
-                                                    <img 
-                                                        src={cell.cloudinaryUrl || `${BACKEND_URL}/api/photo-verification/${cell.photoFilename}`}
-                                                        alt="Student"
-                                                        style={styles.gridCellPhoto}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = 'https://via.placeholder.com/60?text=No+Photo';
-                                                        }}
-                                                    />
-                                                </div>
-                                            )}
-                                            <div style={styles.gridCellCode}>
-                                                {cell.code}
-                                            </div>
-                                            {cell.used && (
-                                                <div style={{
-                                                    ...styles.gridCellVerification,
-                                                    ...(cell.photoFilename ? styles.gridCellVerificationVerified : styles.gridCellVerificationNoPhoto)
-                                                }}>
-                                                    {cell.photoFilename ? 'Verified' : 'No Photo'}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-                */}
 
                 {/* NEW QR ATTENDANCE SYSTEM */}
                 {qrSessionActive && qrSessionData && (
@@ -1032,6 +852,7 @@ const FacultyDashboard = () => {
                         onBroadcastJoinSession={handleBroadcastJoinSession}
                         onQRTokenRefresh={handleQRTokenRefresh}
                         socket={socket}
+                        isGroupSession={false}
                     />
                 )}
 
@@ -1040,7 +861,6 @@ const FacultyDashboard = () => {
                     <QRAttendancePanel
                         qrData={qrData}
                         sessionData={groupSessionData}
-                        isGroupSession={true}
                         onLockSession={lockGroupSession}
                         onUnlockSession={unlockGroupSession}
                         onStartAttendance={startGroupAttendance}
@@ -1048,6 +868,7 @@ const FacultyDashboard = () => {
                         onBroadcastJoinSession={broadcastJoinGroupSession}
                         onQRTokenRefresh={handleQRTokenRefresh}
                         socket={socket}
+                        isGroupSession={true}
                     />
                 )}
 
