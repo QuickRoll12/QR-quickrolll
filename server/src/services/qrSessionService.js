@@ -1208,9 +1208,56 @@ class QRSessionService {
         
         return {
             sessionsProcessed: sessionIds.length,
-            joinRecordsDeleted: sessionIds.length > 0 ? (await SessionJoin.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0,
-            attendanceRecordsDeleted: sessionIds.length > 0 ? (await SessionAttendance.deleteMany({ sessionId: { $in: sessionIds } })).deletedCount : 0
+            joinRecordsDeleted: joinDeleted.deletedCount,
+            attendanceRecordsDeleted: attendanceDeleted.deletedCount
         };
+    }
+
+    // ==================== GROUP SESSION OPTIMIZATION METHODS ====================
+
+    /**
+     * Sync Redis group count to MongoDB (called periodically)
+     */
+    async syncGroupCountToDB(groupSessionId, currentCount) {
+        try {
+            const GroupSession = require('../models/GroupSession');
+            await GroupSession.findOneAndUpdate(
+                { groupSessionId },
+                { totalStudentsJoined: currentCount }
+            );
+            console.log(`🔄 Synced group ${groupSessionId} count to DB: ${currentCount}`);
+        } catch (error) {
+            console.error('Error syncing group count to DB:', error);
+        }
+    }
+
+    /**
+     * Get live group session count by aggregating individual sessions (ULTRA-OPTIMIZED)
+     */
+    async getGroupSessionLiveCount(groupSessionId) {
+        try {
+            const GroupSession = require('../models/GroupSession');
+            const QRSession = require('../models/QRSession');
+            
+            // Get group session
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            if (!groupSession) return 0;
+            
+            // Aggregate counts from individual sessions (single DB query)
+            const sessionIds = groupSession.sections.map(s => s.sessionId);
+            const sessions = await QRSession.find(
+                { sessionId: { $in: sessionIds } },
+                { studentsJoinedCount: 1 }
+            );
+            
+            // Sum up all joined counts
+            const totalJoined = sessions.reduce((sum, session) => sum + (session.studentsJoinedCount || 0), 0);
+            
+            return totalJoined;
+        } catch (error) {
+            console.error('Error getting live group count:', error);
+            return 0;
+        }
     }
 
     // ==================== GROUP QR REFRESH METHODS ====================
