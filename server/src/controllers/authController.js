@@ -15,6 +15,7 @@ const generateToken = (userId) => {
 
 exports.register = async (req, res) => {
   try {
+    return res.status(400).json({ message: 'Registration not allowed' });
     const { name, email, password, role, studentId, course, section, semester, classRollNumber, universityRollNumber } = req.body;
 
     // Check if user exists
@@ -330,49 +331,30 @@ exports.verifyEmail = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { identifier, password, deviceId} = req.body;
+    const { identifier, password, deviceId } = req.body;
 
-    // Check if identifier is provided
-    if (!identifier) {
-      return res.status(400).json({ message: 'Email or Student ID is required' });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Email/Student ID and password are required' });
     }
 
-    // Find user by email or studentId
-    let user;
-    // First try to find by StudentId
-    user = await User.findOne({ studentId: identifier });
-    
-    // If not found by StudentId, try to find by email (case insensitive)
-    if (!user) {
-      user = await User.findOne({ email: identifier.toLowerCase() });
-    }
-    
-    // If still not found, return error
-    if (!user) {
+    const user = await User.findOne({
+      $or: [
+        { studentId: identifier },
+        { email: identifier }
+      ]
+    }).collation({ locale: 'en', strength: 2 });
+
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if user is verified
-    if (!user.isVerified) {
-      return res.status(403).json({
-        message: 'Please verify your email before logging in',
-        isVerified: false
-      });
-    }
-
-    // ✅ Save deviceId if not already set
     if (deviceId && !user.deviceId) {
-      user.deviceId = deviceId;
-      await user.save();
+      User.updateOne({ _id: user._id }, { $set: { deviceId: deviceId } })
+        .catch(err => {
+          console.error(`Background deviceId update failed for user ${user._id}:`, err);
+        });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json({
@@ -385,18 +367,17 @@ exports.login = async (req, res) => {
         role: user.role,
         studentId: user.studentId,
         facultyId: user.facultyId,
-        course: user.course,                    // ✅ Required
+        course: user.course,
         department: user.department,
-        semester: user.semester,                // ✅ Required
-        section: user.section,                  // ✅ Required
-        classRollNumber: user.classRollNumber,  // ✅ Required
-        universityRollNumber: user.universityRollNumber,
-        isVerified: user.isVerified,
-        passwordChangeRequired: user.passwordChangeRequired || false
+        semester: user.semester,
+        section: user.section,
+        classRollNumber: user.classRollNumber,
       }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Error logging in', error: error.message });
+    console.error('Login Server Error:', error);
+    res.status(500).json({ message: 'An internal server error occurred during login.' });
   }
 };
 

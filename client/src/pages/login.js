@@ -168,7 +168,7 @@ const Login = () => {
                 <p><strong>Experience QuickRoll on the go!</strong> Mark attendance faster with our new Android app.</p>
               </div>
               <div className="popup-actions">
-                <a href="https://www.mediafire.com/file/f5nzyiid80dh75t/Quick_Roll.apk/file" className="download-btn" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.mediafire.com/file/pvt2uk423u4uxyz/QuickRoll-release_5.apk/file" className="download-btn" target="_blank" rel="noopener noreferrer">
                   Download Now
                 </a>
                 <button className="close-popup" onClick={() => setShowAppPopup(false)}>
