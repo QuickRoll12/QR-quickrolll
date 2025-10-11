@@ -282,7 +282,7 @@ const QRAttendancePanel = memo(({
                         <div className="stats-column">
                             <div className="stat-card">
                                 <div className="stat-icon">👥</div>
-                                <div className="stat-number">{sessionData?.totalStudents || 0}</div>
+                                <div className="stat-number">{(isGroupSession)?sessionData?.totalStudentsAcrossSections || 0:sessionData?.totalStudents || 0}</div>
                                 <div className="stat-label">Total Students</div>
                             </div>
                             <div className="stat-card">
