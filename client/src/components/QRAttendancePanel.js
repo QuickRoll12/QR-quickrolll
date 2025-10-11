@@ -12,7 +12,8 @@ const QRAttendancePanel = memo(({
     onEndSession,
     onBroadcastJoinSession,
     onQRTokenRefresh,
-    socket 
+    socket,
+    isGroupSession = false
 }) => {
     // STATE MANAGEMENT - Simplified to only store necessary data
     const [timeLeft, setTimeLeft] = useState(5);
@@ -28,9 +29,20 @@ const QRAttendancePanel = memo(({
     // This acts as the master source of truth for initializing and resetting state.
     useEffect(() => {
         if (sessionData) {
-            const totalStudents = sessionData.totalStudents || 0;
-            const presentCount = sessionData.studentsPresentCount || 0;
-            const joinedCount = sessionData.studentsJoinedCount || 0;
+            let totalStudents, presentCount, joinedCount;
+            
+            if (isGroupSession) {
+                // For group sessions, calculate total students across all sections
+                totalStudents = sessionData.totalStudentsAcrossSections || 
+                               (sessionData.sections ? sessionData.sections.reduce((sum, section) => sum + (section.totalStudents || 0), 0) : 0);
+                presentCount = sessionData.totalStudentsPresent || 0;
+                joinedCount = sessionData.totalStudentsJoined || 0;
+            } else {
+                // For single sessions, use existing logic
+                totalStudents = sessionData.totalStudents || 0;
+                presentCount = sessionData.studentsPresentCount || 0;
+                joinedCount = sessionData.studentsJoinedCount || 0;
+            }
 
             setLiveStats({
                 totalJoined: joinedCount,
@@ -38,7 +50,7 @@ const QRAttendancePanel = memo(({
                 presentPercentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0
             });
         }
-    }, [sessionData]);
+    }, [sessionData, isGroupSession]);
 
     // EFFECT: Manages the 5-second countdown timer for the QR code refresh.
     useEffect(() => {
@@ -92,8 +104,11 @@ const QRAttendancePanel = memo(({
 
     // POLLING LOGIC: Fetches marked attendance stats from the database.
     const pollAttendanceStats = useCallback(async () => {
-        // This condition remains the same, preventing unnecessary API calls.
-        if (!sessionData?.sessionId || sessionData?.status !== 'active') return;
+        // For group sessions, check if we have groupSessionId, for single sessions check sessionId
+        const sessionIdentifier = isGroupSession ? sessionData?.groupSessionId : sessionData?.sessionId;
+        
+        // This condition prevents unnecessary API calls.
+        if (!sessionIdentifier || sessionData?.status !== 'active') return;
         
         try {
             // 1. Get the authentication token from local storage.
@@ -102,8 +117,15 @@ const QRAttendancePanel = memo(({
             // 2. Define the backend URL from environment variables, with a fallback for local development.
             const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
             
-            // 3. Construct the complete, absolute URL for the API endpoint.
-            const url = `${BACKEND_URL}/api/qr-attendance/session/${sessionData.sessionId}/stats`;
+            // 3. Construct the complete, absolute URL for the API endpoint based on session type.
+            let url;
+            if (isGroupSession) {
+                // For group sessions, use the group session stats endpoint
+                url = `${BACKEND_URL}/api/qr-attendance/group-session/${sessionIdentifier}/stats`;
+            } else {
+                // For single sessions, use the existing single session stats endpoint
+                url = `${BACKEND_URL}/api/qr-attendance/session/${sessionIdentifier}/stats`;
+            }
     
             // 4. Make the GET request using axios.
             const response = await axios.get(
@@ -132,16 +154,16 @@ const QRAttendancePanel = memo(({
             if (error.response) {
                 // The request was made and the server responded with a status code
                 // that falls out of the range of 2xx
-                console.error('Failed to fetch stats:', error.response.status, error.response.data);
+                console.error(`Failed to fetch ${isGroupSession ? 'group' : 'single'} session stats:`, error.response.status, error.response.data);
             } else if (error.request) {
                 // The request was made but no response was received
-                console.error('Error polling attendance stats: No response from server.', error.request);
+                console.error(`Error polling ${isGroupSession ? 'group' : 'single'} session attendance stats: No response from server.`, error.request);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                console.error('Error polling attendance stats:', error.message);
+                console.error(`Error polling ${isGroupSession ? 'group' : 'single'} session attendance stats:`, error.message);
             }
         }
-    }, [sessionData?.sessionId, sessionData?.status]);
+    }, [sessionData?.sessionId, sessionData?.groupSessionId, sessionData?.status, isGroupSession]);
 
     // EFFECT: Manages the polling interval.
     useEffect(() => {
@@ -186,7 +208,11 @@ const QRAttendancePanel = memo(({
                     <span className="status-text">{getStatusText(sessionData?.status)}</span>
                 </div>
                 <div className="session-info">
-                    <span>{sessionData?.department} - {sessionData?.semester} - {sessionData?.section}</span>
+                    {isGroupSession ? (
+                        <span>Group Session - {sessionData?.sections?.length || 0} Sections</span>
+                    ) : (
+                        <span>{sessionData?.department} - {sessionData?.semester} - {sessionData?.section}</span>
+                    )}
                 </div>
             </div>
 
@@ -194,10 +220,10 @@ const QRAttendancePanel = memo(({
             <div className="control-buttons">
                 {sessionData?.status === 'created' && (
                     <>
-                        <button className="control-btn broadcast-btn" onClick={() => onBroadcastJoinSession(sessionData.sessionId)}>
+                        <button className="control-btn broadcast-btn" onClick={() => onBroadcastJoinSession(isGroupSession ? sessionData.groupSessionId : sessionData.sessionId)}>
                             📢 Notify
                         </button>
-                        <button className="control-btn lock-btn" onClick={() => onLockSession(sessionData.sessionId)}>
+                        <button className="control-btn lock-btn" onClick={() => onLockSession(isGroupSession ? sessionData.groupSessionId : sessionData.sessionId)}>
                             🔒 Lock Session
                         </button>
                     </>
@@ -205,17 +231,17 @@ const QRAttendancePanel = memo(({
                 
                 {sessionData?.status === 'locked' && (
                     <>
-                        <button className="control-btn unlock-btn" onClick={() => onUnlockSession(sessionData.sessionId)}>
+                        <button className="control-btn unlock-btn" onClick={() => onUnlockSession(isGroupSession ? sessionData.groupSessionId : sessionData.sessionId)}>
                             🔓 Unlock Session
                         </button>
-                        <button className="control-btn start-btn" onClick={() => onStartAttendance(sessionData.sessionId)}>
+                        <button className="control-btn start-btn" onClick={() => onStartAttendance(isGroupSession ? sessionData.groupSessionId : sessionData.sessionId)}>
                             📱 Start Attendance
                         </button>
                     </>
                 )}
                 
                 {(sessionData?.status === 'active' || sessionData?.status === 'locked') && (
-                    <button className="control-btn end-btn" onClick={() => onEndSession(sessionData.sessionId)}>
+                    <button className="control-btn end-btn" onClick={() => onEndSession(isGroupSession ? sessionData.groupSessionId : sessionData.sessionId)}>
                         🏁 End Session
                     </button>
                 )}

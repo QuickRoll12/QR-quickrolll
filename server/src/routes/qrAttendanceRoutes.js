@@ -226,9 +226,8 @@ router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) =>
 
         res.json(stats);
 
-    } catch (error)
-    {
-        console.error('Get session stats error:', error);
+    } catch (error) {
+        console.error('Error fetching session stats:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch session stats'
@@ -236,8 +235,69 @@ router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) =>
     }
 });
 
+/**
+ * @route   GET /api/qr-attendance/group-session/:groupSessionId/stats
+ * @desc    Get live attendance stats for a group session (aggregated from all sections)
+ * @access  Private (Faculty only)
+ */
+router.get('/group-session/:groupSessionId/stats', auth, ensureFaculty, async (req, res) => {
+    try {
+        const { groupSessionId } = req.params;
+        const GroupSession = require('../models/GroupSession');
+        
+        // Get the group session
+        const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
 
-// ==================== STUDENT ROUTES ====================
+        if (!groupSession) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Group session not found' 
+            });
+        }
+
+        // Ensure the faculty owns this group session
+        if (groupSession.facultyId !== req.user.facultyId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized access to this group session'
+            });
+        }
+
+        // Get all individual session IDs from the group
+        const sessionIds = groupSession.sections.map(section => section.sessionId);
+        
+        // Fetch all individual sessions and aggregate stats
+        let totalPresent = 0;
+        let totalStudents = 0;
+        
+        for (const sessionId of sessionIds) {
+            const session = await qrSessionService.getSessionById(sessionId);
+            if (session) {
+                totalPresent += session.studentsPresentCount || 0;
+                totalStudents += session.totalStudents || 0;
+            }
+        }
+        
+        // Calculate aggregated stats
+        const stats = {
+            totalPresent: totalPresent,
+            presentPercentage: totalStudents > 0 
+                ? Math.round((totalPresent / totalStudents) * 100) 
+                : 0,
+            totalStudents: totalStudents,
+            totalSections: groupSession.sections.length
+        };
+
+        res.json(stats);
+
+    } catch (error) {
+        console.error('Error fetching group session stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch group session stats'
+        });
+    }
+});
 
 /**
  * @route   GET /api/qr-attendance/session-status
