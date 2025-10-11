@@ -115,7 +115,7 @@ const QRAttendancePanel = memo(({
             const token = localStorage.getItem('token');
     
             // 2. Define the backend URL from environment variables, with a fallback for local development.
-            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
             
             // 3. Construct the complete, absolute URL for the API endpoint based on session type.
             let url;
