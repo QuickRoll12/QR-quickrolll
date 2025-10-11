@@ -687,7 +687,10 @@ io.on('connection', (socket) => {
                     sections: groupSession.sections,
                     status: 'locked',
                     canLock: false,
-                    canStartAttendance: true
+                    canStartAttendance: true,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
+                    totalStudentsPresent: groupSession.totalStudentsPresent,
+                    totalStudentsJoined: groupSession.totalStudentsJoined,
                 }
             });
 
@@ -757,7 +760,10 @@ io.on('connection', (socket) => {
                     sections: groupSession.sections,
                     status: 'created',
                     canLock: true,
-                    canStartAttendance: false
+                    canStartAttendance: false,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
+                    totalStudentsPresent: groupSession.totalStudentsPresent,
+                    totalStudentsJoined: groupSession.totalStudentsJoined,
                 }
             });
 
@@ -922,7 +928,9 @@ io.on('connection', (socket) => {
                     sections: groupSession.sections,
                     status: 'active',
                     totalSections: groupSession.sections.length,
-                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
+                    totalStudentsPresent: groupSession.totalStudentsPresent,
+                    totalStudentsJoined: groupSession.totalStudentsJoined,
                 }
             });
 
