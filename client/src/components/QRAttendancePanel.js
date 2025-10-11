@@ -36,7 +36,7 @@ const QRAttendancePanel = memo(({
                 totalStudents = sessionData.totalStudentsAcrossSections || 
                                (sessionData.sections ? sessionData.sections.reduce((sum, section) => sum + (section.totalStudents || 0), 0) : 0);
                 presentCount = sessionData.totalStudentsPresent || 0;
-                joinedCount = sessionData.totalStudentsJoined || 0;
+                joinedCount = sessionData.totalStudentsJoined || 0; // ULTRA-OPTIMIZED: No Redis operations during join!
             } else {
                 // For single sessions, use existing logic
                 totalStudents = sessionData.totalStudents || 0;
