@@ -688,12 +688,9 @@ io.on('connection', (socket) => {
                     status: 'locked',
                     canLock: false,
                     canStartAttendance: true,
-                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsPresent: groupSession.totalStudentsPresent,
-                    totalStudentsJoined: groupSession.totalStudentsJoined,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections
                 }
             });
-
         } catch (error) {
             console.error('Group session lock error:', error);
             socket.emit('qr-error', { message: error.message });
@@ -762,8 +759,6 @@ io.on('connection', (socket) => {
                     canLock: true,
                     canStartAttendance: false,
                     totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsPresent: groupSession.totalStudentsPresent,
-                    totalStudentsJoined: groupSession.totalStudentsJoined,
                 }
             });
 
@@ -928,9 +923,7 @@ io.on('connection', (socket) => {
                     sections: groupSession.sections,
                     status: 'active',
                     totalSections: groupSession.sections.length,
-                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsPresent: groupSession.totalStudentsPresent,
-                    totalStudentsJoined: groupSession.totalStudentsJoined,
+                    totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections
                 }
             });
 
