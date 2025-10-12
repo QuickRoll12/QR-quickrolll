@@ -148,5 +148,9 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// ==================== ADD THIS INDEX ====================
+// Supports the critical query for preloading the device cache
+userSchema.index({ course: 1, semester: 1, section: 1, role: 1 });
+
 const User = mongoose.model('User', userSchema);
 module.exports = User;
