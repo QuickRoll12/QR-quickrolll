@@ -57,6 +57,7 @@ REACT_APP_ADMIN_EMAIL=admin@example.com
 - One attendance mark per student per session
 - JWT authentication for secure access
 - CORS protection for API endpoints
+- Easily scalable
 
 ## License
 
