@@ -593,14 +593,14 @@ class QRSessionService {
         }
 
         // Optimized: Check if student already marked attendance using new collection
-        const existingAttendance = await SessionAttendance.findOne({
-            sessionId: session.sessionId,
-            studentId: studentData.studentId
-        });
+        // const existingAttendance = await SessionAttendance.findOne({
+        //     sessionId: session.sessionId,
+        //     studentId: studentData.studentId
+        // });
 
-        if (existingAttendance) {
-            throw new Error('Attendance already marked for this session');
-        }
+        // if (existingAttendance) {
+        //     throw new Error('Attendance already marked for this session');
+        // }
 
         // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
         const storedDeviceId = await this.getStudentDeviceId(
@@ -691,8 +691,6 @@ class QRSessionService {
                     studentsJoined: updatedSession.studentsJoinedCount,
                     studentsPresent: updatedSession.studentsPresentCount,
                     presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
-                    // Add the actual student data with roll numbers for frontend
-                    studentsPresentData: await SessionAttendance.findBySession(session.sessionId, 100)
                 }
             };
 

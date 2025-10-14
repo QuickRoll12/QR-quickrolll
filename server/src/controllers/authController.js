@@ -10,7 +10,7 @@ const { upload } = require('../config/cloudinary');
 const PasswordResetCode = require('../models/PasswordResetCode');
 
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 exports.register = async (req, res) => {
@@ -640,6 +640,9 @@ exports.verifyCode = async (req, res) => {
       message: 'Verification code is valid',
       valid: true
     });
+
+    // Delete the verification code from the database
+    await PasswordResetCode.deleteOne({ email, code });
   } catch (error) {
     console.error('Verify code error:', error);
     res.status(500).json({ message: 'Error verifying code', error: error.message });
