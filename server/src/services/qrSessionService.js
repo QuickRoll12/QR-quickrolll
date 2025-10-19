@@ -195,6 +195,76 @@ class QRSessionService {
         console.log(`🔄 Refreshed device cache for section ${sectionKey}`);
     }
 
+    // ==================== 🚀 SESSION JOIN CACHE METHODS ====================
+    
+    /**
+     * Add student to session join cache
+     * @param {string} sessionId - Session ID
+     * @param {string} studentId - Student ID
+     * @returns {boolean} - Success status
+     */
+    async addStudentToSessionCache(sessionId, studentId) {
+        try {
+            const redis = redisCache.getClient();
+            
+            // Add student to Redis SET
+            await redis.sAdd(`session:${sessionId}:joined`, studentId);
+            
+            // Set TTL (2 hours)
+            await redis.expire(`session:${sessionId}:joined`, 7200);
+            
+            return true;
+        } catch (error) {
+            console.warn('⚠️ Redis session join cache add failed:', error.message);
+            return false; // Graceful degradation
+        }
+    }
+    
+    /**
+     * Check if student has joined session (Redis cache first, DB fallback)
+     * @param {string} sessionId - Session ID
+     * @param {string} studentId - Student ID
+     * @returns {boolean} - Whether student has joined
+     */
+    async hasStudentJoinedSession(sessionId, studentId) {
+        try {
+            // 🚀 REDIS CHECK (sub-millisecond)
+            const redis = redisCache.getClient();
+            const isMember = await redis.sIsMember(`session:${sessionId}:joined`, studentId);
+            console.log(`used redis for verifying student join status.`)
+            return isMember;
+        } catch (error) {
+            console.warn('⚠️ Redis session join check failed, falling back to DB:', error.message);
+            
+            // 🔄 FALLBACK TO DB (original logic)
+            try {
+                const joinedStudent = await SessionJoin.findOne({
+                    sessionId: sessionId,
+                    studentId: studentId
+                });
+                return !!joinedStudent;
+            } catch (dbError) {
+                console.error('❌ DB fallback also failed:', dbError);
+                return false;
+            }
+        }
+    }
+    
+    /**
+     * Clear session join cache when session ends
+     * @param {string} sessionId - Session ID
+     */
+    async clearSessionJoinCache(sessionId) {
+        try {
+            const redis = redisCache.getClient();
+            await redis.del(`session:${sessionId}:joined`);
+            console.log(`🧹 Cleared join cache for session ${sessionId}`);
+        } catch (error) {
+            console.warn('⚠️ Redis session join cache clear failed:', error.message);
+            // Not critical - cache will expire naturally
+        }
+    }
+
     /**
      * Start a new QR session (Faculty clicks "Start Session")
      * @param {Object} sessionData - Session information
@@ -512,6 +582,9 @@ class QRSessionService {
             // Atomic operation - create join record
             await SessionJoin.create(joinData);
 
+            // 🚀 ADD TO REDIS CACHE (new optimization)
+            await this.addStudentToSessionCache(sessionId, studentData.studentId);
+
             // Atomic operation - increment counter
             const updatedSession = await QRSession.findOneAndUpdate(
                 { sessionId },
@@ -582,13 +655,9 @@ class QRSessionService {
             throw new Error('You are not enrolled in this section');
         }
 
-        // Optimized: Check if student joined the session using new collection
-        const joinedStudent = await SessionJoin.findOne({
-            sessionId: session.sessionId,
-            studentId: studentData.studentId
-        });
-
-        if (!joinedStudent) {
+        // 🚀 REDIS CACHE CHECK (replaces DB query for massive performance gain)
+        const hasJoined = await this.hasStudentJoinedSession(session.sessionId, studentData.studentId);
+        if (!hasJoined) {
             throw new Error('You must join the session first');
         }
 
@@ -679,19 +748,19 @@ class QRSessionService {
             return {
                 success: true,
                 message: 'Attendance marked successfully!',
-                attendanceData: {
-                    sessionId: session.sessionId,
-                    studentName: studentData.name,
-                    rollNumber: studentData.classRollNumber,
-                    markedAt: new Date(),
-                    status: 'present'
-                },
-                sessionStats: {
-                    totalStudents: session.totalStudents,
-                    studentsJoined: updatedSession.studentsJoinedCount,
-                    studentsPresent: updatedSession.studentsPresentCount,
-                    presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
-                }
+                // attendanceData: {
+                //     sessionId: session.sessionId,
+                //     studentName: studentData.name,
+                //     rollNumber: studentData.classRollNumber,
+                //     markedAt: new Date(),
+                //     status: 'present'
+                // },
+                // sessionStats: {
+                //     totalStudents: session.totalStudents,
+                //     studentsJoined: updatedSession.studentsJoinedCount,
+                //     studentsPresent: updatedSession.studentsPresentCount,
+                //     presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
+                // }
             };
 
         } catch (err) {
@@ -793,6 +862,9 @@ class QRSessionService {
 
         // Remove from cache immediately
         this.activeSessions.delete(sessionId);
+        
+        // 🚀 CLEAR REDIS SESSION JOIN CACHE (new optimization)
+        await this.clearSessionJoinCache(sessionId);
         
         // Clean up any other sessions for this section to prevent conflicts
         try {

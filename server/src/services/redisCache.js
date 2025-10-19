@@ -140,6 +140,14 @@ class RedisCache {
             healthy: this.isHealthy()
         };
     }
+    
+    // Get raw Redis client for advanced operations (required for SET operations)
+    getClient() {
+        if (this.fallbackMode || !this.isConnected) {
+            throw new Error('Redis client not available - in fallback mode');
+        }
+        return this.client;
+    }
 }
 
 // Create singleton instance
