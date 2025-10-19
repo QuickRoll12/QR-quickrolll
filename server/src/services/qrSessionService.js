@@ -264,6 +264,105 @@ class QRSessionService {
             // Not critical - cache will expire naturally
         }
     }
+    
+    // ==================== 🚀 SESSION ATTENDANCE CACHE METHODS ====================
+    
+    /**
+     * Add student roll number to session attendance cache
+     * @param {string} sessionId - Session ID
+     * @param {string} rollNumber - Student roll number
+     * @returns {boolean} - Success status
+     */
+    async addStudentToAttendanceCache(sessionId, rollNumber) {
+        try {
+            const redis = redisCache.getClient();
+            
+            // Add roll number to Redis SET
+            await redis.sAdd(`session:${sessionId}:attended`, rollNumber);
+            
+            // Set TTL (2 hours)
+            await redis.expire(`session:${sessionId}:attended`, 7200);
+            
+            return true;
+        } catch (error) {
+            console.warn('⚠️ Redis session attendance cache add failed:', error.message);
+            return false; // Graceful degradation
+        }
+    }
+    
+    /**
+     * Get all attended students roll numbers from cache (Redis first, DB fallback)
+     * @param {string} sessionId - Session ID
+     * @returns {Array} - Array of roll numbers
+     */
+    async getAttendedStudentsFromCache(sessionId) {
+        try {
+            // 🚀 REDIS CHECK (sub-millisecond)
+            const redis = redisCache.getClient();
+            const rollNumbers = await redis.sMembers(`session:${sessionId}:attended`);
+            console.log(`used redis for getting attended students list.`);
+            return rollNumbers.sort(); // Sort roll numbers for consistency
+        } catch (error) {
+            console.warn('⚠️ Redis attendance cache check failed, falling back to DB:', error.message);
+            
+            // 🔄 FALLBACK TO DB (original logic)
+            try {
+                const presentStudentsData = await SessionAttendance.findBySession(sessionId);
+                return presentStudentsData.map(s => s.rollNumber || s.email).sort();
+            } catch (dbError) {
+                console.error('❌ DB fallback also failed:', dbError);
+                return [];
+            }
+        }
+    }
+    
+    /**
+     * Get attended students stats from cache for getSessionStatsOptimized (Redis first, DB fallback)
+     * @param {string} sessionId - Session ID
+     * @param {number} limit - Limit number of results (default 100)
+     * @returns {Array} - Array of student objects with name and roll number
+     */
+    async getAttendedStudentsStatsFromCache(sessionId, limit = 100) {
+        try {
+            // 🚀 REDIS CHECK (sub-millisecond)
+            const redis = redisCache.getClient();
+            const rollNumbers = await redis.sMembers(`session:${sessionId}:attended`);
+            console.log(`used redis for getting attended students stats.`);
+            
+            // Convert roll numbers to student objects format (limited data from cache)
+            const limitedRollNumbers = rollNumbers.sort().slice(0, limit);
+            return limitedRollNumbers.map(rollNumber => ({
+                studentName: `Student ${rollNumber}`, // Simplified name from cache
+                rollNumber: rollNumber,
+                markedAt: new Date() // Approximate timestamp
+            }));
+        } catch (error) {
+            console.warn('⚠️ Redis attendance stats cache check failed, falling back to DB:', error.message);
+            
+            // 🔄 FALLBACK TO DB (original logic)
+            try {
+                return await SessionAttendance.findBySession(sessionId, limit);
+            } catch (dbError) {
+                console.error('❌ DB fallback also failed:', dbError);
+                return [];
+            }
+        }
+    }
+    
+    /**
+     * Clear session attendance cache when session ends
+     * @param {string} sessionId - Session ID
+     */
+    async clearSessionAttendanceCache(sessionId) {
+        try {
+            const redis = redisCache.getClient();
+            await redis.del(`session:${sessionId}:attended`);
+            console.log(`🧹 Cleared attendance cache for session ${sessionId}`);
+        } catch (error) {
+            console.warn('⚠️ Redis session attendance cache clear failed:', error.message);
+            // Not critical - cache will expire naturally
+        }
+    }
 
     /**
      * Start a new QR session (Faculty clicks "Start Session")
@@ -725,8 +824,10 @@ class QRSessionService {
         };
 
         try {
-            // Atomic operation - create attendance record
-            await SessionAttendance.create(attendanceData);
+            // await SessionAttendance.create(attendanceData);
+
+            // 🚀 ADD TO REDIS ATTENDANCE CACHE (replaces SessionAttendance.create)
+            await this.addStudentToAttendanceCache(session.sessionId, studentData.classRollNumber);
 
             // Atomic operation - increment counters
             const updatedSession = await QRSession.findOneAndUpdate(
@@ -814,9 +915,11 @@ class QRSessionService {
         // Invalidate any remaining QR tokens
         qrTokenService.invalidateSessionTokens(sessionId);
 
-        // Optimized: Create final attendance record using new collections
-        const presentStudentsData = await SessionAttendance.findBySession(sessionId);
-        const presentStudents = presentStudentsData.map(s => s.rollNumber || s.email);
+        // const presentStudentsData = await SessionAttendance.findBySession(sessionId);
+        // const presentStudents = presentStudentsData.map(s => s.rollNumber || s.email);
+
+        // 🚀 GET FROM REDIS CACHE (replaces SessionAttendance.findBySession)
+        const presentStudents = await this.getAttendedStudentsFromCache(sessionId);
         
         const allStudents = Array.from({length: session.totalStudents}, (_, i) => String(i + 1).padStart(2, '0'));
         const absentees = session.sessionType === 'roll' 
@@ -837,13 +940,7 @@ class QRSessionService {
             presentStudents: presentStudents,
             sessionType: session.sessionType,
             photoVerificationRequired: session.photoVerificationRequired,
-            studentPhotos: presentStudentsData.map(s => ({
-                studentId: s.studentId,
-                rollNumber: s.rollNumber,
-                photoFilename: s.photoFilename,
-                photoTimestamp: s.markedAt,
-                verificationStatus: s.verificationStatus
-            }))
+            studentPhotos: [] // 🚀 Simplified - photo data not cached in Redis for performance
         });
 
         await attendanceRecord.save();
@@ -863,8 +960,9 @@ class QRSessionService {
         // Remove from cache immediately
         this.activeSessions.delete(sessionId);
         
-        // 🚀 CLEAR REDIS SESSION JOIN CACHE (new optimization)
+        // 🚀 CLEAR REDIS CACHES (new optimization)
         await this.clearSessionJoinCache(sessionId);
+        await this.clearSessionAttendanceCache(sessionId);
         
         // Clean up any other sessions for this section to prevent conflicts
         try {
@@ -1200,8 +1298,8 @@ class QRSessionService {
             throw new Error('Session not found');
         }
 
-        // Get students present with roll numbers (optimized query)
-        const studentsPresent = await SessionAttendance.findBySession(sessionId, 100);
+        // 🚀 GET FROM REDIS CACHE (replaces SessionAttendance.findBySession)
+        const studentsPresent = await this.getAttendedStudentsStatsFromCache(sessionId, 100);
         
         return {
             sessionId: session.sessionId,
