@@ -580,7 +580,7 @@ class QRSessionService {
 
         try {
             // Atomic operation - create join record
-            await SessionJoin.create(joinData);
+            // await SessionJoin.create(joinData); (*******)
 
             // 🚀 ADD TO REDIS CACHE (new optimization)
             await this.addStudentToSessionCache(sessionId, studentData.studentId);
