@@ -143,7 +143,7 @@ const QRAttendancePanel = memo(({
             
             // 6. Safely update the component's state with the new stats.
             setLiveStats(prev => ({
-                totalJoined: stats.totalJoined || 0,
+                ...prev,
                 totalPresent: stats.totalPresent || 0,
                 presentPercentage: stats.presentPercentage || 0
             }));
