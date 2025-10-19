@@ -660,22 +660,22 @@ class QRSessionService {
         }
 
         // Optimized join data preparation
-        const joinData = {
-            sessionId,
-            studentId: studentData.studentId,
-            studentName: studentData.name,
-            rollNumber: studentData.classRollNumber,
-            email: studentData.email,
-            department: session.department,
-            semester: session.semester,
-            section: session.section,
-            deviceInfo: {
-                fingerprint: studentData.fingerprint,
-                webRTCIPs: studentData.webRTCIPs,
-                userAgent: studentData.userAgent,
-                ipAddress: studentData.ipAddress
-            }
-        };
+        // const joinData = {
+        //     sessionId,
+        //     studentId: studentData.studentId,
+        //     studentName: studentData.name,
+        //     rollNumber: studentData.classRollNumber,
+        //     email: studentData.email,
+        //     department: session.department,
+        //     semester: session.semester,
+        //     section: session.section,
+        //     deviceInfo: {
+        //         fingerprint: studentData.fingerprint,
+        //         webRTCIPs: studentData.webRTCIPs,
+        //         userAgent: studentData.userAgent,
+        //         ipAddress: studentData.ipAddress
+        //     }
+        // };
 
         try {
             // Atomic operation - create join record
@@ -803,25 +803,25 @@ class QRSessionService {
         // Individual duplicate prevention is handled by checking if student already marked attendance
 
         // Optimized: Prepare attendance data for new collection
-        const attendanceData = {
-            sessionId: session.sessionId,
-            studentId: studentData.studentId,
-            studentName: studentData.name,
-            rollNumber: studentData.classRollNumber,
-            email: studentData.email,
-            qrToken: qrToken,
-            department: session.department,
-            semester: session.semester,
-            section: session.section,
-            deviceInfo: {
-                fingerprint: studentData.fingerprint,
-                userAgent: studentData.userAgent,
-                ipAddress: studentData.ipAddress
-            },
-            photoFilename: studentData.photoFilename,
-            photoCloudinaryUrl: studentData.photoCloudinaryUrl,
-            verificationStatus: 'verified'
-        };
+        // const attendanceData = {
+        //     sessionId: session.sessionId,
+        //     studentId: studentData.studentId,
+        //     studentName: studentData.name,
+        //     rollNumber: studentData.classRollNumber,
+        //     email: studentData.email,
+        //     qrToken: qrToken,
+        //     department: session.department,
+        //     semester: session.semester,
+        //     section: session.section,
+        //     deviceInfo: {
+        //         fingerprint: studentData.fingerprint,
+        //         userAgent: studentData.userAgent,
+        //         ipAddress: studentData.ipAddress
+        //     },
+        //     photoFilename: studentData.photoFilename,
+        //     photoCloudinaryUrl: studentData.photoCloudinaryUrl,
+        //     verificationStatus: 'verified'
+        // };
 
         try {
             // await SessionAttendance.create(attendanceData);

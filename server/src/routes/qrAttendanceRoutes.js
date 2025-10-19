@@ -221,7 +221,8 @@ router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) =>
             totalPresent: session.studentsPresentCount,
             presentPercentage: session.totalStudents > 0 
                 ? Math.round((session.studentsPresentCount / session.totalStudents) * 100) 
-                : 0
+                : 0,
+            totalJoined : session.studentsJoinedCount,
         };
 
         res.json(stats);
@@ -269,12 +270,14 @@ router.get('/group-session/:groupSessionId/stats', auth, ensureFaculty, async (r
         // Fetch all individual sessions and aggregate stats
         let totalPresent = 0;
         let totalStudents = 0;
+        let totalJoined = 0;
         
         for (const sessionId of sessionIds) {
             const session = await qrSessionService.getSessionById(sessionId);
             if (session) {
                 totalPresent += session.studentsPresentCount || 0;
                 totalStudents += session.totalStudents || 0;
+                totalJoined += session.studentsJoinedCount || 0;
             }
         }
         
@@ -285,7 +288,8 @@ router.get('/group-session/:groupSessionId/stats', auth, ensureFaculty, async (r
                 ? Math.round((totalPresent / totalStudents) * 100) 
                 : 0,
             totalStudents: totalStudents,
-            totalSections: groupSession.sections.length
+            totalSections: groupSession.sections.length,
+            totalJoined: totalJoined
         };
 
         res.json(stats);
