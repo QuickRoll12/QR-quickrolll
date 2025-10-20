@@ -849,19 +849,19 @@ class QRSessionService {
             return {
                 success: true,
                 message: 'Attendance marked successfully!',
-                // attendanceData: {
-                //     sessionId: session.sessionId,
-                //     studentName: studentData.name,
-                //     rollNumber: studentData.classRollNumber,
-                //     markedAt: new Date(),
-                //     status: 'present'
-                // },
-                // sessionStats: {
-                //     totalStudents: session.totalStudents,
-                //     studentsJoined: updatedSession.studentsJoinedCount,
-                //     studentsPresent: updatedSession.studentsPresentCount,
-                //     presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
-                // }
+                attendanceData: {
+                    sessionId: session.sessionId,
+                    studentName: studentData.name,
+                    rollNumber: studentData.classRollNumber,
+                    markedAt: new Date(),
+                    status: 'present'
+                },
+                sessionStats: {
+                    totalStudents: session.totalStudents,
+                    studentsJoined: updatedSession.studentsJoinedCount,
+                    studentsPresent: updatedSession.studentsPresentCount,
+                    presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
+                }
             };
 
         } catch (err) {
