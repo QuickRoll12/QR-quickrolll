@@ -130,19 +130,37 @@ const FacultyDashboard = () => {
 
             newSocket.on('qr-groupSessionLocked', (data) => {
                 console.log('Group Session locked:', data);
-                setGroupSessionData(data.groupSessionData);
+                // PRESERVE LIVE COUNTS to prevent doubling during state updates
+                setGroupSessionData(prev => ({
+                    ...data.groupSessionData,
+                    // Preserve existing live counts to avoid reset from socket events
+                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
+                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
+                }));
                 showSuccessMessage('Group Session locked successfully!');
             });
 
             newSocket.on('qr-groupSessionUnlocked', (data) => {
                 console.log('Group Session unlocked:', data);
-                setGroupSessionData(data.groupSessionData);
+                // 🚀 PRESERVE LIVE COUNTS to prevent doubling during state updates
+                setGroupSessionData(prev => ({
+                    ...data.groupSessionData,
+                    // Preserve existing live counts to avoid reset from socket events
+                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
+                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
+                }));
                 showSuccessMessage('Group Session unlocked successfully!');
             });
 
             newSocket.on('qr-groupAttendanceStarted', (data) => {
                 console.log('Group Attendance started:', data);
-                setGroupSessionData(data.groupSessionData);
+                // 🚀 PRESERVE LIVE COUNTS to prevent doubling during state updates
+                setGroupSessionData(prev => ({
+                    ...data.groupSessionData,
+                    // Preserve existing live counts to avoid reset from socket events
+                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
+                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
+                }));
                 setQrData(data.qrData);
                 showSuccessMessage('Group Attendance started!');
             });

@@ -36,7 +36,7 @@ const QRAttendancePanel = memo(({
                 totalStudents = sessionData.totalStudentsAcrossSections || 
                                (sessionData.sections ? sessionData.sections.reduce((sum, section) => sum + (section.totalStudents || 0), 0) : 0);
                 presentCount = sessionData.totalStudentsPresent || 0;
-                joinedCount = sessionData.totalStudentsJoined || 0; // ULTRA-OPTIMIZED: No Redis operations during join!
+                joinedCount = sessionData.totalStudentsJoined || 0;
             } else {
                 // For single sessions, use existing logic
                 totalStudents = sessionData.totalStudents || 0;
@@ -44,10 +44,26 @@ const QRAttendancePanel = memo(({
                 joinedCount = sessionData.studentsJoinedCount || 0;
             }
 
-            setLiveStats({
-                totalJoined: joinedCount,
-                totalPresent: presentCount,
-                presentPercentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0
+            // 🚀 PRESERVE LIVE STATS: Only update if significantly different or first load
+            setLiveStats(prev => {
+                const shouldUpdate = !prev.totalJoined || 
+                                   Math.abs(prev.totalJoined - joinedCount) > 0 || 
+                                   !prev.totalPresent ||
+                                   Math.abs(prev.totalPresent - presentCount) > 0;
+                
+                if (shouldUpdate) {
+                    return {
+                        totalJoined: joinedCount,
+                        totalPresent: presentCount,
+                        presentPercentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0
+                    };
+                } else {
+                    // Keep existing live stats, only update percentage
+                    return {
+                        ...prev,
+                        presentPercentage: totalStudents > 0 ? Math.round((prev.totalPresent / totalStudents) * 100) : 0
+                    };
+                }
             });
         }
     }, [sessionData, isGroupSession]);
