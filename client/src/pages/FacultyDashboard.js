@@ -80,13 +80,23 @@ const FacultyDashboard = () => {
 
             newSocket.on('qr-sessionLocked', (data) => {
                 console.log('QR Session locked:', data);
-                setQrSessionData(data.sessionData);
+                // Preserve existing counts when updating session data
+                setQrSessionData(prev => ({
+                    ...data.sessionData,
+                    studentsJoinedCount: prev?.studentsJoinedCount || data.sessionData.studentsJoinedCount,
+                    studentsPresentCount: prev?.studentsPresentCount || data.sessionData.studentsPresentCount
+                }));
                 showSuccessMessage('Session locked successfully!');
             });
 
             newSocket.on('qr-sessionUnlocked', (data) => {
                 console.log('QR Session unlocked:', data);
-                setQrSessionData(data.sessionData);
+                // Preserve existing counts when updating session data
+                setQrSessionData(prev => ({
+                    ...data.sessionData,
+                    studentsJoinedCount: prev?.studentsJoinedCount || data.sessionData.studentsJoinedCount,
+                    studentsPresentCount: prev?.studentsPresentCount || data.sessionData.studentsPresentCount
+                }));
                 showSuccessMessage('Session unlocked successfully!');
             });
 

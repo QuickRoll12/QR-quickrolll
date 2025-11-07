@@ -44,21 +44,20 @@ const QRAttendancePanel = memo(({
                 joinedCount = sessionData.studentsJoinedCount || 0;
             }
 
-            // 🚀 PRESERVE LIVE STATS: Only update if significantly different or first load
+            // 🚀 SMART STATE MANAGEMENT: Preserve live counts, only reset on significant changes
             setLiveStats(prev => {
-                const shouldUpdate = !prev.totalJoined || 
-                                   Math.abs(prev.totalJoined - joinedCount) > 0 || 
-                                   !prev.totalPresent ||
-                                   Math.abs(prev.totalPresent - presentCount) > 0;
+                // Only reset counts if this is initial load or counts are significantly higher in sessionData
+                const isInitialLoad = !prev.totalJoined && !prev.totalPresent;
+                const sessionDataHasHigherCounts = (joinedCount > prev.totalJoined) || (presentCount > prev.totalPresent);
                 
-                if (shouldUpdate) {
+                if (isInitialLoad || sessionDataHasHigherCounts) {
                     return {
-                        totalJoined: joinedCount,
-                        totalPresent: presentCount,
-                        presentPercentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0
+                        totalJoined: Math.max(prev.totalJoined || 0, joinedCount),
+                        totalPresent: Math.max(prev.totalPresent || 0, presentCount),
+                        presentPercentage: totalStudents > 0 ? Math.round((Math.max(prev.totalPresent || 0, presentCount) / totalStudents) * 100) : 0
                     };
                 } else {
-                    // Keep existing live stats, only update percentage
+                    // Keep existing live stats, only update percentage calculation
                     return {
                         ...prev,
                         presentPercentage: totalStudents > 0 ? Math.round((prev.totalPresent / totalStudents) * 100) : 0
