@@ -500,16 +500,24 @@ router.post('/validate-qr', auth, ensureStudent, async (req, res) => {
  * @desc    Health check for QR attendance system
  * @access  Public
  */
-router.get('/health', (req, res) => {
-    const cacheStats = qrTokenService.getCacheStats();
-    
-    res.json({
-        success: true,
-        message: 'QR Attendance system is healthy',
-        timestamp: new Date().toISOString(),
-        tokenCache: cacheStats,
-        version: '1.0.0'
-    });
+router.get('/health', async (req, res) => {
+    try {
+        const cacheStats = await qrTokenService.getCacheStats();
+        
+        res.json({
+            success: true,
+            message: 'QR Attendance system is healthy',
+            timestamp: new Date().toISOString(),
+            tokenCache: cacheStats,
+            version: '1.0.0'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Health check failed',
+            error: error.message
+        });
+    }
 });
 
 /**
@@ -529,7 +537,7 @@ router.get('/stats', auth, ensureFaculty, async (req, res) => {
         const completedSessions = await QRSession.countDocuments({ status: 'ended' });
         
         // Get token cache stats
-        const cacheStats = qrTokenService.getCacheStats();
+        const cacheStats = await qrTokenService.getCacheStats();
 
         res.json({
             success: true,

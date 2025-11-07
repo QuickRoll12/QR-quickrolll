@@ -863,7 +863,7 @@ io.on('connection', (socket) => {
             }
 
             // Generate single group QR token for all sections
-            const groupQRData = qrTokenService.generateGroupQRToken({
+            const groupQRData = await qrTokenService.generateGroupQRToken({
                 groupSessionId: groupSessionId,
                 facultyId: socket.user.facultyId,
                 sections: groupSession.sections

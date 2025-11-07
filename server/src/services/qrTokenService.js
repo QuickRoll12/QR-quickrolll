@@ -1,18 +1,21 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const redisCache = require('./redisCache');
 
 class QRTokenService {
     constructor() {
         this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
-        this.tokenCache = new Map(); // In-memory cache for active tokens
+        this.tokenCache = new Map(); // Fallback in-memory cache when Redis unavailable
+        this.REDIS_TOKEN_PREFIX = 'qr:token:';
+        this.REDIS_SESSION_PREFIX = 'qr:session:';
     }
 
     /**
      * Generate a secure QR token for a session
      * @param {Object} sessionData - Session information
-     * @returns {Object} - Token and expiry information
+     * @returns {Promise<Object>} - Token and expiry information
      */
-    generateQRToken(sessionData) {
+    async generateQRToken(sessionData) {
         const { sessionId, facultyId, department, semester, section } = sessionData;
         
         // Create a unique token with timestamp
@@ -38,16 +41,49 @@ class QRTokenService {
         // Calculate expiry time
         const expiryTime = new Date(timestamp + 7000); // 7 seconds from now
 
-        // Store in cache for quick validation
-        this.tokenCache.set(token, {
+        // Store in Redis cache for cross-worker access
+        const tokenData = {
             sessionId,           // Keep original sessionId for cache lookup
             timestamp,
-            expiryTime,
-            used: false
-        });
+            expiryTime: expiryTime.toISOString(),
+            used: false,
+            type: 'single'
+        };
 
-        // Clean up expired tokens from cache
-        this.cleanupExpiredTokens();
+        // Check if Redis is available, otherwise use fallback
+        if (redisCache.isHealthy()) {
+            try {
+                // Store in Redis with 7-second TTL
+                await redisCache.set(`${this.REDIS_TOKEN_PREFIX}${token}`, tokenData, 7);
+                
+                // Also track by session for cleanup
+                await this.addTokenToSession(sessionId, token);
+                console.log(`✅ Token stored in Redis: ${token.substring(0, 20)}...`);
+            } catch (error) {
+                console.warn('Redis cache failed, using fallback:', error.message);
+                // Fallback to in-memory cache
+                this.tokenCache.set(token, {
+                    sessionId,
+                    timestamp,
+                    expiryTime,
+                    used: false
+                });
+            }
+        } else {
+            console.warn('Redis not available, using fallback cache');
+            // Use fallback in-memory cache
+            this.tokenCache.set(token, {
+                sessionId,
+                timestamp,
+                expiryTime,
+                used: false
+            });
+        }
+
+        // Clean up expired tokens from cache (async, non-blocking)
+        this.cleanupExpiredTokens().catch(err => 
+            console.warn('Token cleanup failed:', err.message)
+        );
 
         return {
             token,
@@ -61,12 +97,34 @@ class QRTokenService {
      * Validate a QR token (handles both single and group tokens)
      * @param {string} token - The QR token to validate
      * @param {Object} studentData - Student information (required for group tokens)
-     * @returns {Object} - Validation result
+     * @returns {Promise<Object>} - Validation result
      */
     async validateQRToken(token, studentData = null) {
         try {
-            // First check cache for quick validation
-            const cachedToken = this.tokenCache.get(token);
+            // First check Redis cache for quick validation
+            let cachedToken = null;
+            
+            // Check Redis first if available, otherwise use fallback
+            if (redisCache.isHealthy()) {
+                try {
+                    cachedToken = await redisCache.get(`${this.REDIS_TOKEN_PREFIX}${token}`);
+                } catch (error) {
+                    console.warn('Redis get failed, checking fallback cache:', error.message);
+                }
+            }
+            
+            // If not found in Redis or Redis not available, check fallback cache
+            if (!cachedToken) {
+                const fallbackToken = this.tokenCache.get(token);
+                if (fallbackToken) {
+                    cachedToken = {
+                        ...fallbackToken,
+                        expiryTime: fallbackToken.expiryTime instanceof Date 
+                            ? fallbackToken.expiryTime.toISOString() 
+                            : fallbackToken.expiryTime
+                    };
+                }
+            }
             
             if (!cachedToken) {
                 return {
@@ -77,8 +135,16 @@ class QRTokenService {
             }
 
             // Check expiry
-            if (new Date() > cachedToken.expiryTime) {
+            const expiryTime = new Date(cachedToken.expiryTime);
+            if (new Date() > expiryTime) {
+                // Remove from both Redis and fallback cache
+                try {
+                    await redisCache.del(`${this.REDIS_TOKEN_PREFIX}${token}`);
+                } catch (error) {
+                    console.warn('Redis delete failed:', error.message);
+                }
                 this.tokenCache.delete(token);
+                
                 return {
                     valid: false,
                     error: 'QR code expired',
@@ -171,8 +237,28 @@ class QRTokenService {
     /**
      * Invalidate all tokens for a session
      * @param {string} sessionId - The session ID
+     * @returns {Promise<void>}
      */
-    invalidateSessionTokens(sessionId) {
+    async invalidateSessionTokens(sessionId) {
+        try {
+            // Get all tokens for this session from Redis
+            const sessionTokens = await redisCache.get(`${this.REDIS_SESSION_PREFIX}${sessionId}`);
+            
+            if (sessionTokens && Array.isArray(sessionTokens)) {
+                // Delete all tokens for this session
+                const deletePromises = sessionTokens.map(token => 
+                    redisCache.del(`${this.REDIS_TOKEN_PREFIX}${token}`)
+                );
+                await Promise.all(deletePromises);
+                
+                // Remove session token list
+                await redisCache.del(`${this.REDIS_SESSION_PREFIX}${sessionId}`);
+            }
+        } catch (error) {
+            console.warn('Redis invalidation failed, using fallback:', error.message);
+        }
+        
+        // Fallback: clean in-memory cache
         for (const [token, tokenData] of this.tokenCache.entries()) {
             if (tokenData.sessionId === sessionId) {
                 this.tokenCache.delete(token);
@@ -182,50 +268,60 @@ class QRTokenService {
 
     /**
      * Clean up expired tokens from cache
+     * @returns {Promise<void>}
      */
-    cleanupExpiredTokens() {
+    async cleanupExpiredTokens() {
+        // Redis automatically handles TTL expiration, but clean fallback cache
         const now = new Date();
         for (const [token, tokenData] of this.tokenCache.entries()) {
             if (now > tokenData.expiryTime) {
                 this.tokenCache.delete(token);
             }
         }
+        
+        // Note: Redis keys with TTL are automatically cleaned up
+        // This method primarily handles the fallback in-memory cache
     }
 
     /**
      * Get cache statistics
-     * @returns {Object} - Cache statistics
+     * @returns {Promise<Object>} - Cache statistics
      */
-    getCacheStats() {
-        const now = new Date();
-        let activeTokens = 0;
-        let expiredTokens = 0;
-        let usedTokens = 0;
+    async getCacheStats() {
+        const stats = {
+            activeTokens: 0,
+            expiredTokens: 0,
+            usedTokens: 0,
+            totalTokens: 0,
+            cacheSize: 0,
+            redisStatus: redisCache.getStatus(),
+            fallbackCacheSize: this.tokenCache.size
+        };
 
+        // Count fallback cache items
+        const now = new Date();
         for (const [token, tokenData] of this.tokenCache.entries()) {
             if (now > tokenData.expiryTime) {
-                expiredTokens++;
+                stats.expiredTokens++;
             } else if (tokenData.used) {
-                usedTokens++;
+                stats.usedTokens++;
             } else {
-                activeTokens++;
+                stats.activeTokens++;
             }
         }
 
-        return {
-            totalTokens: this.tokenCache.size,
-            activeTokens,
-            expiredTokens,
-            usedTokens
-        };
+        stats.totalTokens = this.tokenCache.size;
+        stats.cacheSize = this.tokenCache.size;
+
+        return stats;
     }
 
     /**
-     * Generate a group QR token for multiple sections
+     * Generate a secure group QR token for multiple sessions
      * @param {Object} groupData - Group session information
-     * @returns {Object} - Token and expiry information
+     * @returns {Promise<Object>} - Token and expiry information
      */
-    generateGroupQRToken(groupData) {
+    async generateGroupQRToken(groupData) {
         const { groupSessionId, facultyId, sections } = groupData;
         
         // Create a unique token with timestamp
@@ -252,17 +348,49 @@ class QRTokenService {
         // Calculate expiry time
         const expiryTime = new Date(timestamp + 7000); // 7 seconds from now
 
-        // Store in cache for quick validation
-        this.tokenCache.set(token, {
+        // Store in Redis cache for cross-worker access
+        const tokenData = {
             groupSessionId,      // Keep original groupSessionId for cache lookup
             timestamp,
-            expiryTime,
+            expiryTime: expiryTime.toISOString(),
             used: false,
-            isGroupToken: true
-        });
+            type: 'group'
+        };
 
-        // Clean up expired tokens from cache
-        this.cleanupExpiredTokens();
+        // Check if Redis is available, otherwise use fallback
+        if (redisCache.isHealthy()) {
+            try {
+                // Store in Redis with 7-second TTL
+                await redisCache.set(`${this.REDIS_TOKEN_PREFIX}${token}`, tokenData, 7);
+                
+                // Also track by group session for cleanup
+                await this.addTokenToSession(groupSessionId, token, 'group');
+                console.log(`✅ Group token stored in Redis: ${token.substring(0, 20)}...`);
+            } catch (error) {
+                console.warn('Redis cache failed, using fallback:', error.message);
+                // Fallback to in-memory cache
+                this.tokenCache.set(token, {
+                    groupSessionId,
+                    timestamp,
+                    expiryTime,
+                    used: false
+                });
+            }
+        } else {
+            console.warn('Redis not available, using fallback cache for group token');
+            // Use fallback in-memory cache
+            this.tokenCache.set(token, {
+                groupSessionId,
+                timestamp,
+                expiryTime,
+                used: false
+            });
+        }
+
+        // Clean up expired tokens from cache (async, non-blocking)
+        this.cleanupExpiredTokens().catch(err => 
+            console.warn('Token cleanup failed:', err.message)
+        );
 
         return {
             token,
@@ -280,8 +408,22 @@ class QRTokenService {
      */
     async validateGroupQRToken(token, studentData) {
         try {
-            // First check cache for quick validation
-            const cachedToken = this.tokenCache.get(token);
+            // First check Redis cache for quick validation
+            let cachedToken = null;
+            
+            try {
+                cachedToken = await redisCache.get(`${this.REDIS_TOKEN_PREFIX}${token}`);
+            } catch (error) {
+                console.warn('Redis get failed, checking fallback cache:', error.message);
+                // Fallback to in-memory cache
+                const fallbackToken = this.tokenCache.get(token);
+                if (fallbackToken) {
+                    cachedToken = {
+                        ...fallbackToken,
+                        expiryTime: fallbackToken.expiryTime.toISOString()
+                    };
+                }
+            }
             
             if (!cachedToken) {
                 return {
@@ -292,7 +434,7 @@ class QRTokenService {
             }
 
             // Check if it's a group token
-            if (!cachedToken.isGroupToken) {
+            if (cachedToken.type !== 'group') {
                 return {
                     valid: false,
                     error: 'Not a group token',
@@ -301,8 +443,16 @@ class QRTokenService {
             }
 
             // Check expiry
-            if (new Date() > cachedToken.expiryTime) {
+            const expiryTime = new Date(cachedToken.expiryTime);
+            if (new Date() > expiryTime) {
+                // Remove from both Redis and fallback cache
+                try {
+                    await redisCache.del(`${this.REDIS_TOKEN_PREFIX}${token}`);
+                } catch (error) {
+                    console.warn('Redis delete failed:', error.message);
+                }
                 this.tokenCache.delete(token);
+                
                 return {
                     valid: false,
                     error: 'QR code expired',
@@ -393,6 +543,29 @@ class QRTokenService {
     }
 
     /**
+     * Add token to session tracking for cleanup
+     * @param {string} sessionId - Session or group session ID
+     * @param {string} token - Token to track
+     * @param {string} type - 'single' or 'group'
+     * @returns {Promise<void>}
+     */
+    async addTokenToSession(sessionId, token, type = 'single') {
+        try {
+            const sessionKey = `${this.REDIS_SESSION_PREFIX}${sessionId}`;
+            const existingTokens = await redisCache.get(sessionKey) || [];
+            
+            if (!existingTokens.includes(token)) {
+                existingTokens.push(token);
+                // Set TTL to 10 seconds (longer than token TTL for cleanup)
+                await redisCache.set(sessionKey, existingTokens, 10);
+            }
+        } catch (error) {
+            console.warn('Failed to track token for session:', error.message);
+            // Non-critical error, continue without tracking
+        }
+    }
+
+    /**
      * Generate a simple numeric code for display (optional)
      * @returns {string} - 6-digit numeric code
      */
@@ -454,8 +627,12 @@ const qrTokenService = new QRTokenService();
 // Cleanup expired tokens every 30 seconds - Only master process
 const cluster = require('cluster');
 if (!cluster.isWorker) {
-    setInterval(() => {
-        qrTokenService.cleanupExpiredTokens();
+    setInterval(async () => {
+        try {
+            await qrTokenService.cleanupExpiredTokens();
+        } catch (error) {
+            console.warn('QR Token cleanup failed:', error.message);
+        }
     }, 30000);
     console.log('🧹 QR Token cleanup scheduled (master process only)');
 }

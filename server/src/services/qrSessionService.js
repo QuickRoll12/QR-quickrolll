@@ -589,7 +589,7 @@ class QRSessionService {
         session.startedAt = new Date();
 
         // Generate first QR token
-        const tokenData = qrTokenService.generateQRToken({
+        const tokenData = await qrTokenService.generateQRToken({
             sessionId: session.sessionId,
             facultyId: session.facultyId,
             department: session.department,
@@ -912,7 +912,7 @@ class QRSessionService {
         this.stopQRRefresh(sessionId);
 
         // Invalidate any remaining QR tokens
-        qrTokenService.invalidateSessionTokens(sessionId);
+        await qrTokenService.invalidateSessionTokens(sessionId);
 
         // const presentStudentsData = await SessionAttendance.findBySession(sessionId);
         // const presentStudents = presentStudentsData.map(s => s.rollNumber || s.email);
@@ -1091,7 +1091,7 @@ class QRSessionService {
         }
 
         // Generate new QR token
-        const tokenData = qrTokenService.generateQRToken({
+        const tokenData = await qrTokenService.generateQRToken({
             sessionId: session.sessionId,
             facultyId: session.facultyId,
             department: session.department,
@@ -1480,7 +1480,7 @@ class QRSessionService {
         }
 
         // Generate new group QR token
-        const groupQRData = qrTokenService.generateGroupQRToken({
+        const groupQRData = await qrTokenService.generateGroupQRToken({
             groupSessionId: groupSessionId,
             facultyId: groupSession.facultyId,
             sections: groupSession.sections
