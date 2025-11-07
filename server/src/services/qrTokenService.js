@@ -19,16 +19,13 @@ class QRTokenService {
         const timestamp = Date.now();
         const randomBytes = crypto.randomBytes(16).toString('hex');
         
-        // Create JWT payload
+        // Create optimized JWT payload - only essential data
         const payload = {
-            sessionId,
-            facultyId,
-            department,
-            semester,
-            section,
-            timestamp,
-            random: randomBytes,
-            type: 'qr_attendance'
+            sid: sessionId,        // Shortened: sessionId
+            ts: timestamp,         // Shortened: timestamp  
+            t: 'qr'               // Shortened: type
+            // Removed: facultyId, department, semester, section (can be fetched from session)
+            // Removed: random (timestamp + sessionId provides uniqueness)
         };
 
         // Generate JWT token with 7-second expiry (5s frontend + 2s buffer)
@@ -43,11 +40,7 @@ class QRTokenService {
 
         // Store in cache for quick validation
         this.tokenCache.set(token, {
-            sessionId,
-            facultyId,
-            department,
-            semester,
-            section,
+            sessionId,           // Keep original sessionId for cache lookup
             timestamp,
             expiryTime,
             used: false
@@ -70,7 +63,7 @@ class QRTokenService {
      * @param {Object} studentData - Student information (required for group tokens)
      * @returns {Object} - Validation result
      */
-    validateQRToken(token, studentData = null) {
+    async validateQRToken(token, studentData = null) {
         try {
             // First check cache for quick validation
             const cachedToken = this.tokenCache.get(token);
@@ -99,8 +92,8 @@ class QRTokenService {
                 audience: 'quickroll-students'
             });
 
-            // Handle group tokens
-            if (decoded.type === 'group_qr_attendance') {
+            // Handle group tokens (optimized structure)
+            if (decoded.t === 'grp') {
                 if (!studentData) {
                     return {
                         valid: false,
@@ -108,11 +101,11 @@ class QRTokenService {
                         code: 'STUDENT_DATA_REQUIRED'
                     };
                 }
-                return this.validateGroupQRToken(token, studentData);
+                return await this.validateGroupQRToken(token, studentData);
             }
 
-            // Handle single session tokens
-            if (decoded.type !== 'qr_attendance') {
+            // Handle single session tokens (optimized structure)
+            if (decoded.t !== 'qr') {
                 return {
                     valid: false,
                     error: 'Invalid token type',
@@ -124,12 +117,9 @@ class QRTokenService {
                 valid: true,
                 isGroupToken: false,
                 sessionData: {
-                    sessionId: decoded.sessionId,
-                    facultyId: decoded.facultyId,
-                    department: decoded.department,
-                    semester: decoded.semester,
-                    section: decoded.section,
-                    timestamp: decoded.timestamp
+                    sessionId: decoded.sid,      // Use optimized field name
+                    timestamp: decoded.ts        // Use optimized field name
+                    // Other session data will be fetched from database during attendance marking
                 },
                 tokenInfo: cachedToken
             };
@@ -242,19 +232,14 @@ class QRTokenService {
         const timestamp = Date.now();
         const randomBytes = crypto.randomBytes(16).toString('hex');
         
-        // Create JWT payload for group session
+        // Create optimized JWT payload for group session - only essential data
         const payload = {
-            groupSessionId,
-            facultyId,
-            sections: sections.map(s => ({
-                department: s.department,
-                semester: s.semester,
-                section: s.section,
-                sessionId: s.sessionId
-            })),
-            timestamp,
-            random: randomBytes,
-            type: 'group_qr_attendance'
+            gid: groupSessionId,   // Shortened: groupSessionId
+            ts: timestamp,         // Shortened: timestamp
+            t: 'grp'              // Shortened: type
+            // Removed: facultyId (can be fetched from group session)
+            // Removed: sections array (can be fetched from group session during validation)
+            // Removed: random (timestamp + groupSessionId provides uniqueness)
         };
 
         // Generate JWT token with 7-second expiry (5s frontend + 2s buffer)
@@ -269,9 +254,7 @@ class QRTokenService {
 
         // Store in cache for quick validation
         this.tokenCache.set(token, {
-            groupSessionId,
-            facultyId,
-            sections: payload.sections,
+            groupSessionId,      // Keep original groupSessionId for cache lookup
             timestamp,
             expiryTime,
             used: false,
@@ -295,7 +278,7 @@ class QRTokenService {
      * @param {Object} studentData - Student information to match section
      * @returns {Object} - Validation result with matched section
      */
-    validateGroupQRToken(token, studentData) {
+    async validateGroupQRToken(token, studentData) {
         try {
             // First check cache for quick validation
             const cachedToken = this.tokenCache.get(token);
@@ -333,8 +316,8 @@ class QRTokenService {
                 audience: 'quickroll-students'
             });
 
-            // Additional validation
-            if (decoded.type !== 'group_qr_attendance') {
+            // Additional validation for optimized token structure
+            if (decoded.t !== 'grp') {
                 return {
                     valid: false,
                     error: 'Invalid token type',
@@ -342,8 +325,20 @@ class QRTokenService {
                 };
             }
 
-            // Find the section that matches the student
-            const matchedSection = decoded.sections.find(section => 
+            // Fetch group session from database to get sections
+            const GroupSession = require('../models/GroupSession');
+            const groupSession = await GroupSession.findByGroupSessionId(decoded.gid);
+            
+            if (!groupSession) {
+                return {
+                    valid: false,
+                    error: 'Group session not found',
+                    code: 'GROUP_SESSION_NOT_FOUND'
+                };
+            }
+
+            // Find the section that matches the student from database
+            const matchedSection = groupSession.sections.find(section => 
                 section.department === studentData.course &&
                 section.semester === studentData.semester &&
                 section.section === studentData.section
@@ -360,16 +355,16 @@ class QRTokenService {
             return {
                 valid: true,
                 isGroupToken: true,
-                groupSessionId: decoded.groupSessionId,
+                groupSessionId: decoded.gid,        // Use optimized field name
                 sessionData: {
                     sessionId: matchedSection.sessionId,
-                    facultyId: decoded.facultyId,
                     department: matchedSection.department,
                     semester: matchedSection.semester,
                     section: matchedSection.section,
-                    timestamp: decoded.timestamp
+                    timestamp: decoded.ts           // Use optimized field name
+                    // facultyId can be fetched from group session if needed
                 },
-                allSections: decoded.sections,
+                allSections: groupSession.sections, // Use database data instead of token data
                 tokenInfo: cachedToken
             };
 

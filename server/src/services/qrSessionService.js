@@ -679,7 +679,7 @@ class QRSessionService {
 
         try {
             // Atomic operation - create join record
-            // await SessionJoin.create(joinData); (*******)
+            // await SessionJoin.create(joinData); (If you want you can uncomment the code to join the record in the database.)
 
             // 🚀 ADD TO REDIS CACHE (new optimization)
             await this.addStudentToSessionCache(sessionId, studentData.studentId);
@@ -706,7 +706,6 @@ class QRSessionService {
                     studentsJoined: updatedSession.studentsJoinedCount
                 }
             };
-
         } catch (err) {
             // Handle duplicate key error (student already joined)
             if (err.code === 11000) {
@@ -735,7 +734,7 @@ class QRSessionService {
      */
     async markAttendance(qrToken, studentData) {
         // Validate QR token (pass student data for group token validation)
-        const tokenValidation = qrTokenService.validateQRToken(qrToken, studentData);
+        const tokenValidation = await qrTokenService.validateQRToken(qrToken, studentData);
         if (!tokenValidation.valid) {
             throw new Error(tokenValidation.error);
         }

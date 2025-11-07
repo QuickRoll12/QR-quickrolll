@@ -450,7 +450,7 @@ router.post('/validate-qr', auth, ensureStudent, async (req, res) => {
             });
         }
 
-        const validation = qrTokenService.validateQRToken(qrToken);
+        const validation = await qrTokenService.validateQRToken(qrToken);
 
         if (!validation.valid) {
             return res.status(400).json({
