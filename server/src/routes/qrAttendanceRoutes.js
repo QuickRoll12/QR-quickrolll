@@ -216,13 +216,16 @@ router.get('/session/:sessionId/stats', auth, ensureFaculty, async (req, res) =>
             });
         }
         
+        // 🚀 GET STATS FROM REDIS INSTEAD OF DATABASE COUNTERS
+        const redisStats = await qrSessionService.getSessionStatsFromRedis(sessionId);
+        
         // This is the exact structure the frontend poll expects
         const stats = {
-            totalPresent: session.studentsPresentCount,
+            totalPresent: redisStats.studentsPresent,
             presentPercentage: session.totalStudents > 0 
-                ? Math.round((session.studentsPresentCount / session.totalStudents) * 100) 
+                ? Math.round((redisStats.studentsPresent / session.totalStudents) * 100) 
                 : 0,
-            totalJoined : session.studentsJoinedCount,
+            totalJoined: redisStats.studentsJoined,
         };
 
         res.json(stats);
@@ -264,32 +267,16 @@ router.get('/group-session/:groupSessionId/stats', auth, ensureFaculty, async (r
             });
         }
 
-        // Get all individual session IDs from the group
-        const sessionIds = groupSession.sections.map(section => section.sessionId);
+        // 🚀 GET AGGREGATED STATS FROM REDIS INSTEAD OF DATABASE COUNTERS
+        const redisStats = await qrSessionService.getGroupSessionStatsFromRedis(groupSessionId);
         
-        // Fetch all individual sessions and aggregate stats
-        let totalPresent = 0;
-        let totalStudents = 0;
-        let totalJoined = 0;
-        
-        for (const sessionId of sessionIds) {
-            const session = await qrSessionService.getSessionById(sessionId);
-            if (session) {
-                totalPresent += session.studentsPresentCount || 0;
-                totalStudents += session.totalStudents || 0;
-                totalJoined += session.studentsJoinedCount || 0;
-            }
-        }
-        
-        // Calculate aggregated stats
+        // Calculate aggregated stats (Redis method already includes calculations)
         const stats = {
-            totalPresent: totalPresent,
-            presentPercentage: totalStudents > 0 
-                ? Math.round((totalPresent / totalStudents) * 100) 
-                : 0,
-            totalStudents: totalStudents,
-            totalSections: groupSession.sections.length,
-            totalJoined: totalJoined
+            totalPresent: redisStats.totalStudentsPresent,
+            presentPercentage: redisStats.presentPercentage,
+            totalStudents: redisStats.totalStudents,
+            totalSections: redisStats.totalSections,
+            totalJoined: redisStats.totalStudentsJoined
         };
 
         res.json(stats);

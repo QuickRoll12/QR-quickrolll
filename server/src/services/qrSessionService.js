@@ -348,6 +348,134 @@ class QRSessionService {
             }
         }
     }
+
+    /**
+     * Get session stats from Redis cache (joined and attended counts)
+     * @param {string} sessionId - Session ID
+     * @returns {Object} - Stats object with counts from Redis
+     */
+    async getSessionStatsFromRedis(sessionId) {
+        try {
+            const redis = redisCache.getClient();
+            
+            // Get counts directly from Redis SETs
+            const joinedCount = await redis.sCard(`session:${sessionId}:joined`) || 0;
+            const attendedCount = await redis.sCard(`session:${sessionId}:attended`) || 0;
+            
+            console.log(`📊 Redis stats for session ${sessionId}: joined=${joinedCount}, attended=${attendedCount}`);
+            
+            return {
+                studentsJoined: joinedCount,
+                studentsPresent: attendedCount
+            };
+        } catch (error) {
+            console.warn('⚠️ Redis stats fetch failed, falling back to DB counts:', error.message);
+            
+            // Fallback to database counts if Redis fails
+            try {
+                const session = await this.getSessionById(sessionId);
+                return {
+                    studentsJoined: session?.studentsJoinedCount || 0,
+                    studentsPresent: session?.studentsPresentCount || 0
+                };
+            } catch (dbError) {
+                console.error('❌ DB fallback for stats also failed:', dbError);
+                return {
+                    studentsJoined: 0,
+                    studentsPresent: 0
+                };
+            }
+        }
+    }
+
+    /**
+     * Get group session stats from Redis cache (aggregated across all sections)
+     * @param {string} groupSessionId - Group Session ID
+     * @returns {Object} - Aggregated stats object
+     */
+    async getGroupSessionStatsFromRedis(groupSessionId) {
+        try {
+            const GroupSession = require('../models/GroupSession');
+            const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+            
+            if (!groupSession) {
+                throw new Error('Group session not found');
+            }
+            
+            let totalJoined = 0;
+            let totalPresent = 0;
+            let totalStudents = 0;
+            
+            // Aggregate stats from all sessions in the group
+            for (const section of groupSession.sections) {
+                const sessionStats = await this.getSessionStatsFromRedis(section.sessionId);
+                totalJoined += sessionStats.studentsJoined;
+                totalPresent += sessionStats.studentsPresent;
+                
+                // Get total students for this section
+                const session = await this.getSessionById(section.sessionId);
+                totalStudents += session?.totalStudents || 0;
+            }
+            
+            console.log(`📊 Redis group stats for ${groupSessionId}: joined=${totalJoined}, attended=${totalPresent}, total=${totalStudents}`);
+            
+            return {
+                totalStudentsJoined: totalJoined,
+                totalStudentsPresent: totalPresent,
+                totalStudents: totalStudents,
+                totalSections: groupSession.sections.length,
+                presentPercentage: totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0
+            };
+        } catch (error) {
+            console.error('❌ Redis group stats fetch failed:', error);
+            
+            // Fallback to database aggregation
+            try {
+                const GroupSession = require('../models/GroupSession');
+                const groupSession = await GroupSession.findByGroupSessionId(groupSessionId);
+                
+                if (!groupSession) {
+                    return {
+                        totalStudentsJoined: 0,
+                        totalStudentsPresent: 0,
+                        totalStudents: 0,
+                        totalSections: 0,
+                        presentPercentage: 0
+                    };
+                }
+                
+                let totalJoined = 0;
+                let totalPresent = 0;
+                let totalStudents = 0;
+                
+                for (const section of groupSession.sections) {
+                    const session = await this.getSessionById(section.sessionId);
+                    if (session) {
+                        totalJoined += session.studentsJoinedCount || 0;
+                        totalPresent += session.studentsPresentCount || 0;
+                        totalStudents += session.totalStudents || 0;
+                    }
+                }
+                
+                return {
+                    totalStudentsJoined: totalJoined,
+                    totalStudentsPresent: totalPresent,
+                    totalStudents: totalStudents,
+                    totalSections: groupSession.sections.length,
+                    presentPercentage: totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0
+                };
+            } catch (dbError) {
+                console.error('❌ DB fallback for group stats also failed:', dbError);
+                return {
+                    totalStudentsJoined: 0,
+                    totalStudentsPresent: 0,
+                    totalStudents: 0,
+                    totalSections: 0,
+                    presentPercentage: 0
+                };
+            }
+        }
+    }
     
     /**
      * Check if student has marked attendance (Redis cache first, DB fallback)
@@ -723,15 +851,21 @@ class QRSessionService {
             // 🚀 ADD TO REDIS CACHE (new optimization)
             await this.addStudentToSessionCache(sessionId, studentData.studentId);
 
-            // Atomic operation - increment counter
-            const updatedSession = await QRSession.findOneAndUpdate(
-                { sessionId },
-                { $inc: { studentsJoinedCount: 1 } },
-                { new: true }
-            );
+            // 🚀 REDIS-BASED STATS: Database join counter is now commented out, using Redis as source of truth
+            // const updatedSession = await QRSession.findOneAndUpdate(
+            //     { sessionId },
+            //     { $inc: { studentsJoinedCount: 1 } },
+            //     { new: true }
+            // );
 
-            // Update cache with new counter
+            // Get session without incrementing counter (for cache update)
+            const updatedSession = await this.getSessionById(sessionId);
+
+            // Update cache with session data
             this.activeSessions.set(sessionId, updatedSession);
+
+            // 🚀 GET LIVE REDIS STATS FOR RESPONSE
+            const redisStats = await this.getSessionStatsFromRedis(sessionId);
 
             return {
                 success: true,
@@ -742,7 +876,7 @@ class QRSessionService {
                     canScanQR: session.status === 'active',
                     joinedAt: new Date(),
                     facultyId: session.facultyId,
-                    studentsJoined: updatedSession.studentsJoinedCount
+                    studentsJoined: redisStats.studentsJoined
                 }
             };
         } catch (err) {
@@ -867,22 +1001,25 @@ class QRSessionService {
             // 🚀 ADD TO REDIS ATTENDANCE CACHE (replaces SessionAttendance.create)
             await this.addStudentToAttendanceCache(session.sessionId, studentData.classRollNumber);
 
-            // Atomic operation - increment counters
-            const updatedSession = await QRSession.findOneAndUpdate(
-                { sessionId: session.sessionId },
-                { 
-                    $inc: { 
-                        studentsPresentCount: 1,
-                        'analytics.totalQRScans': 1 
-                    }
-                },
-                { new: true }
-            );
+            // 🚀 REDIS-BASED STATS: Database counters are now commented out, using Redis as source of truth
+            // const updatedSession = await QRSession.findOneAndUpdate(
+            //     { sessionId: session.sessionId },
+            //     { 
+            //         $inc: { 
+            //             studentsPresentCount: 1,
+            //             'analytics.totalQRScans': 1 
+            //         }
+            //     },
+            //     { new: true }
+            // );
 
             // Update cache with new counters
             this.activeSessions.set(session.sessionId, updatedSession);
 
             // console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
+
+            // 🚀 GET LIVE REDIS STATS FOR RESPONSE
+            const redisStats = await this.getSessionStatsFromRedis(session.sessionId);
 
             return {
                 success: true,
@@ -896,9 +1033,9 @@ class QRSessionService {
                 },
                 sessionStats: {
                     totalStudents: session.totalStudents,
-                    studentsJoined: updatedSession.studentsJoinedCount,
-                    studentsPresent: updatedSession.studentsPresentCount,
-                    presentPercentage: Math.round((updatedSession.studentsPresentCount / session.totalStudents) * 100),
+                    studentsJoined: redisStats.studentsJoined,
+                    studentsPresent: redisStats.studentsPresent,
+                    presentPercentage: session.totalStudents > 0 ? Math.round((redisStats.studentsPresent / session.totalStudents) * 100) : 0,
                 }
             };
 

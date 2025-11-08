@@ -36,7 +36,7 @@ const QRAttendancePanel = memo(({
                 totalStudents = sessionData.totalStudentsAcrossSections || 
                                (sessionData.sections ? sessionData.sections.reduce((sum, section) => sum + (section.totalStudents || 0), 0) : 0);
                 presentCount = sessionData.totalStudentsPresent || 0;
-                joinedCount = (sessionData.totalStudentsJoined/2) || 0;
+                joinedCount = sessionData.totalStudentsJoined || 0;
             } else {
                 // For single sessions, use existing logic
                 totalStudents = sessionData.totalStudents || 0;
@@ -44,25 +44,11 @@ const QRAttendancePanel = memo(({
                 joinedCount = sessionData.studentsJoinedCount || 0;
             }
 
-            // 🚀 SMART STATE MANAGEMENT: Preserve live counts, only reset on significant changes
-            setLiveStats(prev => {
-                // Only reset counts if this is initial load or counts are significantly higher in sessionData
-                const isInitialLoad = !prev.totalJoined && !prev.totalPresent;
-                const sessionDataHasHigherCounts = (joinedCount > prev.totalJoined) || (presentCount > prev.totalPresent);
-                
-                if (isInitialLoad || sessionDataHasHigherCounts) {
-                    return {
-                        totalJoined: Math.max(prev.totalJoined || 0, joinedCount),
-                        totalPresent: Math.max(prev.totalPresent || 0, presentCount),
-                        presentPercentage: totalStudents > 0 ? Math.round((Math.max(prev.totalPresent || 0, presentCount) / totalStudents) * 100) : 0
-                    };
-                } else {
-                    // Keep existing live stats, only update percentage calculation
-                    return {
-                        ...prev,
-                        presentPercentage: totalStudents > 0 ? Math.round((prev.totalPresent / totalStudents) * 100) : 0
-                    };
-                }
+            // 🚀 REDIS-BASED STATS: Always use fresh data from Redis (no state preservation needed)
+            setLiveStats({
+                totalJoined: joinedCount,
+                totalPresent: presentCount,
+                presentPercentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0
             });
         }
     }, [sessionData, isGroupSession]);
@@ -156,10 +142,11 @@ const QRAttendancePanel = memo(({
             // 5. With axios, the JSON data is directly available on `response.data`.
             const stats = response.data;
             
-            // 6. Safely update the component's state with the new stats.
+            // 🚀 REDIS-BASED STATS: Update with fresh Redis data (include totalJoined from polling)
             setLiveStats(prev => ({
                 ...prev,
                 totalPresent: stats.totalPresent || 0,
+                totalJoined: stats.totalJoined || prev.totalJoined || 0,
                 presentPercentage: stats.presentPercentage || 0
             }));
     
