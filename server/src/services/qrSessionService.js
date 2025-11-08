@@ -1014,10 +1014,10 @@ class QRSessionService {
             // );
 
             // Get session without incrementing counter (for cache update)
-            const updatedSession = await this.getSessionById(sessionId);
+            const updatedSession = await this.getSessionById(session.sessionId);
 
             // Update cache with session data
-            this.activeSessions.set(sessionId, updatedSession);
+            this.activeSessions.set(session.sessionId, updatedSession);
 
             // console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
 
