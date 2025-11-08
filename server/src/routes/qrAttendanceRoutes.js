@@ -315,7 +315,8 @@ router.get('/session-status', auth, ensureStudent, async (req, res) => {
             student.course,
             student.semester,
             student.section,
-            student.studentId
+            student.studentId,
+            student.classRollNumber
         );
 
         res.json({

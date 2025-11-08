@@ -350,6 +350,45 @@ class QRSessionService {
     }
     
     /**
+     * Check if student has marked attendance (Redis cache first, DB fallback)
+     * @param {string} sessionId - Session ID
+     * @param {string} studentId - Student ID
+     * @returns {boolean} - Whether student has marked attendance
+     */
+    async hasStudentMarkedAttendance(sessionId, classRollNumber) {
+        try {
+            // For Redis, we need to get the student's roll number
+            // Since we store roll numbers in Redis attendance cache
+            // const User = require('../models/User');
+            // const student = await User.findOne({ studentId });
+            // if (!student) return false;
+            
+            const rollNumber = classRollNumber;
+            
+            // 🚀 REDIS CHECK (sub-millisecond)
+            const redis = redisCache.getClient();
+            const hasAttended = await redis.sIsMember(`session:${sessionId}:attended`, rollNumber);
+            console.log(`used redis for verifying student attendance status.`);
+            return hasAttended;
+        } catch (error) {
+            console.warn('⚠️ Redis attendance check failed, falling back to DB:', error.message);
+            
+            // 🔄 FALLBACK TO DB (original logic)
+            try {
+                const SessionAttendance = require('../models/SessionAttendance');
+                const attendanceRecord = await SessionAttendance.findOne({
+                    sessionId: sessionId,
+                    rollNumber: classRollNumber
+                });
+                return !!attendanceRecord;
+            } catch (dbError) {
+                console.error('❌ DB fallback also failed:', dbError);
+                return false;
+            }
+        }
+    }
+
+    /**
      * Clear session attendance cache when session ends
      * @param {string} sessionId - Session ID
      */
@@ -1011,7 +1050,7 @@ class QRSessionService {
      * @param {string} studentId - Student ID
      * @returns {Object} - Session status
      */
-    async getSessionStatus(department, semester, section, studentId) {
+    async getSessionStatus(department, semester, section, studentId, classRollNumber) {
         const session = await QRSession.findActiveSessionForSection(department, semester, section);
         
         if (!session) {
@@ -1023,8 +1062,8 @@ class QRSessionService {
             };
         }
 
-        const hasJoined = session.hasStudentJoined(studentId);
-        const hasMarkedAttendance = session.hasStudentMarkedAttendance(studentId);
+        const hasJoined = await this.hasStudentJoinedSession(session.sessionId, studentId);
+        const hasMarkedAttendance = await this.hasStudentMarkedAttendance(session.sessionId, classRollNumber);
 
         return {
             hasActiveSession: true,
@@ -1042,6 +1081,32 @@ class QRSessionService {
                 studentsPresent: session.studentsPresentCount
             }
         };
+    }
+
+    /**
+     * Get status message for students
+     * @param {string} status - Session status
+     * @param {boolean} hasJoined - Whether student has joined
+     * @param {boolean} hasMarkedAttendance - Whether student has marked attendance
+     * @returns {string} - Status message
+     */
+    getStatusMessage(status, hasJoined, hasMarkedAttendance) {
+        if (hasMarkedAttendance) {
+            return 'Attendance marked successfully!';
+        }
+        
+        switch (status) {
+            case 'created':
+                return hasJoined ? 'Wait for faculty to lock session' : 'Click Join to enter attendance area';
+            case 'locked':
+                return hasJoined ? 'Wait for faculty to start attendance' : 'Session locked - cannot join';
+            case 'active':
+                return hasJoined ? 'Scan QR code to mark attendance' : 'Session active but you haven\'t joined';
+            case 'ended':
+                return 'Session has ended';
+            default:
+                return 'Unknown session status';
+        }
     }
 
     /**
