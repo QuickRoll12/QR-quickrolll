@@ -80,23 +80,15 @@ const FacultyDashboard = () => {
 
             newSocket.on('qr-sessionLocked', (data) => {
                 console.log('QR Session locked:', data);
-                // Preserve existing counts when updating session data
-                setQrSessionData(prev => ({
-                    ...data.sessionData,
-                    studentsJoinedCount: prev?.studentsJoinedCount || data.sessionData.studentsJoinedCount,
-                    studentsPresentCount: prev?.studentsPresentCount || data.sessionData.studentsPresentCount
-                }));
+                // REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
+                setQrSessionData(data.sessionData);
                 showSuccessMessage('Session locked successfully!');
             });
 
             newSocket.on('qr-sessionUnlocked', (data) => {
                 console.log('QR Session unlocked:', data);
-                // Preserve existing counts when updating session data
-                setQrSessionData(prev => ({
-                    ...data.sessionData,
-                    studentsJoinedCount: prev?.studentsJoinedCount || data.sessionData.studentsJoinedCount,
-                    studentsPresentCount: prev?.studentsPresentCount || data.sessionData.studentsPresentCount
-                }));
+                // REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
+                setQrSessionData(data.sessionData);
                 showSuccessMessage('Session unlocked successfully!');
             });
 
@@ -140,37 +132,22 @@ const FacultyDashboard = () => {
 
             newSocket.on('qr-groupSessionLocked', (data) => {
                 console.log('Group Session locked:', data);
-                // PRESERVE LIVE COUNTS to prevent doubling during state updates
-                setGroupSessionData(prev => ({
-                    ...data.groupSessionData,
-                    // Preserve existing live counts to avoid reset from socket events
-                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
-                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
-                }));
+                // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
+                setGroupSessionData(data.groupSessionData);
                 showSuccessMessage('Group Session locked successfully!');
             });
 
             newSocket.on('qr-groupSessionUnlocked', (data) => {
                 console.log('Group Session unlocked:', data);
-                // 🚀 PRESERVE LIVE COUNTS to prevent doubling during state updates
-                setGroupSessionData(prev => ({
-                    ...data.groupSessionData,
-                    // Preserve existing live counts to avoid reset from socket events
-                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
-                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
-                }));
+                // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
+                setGroupSessionData(data.groupSessionData);
                 showSuccessMessage('Group Session unlocked successfully!');
             });
 
             newSocket.on('qr-groupAttendanceStarted', (data) => {
                 console.log('Group Attendance started:', data);
-                // 🚀 PRESERVE LIVE COUNTS to prevent doubling during state updates
-                setGroupSessionData(prev => ({
-                    ...data.groupSessionData,
-                    // Preserve existing live counts to avoid reset from socket events
-                    totalStudentsJoined: prev?.totalStudentsJoined || data.groupSessionData.totalStudentsJoined,
-                    totalStudentsPresent: prev?.totalStudentsPresent || data.groupSessionData.totalStudentsPresent
-                }));
+                // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
+                setGroupSessionData(data.groupSessionData);
                 setQrData(data.qrData);
                 showSuccessMessage('Group Attendance started!');
             });

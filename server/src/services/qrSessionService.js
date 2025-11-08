@@ -662,6 +662,9 @@ class QRSessionService {
         // Update cache
         this.activeSessions.set(sessionId, session);
 
+        // 🚀 GET LIVE REDIS STATS FOR LOCK RESPONSE
+        const redisStats = await this.getSessionStatsFromRedis(sessionId);
+
         return {
             success: true,
             sessionId,
@@ -674,7 +677,10 @@ class QRSessionService {
                 section: session.section,
                 totalStudents: session.totalStudents,
                 status: 'locked',
-                studentsJoinedCount: session.studentsJoinedCount,
+                studentsJoinedCount: redisStats.studentsJoined,
+                studentsPresentCount: redisStats.studentsPresent,
+                facultyName: session.facultyName,
+                facultyId: session.facultyId,
                 canLock: false,
                 canStartAttendance: true,
             }
@@ -711,13 +717,17 @@ class QRSessionService {
         // Update cache
         this.activeSessions.set(sessionId, session);
 
+        // 🚀 GET LIVE REDIS STATS FOR UNLOCK RESPONSE
+        const redisStats = await this.getSessionStatsFromRedis(sessionId);
+
         return {
             success: true,
             message: 'Session unlocked successfully',
             sessionData: {
                 sessionId: session.sessionId,
                 status: session.status,
-                studentsJoinedCount: session.studentsJoinedCount,
+                studentsJoinedCount: redisStats.studentsJoined,
+                studentsPresentCount: redisStats.studentsPresent,
                 totalStudents: session.totalStudents,
                 canJoin: true,
                 canStartAttendance: false,

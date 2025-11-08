@@ -676,8 +676,8 @@ io.on('connection', (socket) => {
             groupSession.lockedAt = new Date();
             await groupSession.save();
 
-            // Get live count from Redis for real-time accuracy
-            const liveJoinedCount = await qrSessionService.getGroupSessionLiveCount(groupSessionId);
+            // 🚀 GET LIVE REDIS STATS FOR GROUP SESSION LOCK
+            const redisStats = await qrSessionService.getGroupSessionStatsFromRedis(groupSessionId);
 
             // Emit to faculty
             socket.emit('qr-groupSessionLocked', {
@@ -692,8 +692,10 @@ io.on('connection', (socket) => {
                     canLock: false,
                     canStartAttendance: true,
                     totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsJoined: liveJoinedCount, // ✅ Use live Redis count
-                    totalStudentsPresent: groupSession.totalStudentsPresent
+                    totalStudentsJoined: redisStats.totalStudentsJoined,
+                    totalStudentsPresent: redisStats.totalStudentsPresent,
+                    facultyName: groupSession.facultyName,
+                    facultyId: groupSession.facultyId
                 }
             });
         } catch (error) {
@@ -751,8 +753,8 @@ io.on('connection', (socket) => {
             groupSession.lockedAt = null;
             await groupSession.save();
 
-            // Get live count from Redis for real-time accuracy
-            const liveJoinedCount = await qrSessionService.getGroupSessionLiveCount(groupSessionId);
+            // 🚀 GET LIVE REDIS STATS FOR GROUP SESSION UNLOCK
+            const redisStats = await qrSessionService.getGroupSessionStatsFromRedis(groupSessionId);
 
             // Emit to faculty
             socket.emit('qr-groupSessionUnlocked', {
@@ -767,8 +769,10 @@ io.on('connection', (socket) => {
                     canLock: true,
                     canStartAttendance: false,
                     totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsJoined: liveJoinedCount, // ✅ Use live Redis count
-                    totalStudentsPresent: groupSession.totalStudentsPresent
+                    totalStudentsJoined: redisStats.totalStudentsJoined,
+                    totalStudentsPresent: redisStats.totalStudentsPresent,
+                    facultyName: groupSession.facultyName,
+                    facultyId: groupSession.facultyId
                 }
             });
 
@@ -916,8 +920,8 @@ io.on('connection', (socket) => {
             // Start Group QR refresh interval (every 5 seconds)
             qrSessionService.startGroupQRRefresh(groupSessionId);
 
-            // Get live count from Redis for real-time accuracy
-            const liveJoinedCount = await qrSessionService.getGroupSessionLiveCount(groupSessionId);
+            // 🚀 GET LIVE REDIS STATS FOR GROUP ATTENDANCE START
+            const redisStats = await qrSessionService.getGroupSessionStatsFromRedis(groupSessionId);
 
             // Emit to faculty with group QR data
             socket.emit('qr-groupAttendanceStarted', {
@@ -937,8 +941,10 @@ io.on('connection', (socket) => {
                     status: 'active',
                     totalSections: groupSession.sections.length,
                     totalStudentsAcrossSections: groupSession.totalStudentsAcrossSections,
-                    totalStudentsJoined: liveJoinedCount, // ✅ Use live Redis count
-                    totalStudentsPresent: groupSession.totalStudentsPresent
+                    totalStudentsJoined: redisStats.totalStudentsJoined,
+                    totalStudentsPresent: redisStats.totalStudentsPresent,
+                    facultyName: groupSession.facultyName,
+                    facultyId: groupSession.facultyId
                 }
             });
 
