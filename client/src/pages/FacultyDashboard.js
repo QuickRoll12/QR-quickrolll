@@ -72,40 +72,34 @@ const FacultyDashboard = () => {
 
             // QR Attendance Socket Listeners
             newSocket.on('qr-sessionStarted', (data) => {
-                console.log('QR Session started:', data);
                 setQrSessionData(data.sessionData);
                 setQrSessionActive(true);
                 showSuccessMessage('QR Session started successfully!');
             });
 
             newSocket.on('qr-sessionLocked', (data) => {
-                console.log('QR Session locked:', data);
                 // REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
                 setQrSessionData(data.sessionData);
                 showSuccessMessage('Session locked successfully!');
             });
 
             newSocket.on('qr-sessionUnlocked', (data) => {
-                console.log('QR Session unlocked:', data);
                 // REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
                 setQrSessionData(data.sessionData);
                 showSuccessMessage('Session unlocked successfully!');
             });
 
             newSocket.on('qr-attendanceStarted', (data) => {
-                console.log('QR Attendance started:', data);
                 setQrSessionData(data.sessionData);
                 setQrData(data.qrData);
                 showSuccessMessage('QR Attendance started!');
             });
 
             newSocket.on('qr-tokenRefreshed', (newQRData) => {
-                console.log('QR Token refreshed:', newQRData);
                 setQrData(newQRData);
             });
 
             newSocket.on('qr-sessionEnded', (data) => {
-                console.log('QR Session ended:', data);
                 setQrSessionData(null);
                 setQrData(null);
                 setQrSessionActive(false);
@@ -118,34 +112,29 @@ const FacultyDashboard = () => {
             });
 
             newSocket.on('qr-joinSessionBroadcasted', (data) => {
-                console.log('Join session broadcasted:', data);
                 showSuccessMessage('Join session notification sent to all students!');
             });
 
             // Group Session Socket Listeners
             newSocket.on('qr-groupSessionStarted', (data) => {
-                console.log('Group Session started:', data);
                 setGroupSessionData(data.groupSessionData);
                 setGroupSessionActive(true);
                 showSuccessMessage('Group Session started successfully!');
             });
 
             newSocket.on('qr-groupSessionLocked', (data) => {
-                console.log('Group Session locked:', data);
                 // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
                 setGroupSessionData(data.groupSessionData);
                 showSuccessMessage('Group Session locked successfully!');
             });
 
             newSocket.on('qr-groupSessionUnlocked', (data) => {
-                console.log('Group Session unlocked:', data);
                 // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
                 setGroupSessionData(data.groupSessionData);
                 showSuccessMessage('Group Session unlocked successfully!');
             });
 
             newSocket.on('qr-groupAttendanceStarted', (data) => {
-                console.log('Group Attendance started:', data);
                 // 🚀 REDIS-BASED STATS: Use fresh Redis data from backend (no state preservation needed)
                 setGroupSessionData(data.groupSessionData);
                 setQrData(data.qrData);
@@ -153,12 +142,10 @@ const FacultyDashboard = () => {
             });
 
             newSocket.on('qr-groupJoinSessionBroadcasted', (data) => {
-                console.log('Group join session broadcasted:', data);
                 showSuccessMessage('Join session notification sent to all students in all sections!');
             });
 
             newSocket.on('qr-groupSessionEnded', (data) => {
-                console.log('Group Session ended:', data);
                 setGroupSessionData(null);
                 setQrData(null);
                 setGroupSessionActive(false);

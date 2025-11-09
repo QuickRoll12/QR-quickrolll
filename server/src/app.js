@@ -81,7 +81,6 @@ if (cluster.isWorker) {
     // Setup worker for sticky sessions
     setupWorker(io);
     
-    console.log(`🔧 Worker ${process.pid} configured with cluster adapter`);
 }
 
 // Initialize QR session service with socket.io instance
@@ -185,7 +184,6 @@ io.on('connection', (socket) => {
     if (socket.user.role === 'faculty') {
         console.log('👤 Faculty connected:', socket.user.name);
         socket.join(`faculty-${socket.user.facultyId}`);
-        console.log(`Faculty ${socket.user.facultyId} joined faculty room`);
         
         // Faculty also joins section rooms for all their teaching assignments
         if (socket.user.teachingAssignments && socket.user.teachingAssignments.length > 0) {
@@ -370,7 +368,6 @@ io.on('connection', (socket) => {
             socket.to(roomName).emit('qr-joinSessionAvailable', joinNotificationData);
             socket.to(roomName).emit('sessionStatusUpdate', joinNotificationData);
 
-            console.log(`📢 Join session broadcasted by ${socket.user.name} for session: ${data.sessionId}`);
 
         } catch (error) {
             console.error('QR Broadcast join session error:', error);
@@ -836,7 +833,6 @@ io.on('connection', (socket) => {
                 message: 'Join session notification sent to all students in all sections'
             });
 
-            console.log(`📢 Group join session broadcasted by ${socket.user.name} for group: ${groupSessionId}`);
 
         } catch (error) {
             console.error('Group session broadcast join error:', error);
@@ -948,7 +944,6 @@ io.on('connection', (socket) => {
                 }
             });
 
-            console.log(`📱 Group QR Attendance started: ${groupSessionId} with single QR token`);
 
         } catch (error) {
             console.error('Group session start attendance error:', error);
@@ -1047,7 +1042,6 @@ io.on('connection', (socket) => {
                 }
             });
 
-            console.log(`🏁 Group Session ended: ${groupSessionId} for ${groupSession.sections.length} sections`);
 
         } catch (error) {
             console.error('Group session end error:', error);

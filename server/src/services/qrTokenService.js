@@ -58,9 +58,7 @@ class QRTokenService {
                 
                 // Also track by session for cleanup
                 await this.addTokenToSession(sessionId, token);
-                console.log(`✅ Token stored in Redis: ${token.substring(0, 20)}...`);
             } catch (error) {
-                console.warn('Redis cache failed, using fallback:', error.message);
                 // Fallback to in-memory cache
                 this.tokenCache.set(token, {
                     sessionId,
@@ -70,7 +68,6 @@ class QRTokenService {
                 });
             }
         } else {
-            console.warn('Redis not available, using fallback cache');
             // Use fallback in-memory cache
             this.tokenCache.set(token, {
                 sessionId,
@@ -81,9 +78,9 @@ class QRTokenService {
         }
 
         // Clean up expired tokens from cache (async, non-blocking)
-        this.cleanupExpiredTokens().catch(err => 
-            console.warn('Token cleanup failed:', err.message)
-        );
+        this.cleanupExpiredTokens().catch(() => {
+            // Silent cleanup
+        });
 
         return {
             token,
@@ -109,7 +106,6 @@ class QRTokenService {
                 try {
                     cachedToken = await redisCache.get(`${this.REDIS_TOKEN_PREFIX}${token}`);
                 } catch (error) {
-                    console.warn('Redis get failed, checking fallback cache:', error.message);
                 }
             }
             
@@ -141,7 +137,6 @@ class QRTokenService {
                 try {
                     await redisCache.del(`${this.REDIS_TOKEN_PREFIX}${token}`);
                 } catch (error) {
-                    console.warn('Redis delete failed:', error.message);
                 }
                 this.tokenCache.delete(token);
                 
@@ -365,9 +360,7 @@ class QRTokenService {
                 
                 // Also track by group session for cleanup
                 await this.addTokenToSession(groupSessionId, token, 'group');
-                console.log(`✅ Group token stored in Redis: ${token.substring(0, 20)}...`);
             } catch (error) {
-                console.warn('Redis cache failed, using fallback:', error.message);
                 // Fallback to in-memory cache
                 this.tokenCache.set(token, {
                     groupSessionId,
@@ -377,7 +370,6 @@ class QRTokenService {
                 });
             }
         } else {
-            console.warn('Redis not available, using fallback cache for group token');
             // Use fallback in-memory cache
             this.tokenCache.set(token, {
                 groupSessionId,
@@ -388,9 +380,9 @@ class QRTokenService {
         }
 
         // Clean up expired tokens from cache (async, non-blocking)
-        this.cleanupExpiredTokens().catch(err => 
-            console.warn('Token cleanup failed:', err.message)
-        );
+        this.cleanupExpiredTokens().catch(() => {
+            // Silent cleanup
+        });
 
         return {
             token,

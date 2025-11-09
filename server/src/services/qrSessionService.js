@@ -26,7 +26,6 @@ class QRSessionService {
             setInterval(() => {
                 this.clearExpiredCache();
             }, 6 * 60 * 1000);
-            console.log('🧹 QR Session cache cleanup scheduled (master process only)');
         }
     }
 
@@ -64,13 +63,11 @@ class QRSessionService {
             // Cache individually for faster future access
             await redisCache.set(deviceCacheKey, deviceId, this.CACHE_TTL);
             this.cacheHits++;
-            console.log(`Redis cache hit !`);
             return deviceId;
         }
 
         // Cache miss - fetch from database
         this.cacheMisses++;
-        console.log(`📊 Cache miss for section ${sectionCacheKey}, fetching device IDs from DB`);
         
         try {
             // Fetch all students in this section at once (batch optimization)
@@ -98,8 +95,6 @@ class QRSessionService {
                 await redisCache.set(deviceCacheKey, deviceId, this.CACHE_TTL);
             }
 
-            console.log(`✅ Cached ${sectionStudents.length} device IDs for section ${sectionCacheKey}`);
-            
             return deviceId;
 
         } catch (error) {
@@ -118,11 +113,9 @@ class QRSessionService {
         // Check if already cached in Redis
         const existingCache = await redisCache.exists(sectionKey);
         if (existingCache) {
-            console.log(`📋 Device cache already loaded for section ${sectionKey}`);
             return;
         }
 
-        console.log(`🚀 Preloading device cache for section ${sectionKey}`);
         // This will populate the cache
         await this.getStudentDeviceId('dummy', session.department, session.semester, session.section);
     }
@@ -132,7 +125,6 @@ class QRSessionService {
      */
     clearExpiredCache() {
         // Redis handles TTL automatically, but we can do cleanup here if needed
-        console.log(`🧹 Redis cache cleanup completed (TTL managed automatically)`);
     }
 
     /**
@@ -191,8 +183,6 @@ class QRSessionService {
         
         // Reload cache
         await this.getStudentDeviceId('dummy', department, semester, section);
-        
-        console.log(`🔄 Refreshed device cache for section ${sectionKey}`);
     }
 
     // ==================== 🚀 SESSION JOIN CACHE METHODS ====================
@@ -231,7 +221,6 @@ class QRSessionService {
             // 🚀 REDIS CHECK (sub-millisecond)
             const redis = redisCache.getClient();
             const isMember = await redis.sIsMember(`session:${sessionId}:joined`, studentId);
-            console.log(`used redis for verifying student join status.`)
             return isMember;
         } catch (error) {
             console.warn('⚠️ Redis session join check failed, falling back to DB:', error.message);
@@ -258,7 +247,6 @@ class QRSessionService {
         try {
             const redis = redisCache.getClient();
             await redis.del(`session:${sessionId}:joined`);
-            console.log(`🧹 Cleared join cache for session ${sessionId}`);
         } catch (error) {
             console.warn('⚠️ Redis session join cache clear failed:', error.message);
             // Not critical - cache will expire naturally
@@ -300,7 +288,6 @@ class QRSessionService {
             // 🚀 REDIS CHECK (sub-millisecond)
             const redis = redisCache.getClient();
             const rollNumbers = await redis.sMembers(`session:${sessionId}:attended`);
-            console.log(`used redis for getting attended students list.`);
             return rollNumbers.sort(); // Sort roll numbers for consistency
         } catch (error) {
             console.warn('⚠️ Redis attendance cache check failed, falling back to DB:', error.message);
@@ -327,7 +314,6 @@ class QRSessionService {
             // 🚀 REDIS CHECK (sub-millisecond)
             const redis = redisCache.getClient();
             const rollNumbers = await redis.sMembers(`session:${sessionId}:attended`);
-            console.log(`used redis for getting attended students stats.`);
             
             // Convert roll numbers to student objects format (limited data from cache)
             const limitedRollNumbers = rollNumbers.sort().slice(0, limit);
@@ -362,7 +348,6 @@ class QRSessionService {
             const joinedCount = await redis.sCard(`session:${sessionId}:joined`) || 0;
             const attendedCount = await redis.sCard(`session:${sessionId}:attended`) || 0;
             
-            console.log(`📊 Redis stats for session ${sessionId}: joined=${joinedCount}, attended=${attendedCount}`);
             
             return {
                 studentsJoined: joinedCount,
@@ -417,7 +402,6 @@ class QRSessionService {
                 totalStudents += session?.totalStudents || 0;
             }
             
-            console.log(`📊 Redis group stats for ${groupSessionId}: joined=${totalJoined}, attended=${totalPresent}, total=${totalStudents}`);
             
             return {
                 totalStudentsJoined: totalJoined,
@@ -496,7 +480,6 @@ class QRSessionService {
             // 🚀 REDIS CHECK (sub-millisecond)
             const redis = redisCache.getClient();
             const hasAttended = await redis.sIsMember(`session:${sessionId}:attended`, rollNumber);
-            console.log(`used redis for verifying student attendance status.`);
             return hasAttended;
         } catch (error) {
             console.warn('⚠️ Redis attendance check failed, falling back to DB:', error.message);
@@ -1029,7 +1012,6 @@ class QRSessionService {
             // Update cache with session data
             this.activeSessions.set(session.sessionId, updatedSession);
 
-            // console.log(`✅ Attendance marked: ${studentData.name} (${studentData.studentId}) in session ${session.sessionId}`);
 
             // 🚀 GET LIVE REDIS STATS FOR RESPONSE
             const redisStats = await this.getSessionStatsFromRedis(session.sessionId);
@@ -1607,7 +1589,7 @@ class QRSessionService {
                 { groupSessionId },
                 { totalStudentsJoined: currentCount }
             );
-            console.log(`🔄 Synced group ${groupSessionId} count to DB: ${currentCount}`);
+            // console.log(`🔄 Synced group ${groupSessionId} count to DB: ${currentCount}`);
         } catch (error) {
             console.error('Error syncing group count to DB:', error);
         }
@@ -1662,7 +1644,7 @@ class QRSessionService {
         }, 5000); // Refresh every 5 seconds
 
         this.groupQRRefreshIntervals.set(groupSessionId, intervalId);
-        console.log(`🔄 Group QR refresh started for session ${groupSessionId}`);
+        // console.log(`🔄 Group QR refresh started for session ${groupSessionId}`);
     }
 
     /**
@@ -1674,7 +1656,7 @@ class QRSessionService {
         if (intervalId) {
             clearInterval(intervalId);
             this.groupQRRefreshIntervals.delete(groupSessionId);
-            console.log(`🛑 Group QR refresh stopped for session ${groupSessionId}`);
+            // console.log(`🛑 Group QR refresh stopped for session ${groupSessionId}`);
         }
     }
 
@@ -1732,7 +1714,7 @@ class QRSessionService {
             this.io.to(roomName).emit('qr-tokenRefreshed', qrData);
         }
 
-        console.log(`🔄 Group QR token refreshed for ${groupSessionId}, count: ${groupSession.qrRefreshCount}`);
+        // console.log(`🔄 Group QR token refreshed for ${groupSessionId}, count: ${groupSession.qrRefreshCount}`);
         return qrData;
     }
 }
