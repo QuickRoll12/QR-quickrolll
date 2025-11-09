@@ -515,6 +515,92 @@ class QRSessionService {
     }
 
     /**
+     * 🚨 PROXY DETECTION: Remove student from session caches
+     * This method is called by the proxy detection system to remove flagged students
+     * @param {string} sessionId - Session ID
+     * @param {string} studentId - Student ID (for join cache)
+     * @param {string} rollNumber - Student roll number (for attendance cache)
+     * @returns {Object} - Removal result
+     */
+    async removeStudentFromSession(sessionId, studentId, rollNumber) {
+        try {
+            if (!redisCache.isHealthy()) {
+                return {
+                    success: false,
+                    error: 'Redis cache not available',
+                    joinCacheRemoved: false,
+                    attendanceCacheRemoved: false
+                };
+            }
+
+            const redis = redisCache.getClient();
+            
+            // Remove from join cache (studentId)
+            const joinRemoved = await redis.sRem(`session:${sessionId}:joined`, studentId);
+            
+            // Remove from attendance cache (rollNumber)
+            const attendanceRemoved = await redis.sRem(`session:${sessionId}:attended`, rollNumber);
+            
+            console.log(`🚨 PROXY REMOVAL: Session ${sessionId} - Student ${studentId}/${rollNumber} - Join: ${joinRemoved > 0}, Attendance: ${attendanceRemoved > 0}`);
+            
+            return {
+                success: true,
+                joinCacheRemoved: joinRemoved > 0,
+                attendanceCacheRemoved: attendanceRemoved > 0,
+                message: `Removed from ${(joinRemoved > 0 ? 1 : 0) + (attendanceRemoved > 0 ? 1 : 0)} cache(s)`
+            };
+            
+        } catch (error) {
+            console.error(`❌ Failed to remove student ${studentId}/${rollNumber} from session ${sessionId}:`, error);
+            return {
+                success: false,
+                error: error.message,
+                joinCacheRemoved: false,
+                attendanceCacheRemoved: false
+            };
+        }
+    }
+
+    /**
+     * 🔍 PROXY DETECTION: Check if student is in session caches
+     * @param {string} sessionId - Session ID
+     * @param {string} studentId - Student ID
+     * @param {string} rollNumber - Student roll number
+     * @returns {Object} - Student status in caches
+     */
+    async checkStudentInSession(sessionId, studentId, rollNumber) {
+        try {
+            if (!redisCache.isHealthy()) {
+                return {
+                    success: false,
+                    error: 'Redis cache not available'
+                };
+            }
+
+            const redis = redisCache.getClient();
+            
+            // Check both caches
+            const isInJoinCache = await redis.sIsMember(`session:${sessionId}:joined`, studentId);
+            const isInAttendanceCache = await redis.sIsMember(`session:${sessionId}:attended`, rollNumber);
+            
+            return {
+                success: true,
+                isInJoinCache,
+                isInAttendanceCache,
+                wouldBeCounted: isInAttendanceCache, // This determines final attendance
+                message: `Student ${isInAttendanceCache ? 'WILL' : 'will NOT'} be counted in final attendance`
+            };
+            
+        } catch (error) {
+            console.error(`❌ Failed to check student ${studentId}/${rollNumber} in session ${sessionId}:`, error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
      * Start a new QR session (Faculty clicks "Start Session")
      * @param {Object} sessionData - Session information
      * @param {Object} facultyData - Faculty information

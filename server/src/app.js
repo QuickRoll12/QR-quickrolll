@@ -19,6 +19,7 @@ const photoVerificationRoutes = require('./routes/photoVerificationRoutes');
 const facultyAssignmentRoutes = require('./routes/facultyAssignmentRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
+const proxyDetectionRoutes = require('./routes/proxyDetectionRoutes');
 const qrSessionService = require('./services/qrSessionService');
 const GroupSession = require('./models/GroupSession');
 const qrTokenService = require('./services/qrTokenService');
@@ -119,6 +120,7 @@ app.use('/api/sheet-mappings', sheetMappingRoutes);
 app.use('/api/attendance', attendanceRecordRoutes);
 app.use('/api/photo-verification', photoVerificationRoutes);
 app.use('/api/qr-attendance', qrAttendanceRoutes);
+app.use('/api/proxy-detection', proxyDetectionRoutes);
 
 // MongoDB connection with proper options for cluster mode
 mongoose.connect(process.env.MONGODB_URI, {
