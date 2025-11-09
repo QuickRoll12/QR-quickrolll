@@ -1,9 +1,43 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const qrSessionService = require('../services/qrSessionService');
 const QRSession = require('../models/QRSession');
 const GroupSession = require('../models/GroupSession');
 const redisCache = require('../services/redisCache');
+
+// 🔒 SECURITY: All proxy detection routes require authentication
+router.use(auth);
+
+// 🔒 SECURITY: Middleware to ensure only students can remove themselves
+const ensureStudentOwnership = (req, res, next) => {
+    try {
+        const { studentId } = req.body;
+        
+        // Verify the authenticated user is the same student being removed
+        if (req.user.role !== 'student') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only students can use proxy detection API'
+            });
+        }
+        
+        if (req.user.studentId !== studentId) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only remove yourself from sessions'
+            });
+        }
+        
+        next();
+    } catch (error) {
+        res.status(403).json({
+            success: false,
+            message: 'Authorization failed',
+            error: error.message
+        });
+    }
+};
 
 /**
  * 🚨 PROXY DETECTION API - Remove Student from Live Session
@@ -25,7 +59,7 @@ const redisCache = require('../services/redisCache');
  *   "detectionMethod": "string"      // Optional: Detection method used (logging purposes)
  * }
  */
-router.post('/remove-student', async (req, res) => {
+router.post('/remove-student', ensureStudentOwnership, async (req, res) => {
     try {
         const { 
             studentId, 
@@ -42,6 +76,16 @@ router.post('/remove-student', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'studentId, rollNumber, course, semester, and section are required'
+            });
+        }
+
+        // 🔒 SECURITY: Cross-validate student data with authenticated user
+        if (req.user.classRollNumber !== rollNumber || 
+            req.user.semester !== semester || 
+            req.user.section !== section) {
+            return res.status(403).json({
+                success: false,
+                message: 'Student data mismatch with authenticated user'
             });
         }
 
@@ -215,7 +259,7 @@ async function removeStudentFromAttendanceCache(sessionId, rollNumber) {
  *   "section": "string"
  * }
  */
-router.post('/student-status', async (req, res) => {
+router.post('/student-status', ensureStudentOwnership, async (req, res) => {
     try {
         const { studentId, rollNumber, course, semester, section } = req.body;
 
@@ -224,6 +268,16 @@ router.post('/student-status', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'studentId, rollNumber, course, semester, and section are required'
+            });
+        }
+
+        // 🔒 SECURITY: Cross-validate student data with authenticated user
+        if (req.user.classRollNumber !== rollNumber || 
+            req.user.semester !== semester || 
+            req.user.section !== section) {
+            return res.status(403).json({
+                success: false,
+                message: 'Student data mismatch with authenticated user'
             });
         }
 
@@ -338,7 +392,7 @@ router.get('/session-stats/:sessionId', async (req, res) => {
                 cache: {
                     joinedCount,
                     attendedCount,
-                    joinedStudents: joinedMembers.sort(),
+                    joinedStudents: joinedMembers,
                     attendedStudents: attendedMembers.sort()
                 },
                 timestamp: new Date().toISOString()

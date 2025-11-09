@@ -372,12 +372,13 @@ exports.login = async (req, res) => {
         semester: user.semester,
         section: user.section,
         classRollNumber: user.classRollNumber,
+        photorequired : user.passwordChangeRequired
       }
     });
 
   } catch (error) {
     console.error('Login Server Error:', error);
-    res.status(500).json({ message: 'An internal server error occurred during login.' });
+    res.status(500).json({ message: 'Login Failed !' });
   }
 };
 
