@@ -196,23 +196,29 @@ class ReportController {
         };
 
         // Add data rows
-        students.forEach(student => {
-            const row = worksheet.addRow([
+        students.forEach((student, index) => {
+            const rowData = [
                 student.realSection,
                 student.classRollNumber,
                 student.studentName,
-                student.universityRoll,
+                student.universityRoll, // ✅ Fixed: Using universityRoll field
                 student.attendanceStatus
-            ]);
+            ];
+            
+            const row = worksheet.addRow(rowData);
 
             // Apply yellow highlighting for absent students (Python: absent_format)
+            // ✅ Fixed: Only highlight data columns (A to E), not entire row
             if (student.attendanceStatus === 'Absent') {
-                row.fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: 'FFFFFF21' } // Yellow: #FFDE21 -> FFFFFF21
-                };
-                row.font = { color: { argb: 'FF9C0006' } }; // Dark red text
+                for (let col = 1; col <= 5; col++) { // Only columns A-E
+                    const cell = row.getCell(col);
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFFF21' } // Yellow: #FFDE21
+                    };
+                    cell.font = { color: { argb: 'FF9C0006' } }; // Dark red text
+                }
             }
         });
 
@@ -225,7 +231,7 @@ class ReportController {
                     student.realSection,
                     student.classRollNumber,
                     student.studentName,
-                    student.universityRoll,
+                    student.universityRoll, // ✅ Fixed: Using universityRoll field
                     student.attendanceStatus
                 ];
                 const cellValue = String(values[index] || '');
@@ -234,6 +240,12 @@ class ReportController {
             
             column.width = Math.min(maxLength + 2, 50); // Cap at 50 characters
         });
+
+        // ✅ Fixed: Set proper Excel properties for direct download
+        workbook.creator = 'QuickRoll Attendance System';
+        workbook.lastModifiedBy = 'QuickRoll System';
+        workbook.created = new Date();
+        workbook.modified = new Date();
 
         // Save file
         const fileName = `attendance_report_${uuidv4()}.xlsx`;
@@ -254,7 +266,10 @@ class ReportController {
         const fileName = `absentees_report_${uuidv4()}.pdf`;
         const filePath = path.join(this.reportsDir, fileName);
         
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ 
+            margin: 40,
+            size: 'A4'
+        });
         doc.pipe(fs.createWriteStream(filePath));
 
         // Filter absentees
@@ -262,12 +277,12 @@ class ReportController {
         
         if (absentees.length === 0) {
             // No absentees case (Python: empty absentees logic)
-            doc.fontSize(16).font('Helvetica-Bold');
+            doc.fontSize(18).font('Helvetica-Bold');
             doc.text('Absentees List', { align: 'center' });
             doc.moveDown(2);
             
             doc.fontSize(12).font('Helvetica');
-            doc.text('All students are marked Present. No absentees.', { align: 'left' });
+            doc.text('All students are marked Present. No absentees.', { align: 'center' });
         } else {
             // Group by section (Python: groupby logic)
             const sectionGroups = {};
@@ -281,35 +296,81 @@ class ReportController {
             // Generate one page per section (Python: add_page for each section)
             let isFirstSection = true;
             
-            Object.keys(sectionGroups).forEach(section => {
+            Object.keys(sectionGroups).sort().forEach(section => {
                 if (!isFirstSection) {
                     doc.addPage();
                 }
                 isFirstSection = false;
 
-                // Section title (Python: section title)
-                doc.fontSize(16).font('Helvetica-Bold');
+                // ✅ Professional Section Title (matching Python format)
+                doc.fontSize(18).font('Helvetica-Bold');
                 doc.text(`Absentees List: Section ${section}`, { align: 'center' });
-                doc.moveDown(2);
+                doc.moveDown(1.5);
 
-                // Table header (Python: table header)
-                doc.fontSize(12).font('Helvetica-Bold');
-                const startY = doc.y;
-                doc.text('Class Roll No.', 50, startY, { width: 100 });
-                doc.text('Student Name', 150, startY, { width: 300 });
+                // ✅ Professional Table with Borders (matching Python FPDF)
+                const tableTop = doc.y;
+                const tableLeft = 40;
+                const tableWidth = 515; // A4 width - margins
+                const colWidths = [120, 395]; // Class Roll No., Student Name
+                const rowHeight = 25;
                 
-                // Header underline
-                doc.moveTo(50, doc.y + 5).lineTo(450, doc.y + 5).stroke();
-                doc.moveDown(1);
-
-                // Table rows (Python: table rows)
-                doc.font('Helvetica');
-                sectionGroups[section].forEach(student => {
-                    const rowY = doc.y;
-                    doc.text(student.classRollNumber, 50, rowY, { width: 100 });
-                    doc.text(student.studentName, 150, rowY, { width: 300 });
-                    doc.moveDown(0.8);
+                // Draw table header with borders
+                doc.fontSize(12).font('Helvetica-Bold');
+                
+                // Header background (light gray)
+                doc.rect(tableLeft, tableTop, tableWidth, rowHeight)
+                   .fillAndStroke('#f0f0f0', '#000000');
+                
+                // Header text
+                doc.fillColor('#000000');
+                doc.text('Class Roll No.', tableLeft + 5, tableTop + 7, { 
+                    width: colWidths[0] - 10, 
+                    align: 'center' 
                 });
+                doc.text('Student Name', tableLeft + colWidths[0] + 5, tableTop + 7, { 
+                    width: colWidths[1] - 10, 
+                    align: 'center' 
+                });
+
+                // Draw vertical line between columns in header
+                doc.moveTo(tableLeft + colWidths[0], tableTop)
+                   .lineTo(tableLeft + colWidths[0], tableTop + rowHeight)
+                   .stroke();
+
+                // Table data rows with borders
+                doc.font('Helvetica');
+                let currentY = tableTop + rowHeight;
+                
+                sectionGroups[section].forEach((student, index) => {
+                    // Draw row background (alternating white/light gray)
+                    const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+                    doc.rect(tableLeft, currentY, tableWidth, rowHeight)
+                       .fillAndStroke(bgColor, '#000000');
+                    
+                    // Row text
+                    doc.fillColor('#000000');
+                    doc.text(student.classRollNumber, tableLeft + 5, currentY + 7, { 
+                        width: colWidths[0] - 10, 
+                        align: 'center' 
+                    });
+                    doc.text(student.studentName, tableLeft + colWidths[0] + 5, currentY + 7, { 
+                        width: colWidths[1] - 10, 
+                        align: 'left' 
+                    });
+
+                    // Draw vertical line between columns
+                    doc.moveTo(tableLeft + colWidths[0], currentY)
+                       .lineTo(tableLeft + colWidths[0], currentY + rowHeight)
+                       .stroke();
+
+                    currentY += rowHeight;
+                });
+
+                // ✅ Add summary at bottom of each section
+                doc.moveDown(1);
+                doc.fontSize(10).font('Helvetica-Oblique');
+                doc.text(`Total Absentees in Section ${section}: ${sectionGroups[section].length}`, 
+                    { align: 'right' });
             });
         }
 

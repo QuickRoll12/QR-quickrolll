@@ -614,9 +614,20 @@ This is an automated email sent by the QuickRoll Attendance System.`;
   };
 
   const downloadReport = (reportUrl, filename) => {
+    // ✅ Force direct download for Excel files
     const link = document.createElement('a');
     link.href = reportUrl;
     link.download = filename;
+    link.setAttribute('target', '_blank'); // Ensure it opens in new tab if needed
+    link.setAttribute('rel', 'noopener noreferrer'); // Security
+    
+    // Force download behavior
+    if (filename.endsWith('.xlsx')) {
+      link.setAttribute('type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } else if (filename.endsWith('.pdf')) {
+      link.setAttribute('type', 'application/pdf');
+    }
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
