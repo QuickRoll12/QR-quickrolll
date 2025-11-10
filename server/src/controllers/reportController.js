@@ -7,10 +7,10 @@ const { v4: uuidv4 } = require('uuid');
 
 /**
  * 📊 REPORT GENERATION CONTROLLER
- * 
+ *
  * This controller implements the exact logic from the Python script for generating
  * attendance reports with Given Roll Number mapping.
- * 
+ *
  * Python Script Logic Translation:
  * 1. Parse CSV with exact column mapping
  * 2. Process Present/Absent roll numbers based on toggle
@@ -34,7 +34,7 @@ class ReportController {
     getColumnMapping() {
         return {
             'S No.': 'serialNumber',
-            'University Roll': 'universityRoll',
+            'University Roll Number': 'universityRoll',
             'Student Name': 'studentName',
             'Real Section': 'realSection',
             'Class Roll Number': 'classRollNumber',
@@ -201,23 +201,26 @@ class ReportController {
                 student.realSection,
                 student.classRollNumber,
                 student.studentName,
-                student.universityRoll, // ✅ Fixed: Using universityRoll field
+                student.universityRoll, 
                 student.attendanceStatus
             ];
             
             const row = worksheet.addRow(rowData);
 
             // Apply yellow highlighting for absent students (Python: absent_format)
-            // ✅ Fixed: Only highlight data columns (A to E), not entire row
             if (student.attendanceStatus === 'Absent') {
+                // Using the red fill from the Python script
+                const redFill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFFC7CE' } // Light red fill
+                };
+                const redFont = { color: { argb: 'FF9C0006' } }; // Dark red text
+
                 for (let col = 1; col <= 5; col++) { // Only columns A-E
                     const cell = row.getCell(col);
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: { argb: 'FFFFFF21' } // Yellow: #FFDE21
-                    };
-                    cell.font = { color: { argb: 'FF9C0006' } }; // Dark red text
+                    cell.fill = redFill;
+                    cell.font = redFont;
                 }
             }
         });
@@ -231,7 +234,7 @@ class ReportController {
                     student.realSection,
                     student.classRollNumber,
                     student.studentName,
-                    student.universityRoll, // ✅ Fixed: Using universityRoll field
+                    student.universityRoll,
                     student.attendanceStatus
                 ];
                 const cellValue = String(values[index] || '');
@@ -241,7 +244,7 @@ class ReportController {
             column.width = Math.min(maxLength + 2, 50); // Cap at 50 characters
         });
 
-        // ✅ Fixed: Set proper Excel properties for direct download
+        // Set proper Excel properties for direct download
         workbook.creator = 'QuickRoll Attendance System';
         workbook.lastModifiedBy = 'QuickRoll System';
         workbook.created = new Date();
@@ -271,6 +274,38 @@ class ReportController {
             size: 'A4'
         });
         doc.pipe(fs.createWriteStream(filePath));
+
+        // --- ✅ PDF FIX: Reusable function to draw the table header ---
+        const drawHeader = (currentY) => {
+            const tableTop = currentY;
+            const tableLeft = 40;
+            const tableWidth = 515; // A4 width (595) - 80 (margins)
+            const colWidths = [120, 395]; // Class Roll No., Student Name
+            const rowHeight = 25;
+
+            doc.fontSize(12).font('Helvetica-Bold');
+            
+            // Header background (light gray)
+            doc.rect(tableLeft, tableTop, tableWidth, rowHeight)
+               .fillAndStroke('#f0f0f0', '#000000');
+            
+            // Header text
+            doc.fillColor('#000000');
+            doc.text('Class Roll No.', tableLeft + 5, tableTop + 7, { 
+                width: colWidths[0] - 10, 
+                align: 'center' 
+            });
+            doc.text('Student Name', tableLeft + colWidths[0] + 5, tableTop + 7, { 
+                width: colWidths[1] - 10, 
+                align: 'center' 
+            });
+
+            // Draw vertical line between columns in header
+            doc.moveTo(tableLeft + colWidths[0], tableTop)
+               .lineTo(tableLeft + colWidths[0], tableTop + rowHeight)
+               .stroke();
+        };
+        // --- END OF HEADER FUNCTION ---
 
         // Filter absentees
         const absentees = students.filter(s => s.attendanceStatus === 'Absent');
@@ -307,41 +342,32 @@ class ReportController {
                 doc.text(`Absentees List: Section ${section}`, { align: 'center' });
                 doc.moveDown(1.5);
 
-                // ✅ Professional Table with Borders (matching Python FPDF)
-                const tableTop = doc.y;
+                // --- ✅ PDF FIX: Table constants and page break logic ---
                 const tableLeft = 40;
-                const tableWidth = 515; // A4 width - margins
-                const colWidths = [120, 395]; // Class Roll No., Student Name
+                const tableWidth = 515;
+                const colWidths = [120, 395];
                 const rowHeight = 25;
-                
-                // Draw table header with borders
-                doc.fontSize(12).font('Helvetica-Bold');
-                
-                // Header background (light gray)
-                doc.rect(tableLeft, tableTop, tableWidth, rowHeight)
-                   .fillAndStroke('#f0f0f0', '#000000');
-                
-                // Header text
-                doc.fillColor('#000000');
-                doc.text('Class Roll No.', tableLeft + 5, tableTop + 7, { 
-                    width: colWidths[0] - 10, 
-                    align: 'center' 
-                });
-                doc.text('Student Name', tableLeft + colWidths[0] + 5, tableTop + 7, { 
-                    width: colWidths[1] - 10, 
-                    align: 'center' 
-                });
+                const pageBottom = doc.page.height - doc.page.margins.bottom;
 
-                // Draw vertical line between columns in header
-                doc.moveTo(tableLeft + colWidths[0], tableTop)
-                   .lineTo(tableLeft + colWidths[0], tableTop + rowHeight)
-                   .stroke();
+                // Draw first header
+                let currentY = doc.y;
+                drawHeader(currentY);
+                currentY += rowHeight;
 
-                // Table data rows with borders
+                // Table data rows
                 doc.font('Helvetica');
-                let currentY = tableTop + rowHeight;
                 
                 sectionGroups[section].forEach((student, index) => {
+                    // --- ✅ PDF FIX: Check if a new page is needed BEFORE drawing the row ---
+                    if (currentY + rowHeight > pageBottom) {
+                        doc.addPage();
+                        currentY = doc.page.margins.top; // Reset Y to top
+                        drawHeader(currentY); // Draw the header again
+                        currentY += rowHeight;
+                        doc.font('Helvetica'); // Reset font
+                    }
+                    // --- END OF PAGE BREAK FIX ---
+
                     // Draw row background (alternating white/light gray)
                     const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
                     doc.rect(tableLeft, currentY, tableWidth, rowHeight)
@@ -367,7 +393,12 @@ class ReportController {
                 });
 
                 // ✅ Add summary at bottom of each section
-                doc.moveDown(1);
+                // --- ✅ PDF FIX: Check for page break for summary text ---
+                if (currentY + 20 > pageBottom) {
+                    doc.addPage();
+                    currentY = doc.page.margins.top;
+                }
+                doc.moveDown(1); // Use moveDown instead of setting Y
                 doc.fontSize(10).font('Helvetica-Oblique');
                 doc.text(`Total Absentees in Section ${section}: ${sectionGroups[section].length}`, 
                     { align: 'right' });
@@ -423,14 +454,17 @@ class ReportController {
             }
 
             // Validate CSV structure
-            const requiredFields = ['givenRollNumber', 'studentName', 'realSection', 'classRollNumber'];
+            const requiredFields = ['givenRollNumber', 'studentName', 'realSection', 'classRollNumber', 'universityRoll'];
             const firstStudent = students[0];
             const missingFields = requiredFields.filter(field => !firstStudent.hasOwnProperty(field));
             
             if (missingFields.length > 0) {
+                 // Clean up uploaded file
+                fs.unlinkSync(req.file.path);
+                
                 return res.status(400).json({
                     success: false,
-                    message: `CSV missing required columns: ${missingFields.join(', ')}`
+                    message: `CSV missing required columns. Your CSV must have headers: ${missingFields.join(', ')}`
                 });
             }
 
