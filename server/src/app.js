@@ -111,6 +111,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Serve the temp-photos directory for photo access
 app.use('/temp-photos', express.static(path.join(__dirname, '../temp-photos')));
 
+// 📊 Serve generated reports directory for download access
+app.use('/reports', express.static(path.join(__dirname, '../public/reports')));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);

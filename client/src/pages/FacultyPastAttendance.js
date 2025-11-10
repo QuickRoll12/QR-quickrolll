@@ -23,6 +23,16 @@ const FacultyPastAttendance = () => {
   const [editSuccess, setEditSuccess] = useState('');
   const [presentStudents, setPresentStudents] = useState([]);
   const [absentStudents, setAbsentStudents] = useState([]);
+  
+  // 📊 REPORT GENERATION STATE
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [rollNumbers, setRollNumbers] = useState('');
+  const [attendanceMode, setAttendanceMode] = useState('present'); // 'present' or 'absent'
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reportSuccess, setReportSuccess] = useState('');
+  const [generatedReports, setGeneratedReports] = useState(null);
 
   useEffect(() => {
     fetchAttendanceRecords();
@@ -529,16 +539,110 @@ This is an automated email sent by the QuickRoll Attendance System.`;
     }
   };
 
+  // 📊 REPORT GENERATION FUNCTIONS
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'text/csv') {
+      setCsvFile(file);
+      setReportError('');
+    } else {
+      setReportError('Please select a valid CSV file');
+      setCsvFile(null);
+    }
+  };
+
+  const resetReportModal = () => {
+    setCsvFile(null);
+    setRollNumbers('');
+    setAttendanceMode('present');
+    setReportError('');
+    setReportSuccess('');
+    setGeneratedReports(null);
+    setReportLoading(false);
+  };
+
+  const generateCustomReport = async () => {
+    if (!csvFile) {
+      setReportError('Please upload a CSV file');
+      return;
+    }
+
+    if (!rollNumbers.trim()) {
+      setReportError('Please enter roll numbers');
+      return;
+    }
+
+    setReportLoading(true);
+    setReportError('');
+    setReportSuccess('');
+
+    try {
+      const formData = new FormData();
+      formData.append('csvFile', csvFile);
+      formData.append('rollNumbers', rollNumbers.trim());
+      formData.append('attendanceMode', attendanceMode);
+
+      const token = localStorage.getItem('token');
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+      
+      const response = await axios.post(
+        `${BACKEND_URL}/api/reports/generate-custom`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setGeneratedReports(response.data.reports);
+        setReportSuccess('Reports generated successfully! Click the download links below.');
+      } else {
+        setReportError(response.data.message || 'Failed to generate reports');
+      }
+    } catch (error) {
+      console.error('Error generating reports:', error);
+      setReportError(
+        error.response?.data?.message || 
+        'Failed to generate reports. Please try again.'
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const downloadReport = (reportUrl, filename) => {
+    const link = document.createElement('a');
+    link.href = reportUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="past-attendance-container">
       <div className="header">
         <h2>Past Attendance Records</h2>
-        <button 
-          className="back-button" 
-          onClick={() => navigate('/faculty')}
-        >
-          <span className="back-arrow">&larr;</span> Back to Dashboard
-        </button>
+        <div className="header-buttons">
+          <button 
+            className="download-report-button"
+            onClick={() => {
+              resetReportModal();
+              setShowReportModal(true);
+            }}
+          >
+            📊 Download Report
+          </button>
+          <button 
+            className="back-button" 
+            onClick={() => navigate('/faculty')}
+          >
+            <span className="back-arrow">&larr;</span> Back to Dashboard
+          </button>
+        </div>
       </div>
 
       <div className="filters-container">
@@ -811,6 +915,161 @@ This is an automated email sent by the QuickRoll Attendance System.`;
                   </>
                 ) : (
                   'Save Changes'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📊 REPORT GENERATION MODAL */}
+      {showReportModal && (
+        <div className="modal-overlay">
+          <div className="modal-content report-modal">
+            <div className="modal-header">
+              <h3>📊 Generate Custom Attendance Report</h3>
+              <button 
+                className="close-button" 
+                onClick={() => setShowReportModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {reportError && (
+                <div className="error-message">
+                  <i className="fas fa-exclamation-circle"></i>
+                  {reportError}
+                </div>
+              )}
+              
+              {reportSuccess && (
+                <div className="success-message">
+                  <i className="fas fa-check-circle"></i>
+                  {reportSuccess}
+                </div>
+              )}
+
+              <div className="report-sections">
+                {/* CSV Upload Section */}
+                <div className="report-section">
+                  <h4>📁 Upload Student Data (CSV)</h4>
+                  <p className="section-description">
+                    Upload CSV file with columns: S No., University Roll, Student Name, Real Section, Class Roll Number, Mobile Number, Given Roll number
+                  </p>
+                  <div className="file-upload-area">
+                    <input
+                      type="file"
+                      id="csvFileInput"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="csvFileInput" className="file-upload-label">
+                      {csvFile ? (
+                        <>
+                          <i className="fas fa-file-csv"></i>
+                          {csvFile.name}
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-cloud-upload-alt"></i>
+                          Click to upload CSV file
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Roll Numbers Input Section */}
+                <div className="report-section">
+                  <h4>📝 Enter Roll Numbers</h4>
+                  
+                  {/* Present/Absent Toggle */}
+                  <div className="attendance-mode-toggle">
+                    <label className="toggle-label">
+                      <span>Mode:</span>
+                      <div className="toggle-buttons">
+                        <button
+                          type="button"
+                          className={`toggle-button ${attendanceMode === 'present' ? 'active' : ''}`}
+                          onClick={() => setAttendanceMode('present')}
+                        >
+                          Present
+                        </button>
+                        <button
+                          type="button"
+                          className={`toggle-button ${attendanceMode === 'absent' ? 'active' : ''}`}
+                          onClick={() => setAttendanceMode('absent')}
+                        >
+                          Absent
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <p className="section-description">
+                    Enter comma-separated {attendanceMode} roll numbers (Given Roll numbers from CSV):
+                  </p>
+                  <textarea
+                    className="roll-numbers-input"
+                    placeholder={`Example: 1, 2, 3, 4, 5\n\nEnter the ${attendanceMode} students' Given Roll numbers...`}
+                    value={rollNumbers}
+                    onChange={(e) => setRollNumbers(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              {/* Generated Reports Section */}
+              {generatedReports && (
+                <div className="generated-reports">
+                  <h4>📄 Generated Reports</h4>
+                  <div className="download-links">
+                    {generatedReports.pdfUrl && (
+                      <button
+                        className="download-link pdf-download"
+                        onClick={() => downloadReport(generatedReports.pdfUrl, 'absentees_report.pdf')}
+                      >
+                        <i className="fas fa-file-pdf"></i>
+                        Download PDF (Absentees List)
+                      </button>
+                    )}
+                    {generatedReports.excelUrl && (
+                      <button
+                        className="download-link excel-download"
+                        onClick={() => downloadReport(generatedReports.excelUrl, 'attendance_report.xlsx')}
+                      >
+                        <i className="fas fa-file-excel"></i>
+                        Download Excel (Full Report)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="cancel-button" 
+                onClick={() => setShowReportModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="generate-button" 
+                onClick={generateCustomReport}
+                disabled={reportLoading || !csvFile || !rollNumbers.trim()}
+              >
+                {reportLoading ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i> Generating...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-chart-bar"></i> Generate Reports
+                  </>
                 )}
               </button>
             </div>

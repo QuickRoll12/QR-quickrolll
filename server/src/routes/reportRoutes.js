@@ -4,9 +4,41 @@ const auth = require('../middleware/auth');
 const reportService = require('../services/reportService');
 const reportEmailService = require('../services/reportEmailService');
 const attendanceService = require('../services/attendanceService');
+const reportController = require('../controllers/reportController');
+const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+// 📊 Configure multer for CSV file uploads
+const upload = multer({
+    dest: path.join(__dirname, '../../temp/uploads/'),
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only CSV files are allowed'));
+        }
+    }
+});
+
+// Ensure temp upload directory exists
+const uploadDir = path.join(__dirname, '../../temp/uploads/');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+/**
+ * 📊 @route POST /api/reports/generate-custom
+ * @desc Generate custom attendance reports from CSV upload (Python script logic)
+ * @access Private (Faculty only)
+ */
+router.post('/generate-custom', auth, upload.single('csvFile'), async (req, res) => {
+    await reportController.generateCustomReport(req, res);
+});
 
 /**
  * @route POST /api/reports/generate
