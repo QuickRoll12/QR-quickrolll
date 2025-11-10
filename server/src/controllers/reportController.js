@@ -10,12 +10,6 @@ const { v4: uuidv4 } = require('uuid');
  *
  * This controller implements the exact logic from the Python script for generating
  * attendance reports with Given Roll Number mapping.
- *
- * Python Script Logic Translation:
- * 1. Parse CSV with exact column mapping
- * 2. Process Present/Absent roll numbers based on toggle
- * 3. Generate Excel with yellow highlighting for absent students
- * 4. Generate PDF with clean absentees table, one page per section
  */
 
 class ReportController {
@@ -56,14 +50,12 @@ class ReportController {
             fs.createReadStream(filePath, { encoding: 'latin1' }) // Match Python encoding
                 .pipe(csv())
                 .on('data', (row) => {
-                    // Map CSV columns to our field names
                     const student = {};
                     Object.keys(columnMapping).forEach(csvColumn => {
                         const fieldName = columnMapping[csvColumn];
                         student[fieldName] = row[csvColumn] || '';
                     });
                     
-                    // Convert Given Roll number to integer for processing
                     if (student.givenRollNumber) {
                         student.givenRollNumber = parseInt(student.givenRollNumber);
                     }
@@ -84,16 +76,9 @@ class ReportController {
     /**
      * 🎯 EXACT PYTHON SCRIPT ATTENDANCE LOGIC
      * Processes attendance based on Given Roll numbers and mode
-     * @param {Array} students - Array of student objects
-     * @param {string} rollNumberInput - Comma-separated roll numbers
-     * @param {string} attendanceMode - 'present' or 'absent'
-     * @returns {Array} - Students with attendance status
      */
     processAttendance(students, rollNumberInput, attendanceMode) {
-        // Get all valid Given Roll numbers (Python: all_given_roll_numbers)
         const allGivenRollNumbers = new Set(students.map(s => s.givenRollNumber));
-        
-        // Process input roll numbers (Python: input_roll_numbers)
         const inputRollNumbers = new Set();
         const invalidNumbers = [];
         
@@ -117,12 +102,10 @@ class ReportController {
             }
         }
 
-        // Log invalid numbers (Python: warning section)
         if (invalidNumbers.length > 0) {
             console.log(`⚠️ Invalid Given Roll numbers ignored: ${invalidNumbers.join(', ')}`);
         }
 
-        // Determine positive and negative status based on mode (Python: status_type logic)
         let positiveStatus, negativeStatus;
         if (attendanceMode === 'present') {
             positiveStatus = 'Present';
@@ -132,7 +115,6 @@ class ReportController {
             negativeStatus = 'Present';
         }
 
-        // Apply attendance status (Python: get_status function)
         const studentsWithAttendance = students.map(student => {
             const attendanceStatus = inputRollNumbers.has(student.givenRollNumber) 
                 ? positiveStatus 
@@ -144,7 +126,6 @@ class ReportController {
             };
         });
 
-        // Sort by Section and Class Roll Number (Python: sort_values)
         studentsWithAttendance.sort((a, b) => {
             if (a.realSection !== b.realSection) {
                 return a.realSection.localeCompare(b.realSection);
@@ -168,14 +149,11 @@ class ReportController {
 
     /**
      * 📊 Generate Excel report with yellow highlighting (Python: xlsxwriter logic)
-     * @param {Array} students - Students with attendance status
-     * @returns {Promise<string>} - Path to generated Excel file
      */
     async generateExcelReport(students) {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Attendance Report');
 
-        // Add headers (Python: column order)
         const headers = [
             'Section',
             'Class Roll Number', 
@@ -186,7 +164,6 @@ class ReportController {
         
         worksheet.addRow(headers);
 
-        // Style the header row
         const headerRow = worksheet.getRow(1);
         headerRow.font = { bold: true };
         headerRow.fill = {
@@ -195,7 +172,6 @@ class ReportController {
             fgColor: { argb: 'FFE0E0E0' }
         };
 
-        // Add data rows
         students.forEach((student, index) => {
             const rowData = [
                 student.realSection,
@@ -207,9 +183,7 @@ class ReportController {
             
             const row = worksheet.addRow(rowData);
 
-            // Apply yellow highlighting for absent students (Python: absent_format)
             if (student.attendanceStatus === 'Absent') {
-                // Using the red fill from the Python script
                 const redFill = {
                     type: 'pattern',
                     pattern: 'solid',
@@ -217,7 +191,7 @@ class ReportController {
                 };
                 const redFont = { color: { argb: 'FF9C0006' } }; // Dark red text
 
-                for (let col = 1; col <= 5; col++) { // Only columns A-E
+                for (let col = 1; col <= 5; col++) {
                     const cell = row.getCell(col);
                     cell.fill = redFill;
                     cell.font = redFont;
@@ -225,7 +199,6 @@ class ReportController {
             }
         });
 
-        // Auto-fit column widths (Python: set_column logic)
         worksheet.columns.forEach((column, index) => {
             let maxLength = headers[index].length;
             
@@ -241,16 +214,14 @@ class ReportController {
                 maxLength = Math.max(maxLength, cellValue.length);
             });
             
-            column.width = Math.min(maxLength + 2, 50); // Cap at 50 characters
+            column.width = Math.min(maxLength + 2, 50);
         });
 
-        // Set proper Excel properties for direct download
         workbook.creator = 'QuickRoll Attendance System';
         workbook.lastModifiedBy = 'QuickRoll System';
         workbook.created = new Date();
         workbook.modified = new Date();
 
-        // Save file
         const fileName = `attendance_report_${uuidv4()}.xlsx`;
         const filePath = path.join(this.reportsDir, fileName);
         
@@ -275,34 +246,42 @@ class ReportController {
         });
         doc.pipe(fs.createWriteStream(filePath));
 
-        // --- ✅ PDF FIX: Reusable function to draw the table header ---
+        // --- ✅ NEW: Reusable function to draw the table header with Section ---
         const drawHeader = (currentY) => {
             const tableTop = currentY;
             const tableLeft = 40;
             const tableWidth = 515; // A4 width (595) - 80 (margins)
-            const colWidths = [120, 395]; // Class Roll No., Student Name
+            // --- ✅ NEW: Adjusted column widths ---
+            const colWidths = [80, 120, 315]; // Section, Class Roll No., Student Name
             const rowHeight = 25;
 
             doc.fontSize(12).font('Helvetica-Bold');
             
-            // Header background (light gray)
             doc.rect(tableLeft, tableTop, tableWidth, rowHeight)
                .fillAndStroke('#f0f0f0', '#000000');
             
-            // Header text
             doc.fillColor('#000000');
-            doc.text('Class Roll No.', tableLeft + 5, tableTop + 7, { 
+            
+            // --- ✅ NEW: Draw 3 header cells ---
+            doc.text('Section', tableLeft + 5, tableTop + 7, { 
                 width: colWidths[0] - 10, 
                 align: 'center' 
             });
-            doc.text('Student Name', tableLeft + colWidths[0] + 5, tableTop + 7, { 
+            doc.text('Class Roll No.', tableLeft + colWidths[0] + 5, tableTop + 7, { 
                 width: colWidths[1] - 10, 
                 align: 'center' 
             });
+            doc.text('Student Name', tableLeft + colWidths[0] + colWidths[1] + 5, tableTop + 7, { 
+                width: colWidths[2] - 10, 
+                align: 'center' 
+            });
 
-            // Draw vertical line between columns in header
+            // --- ✅ NEW: Draw 2 vertical lines ---
             doc.moveTo(tableLeft + colWidths[0], tableTop)
                .lineTo(tableLeft + colWidths[0], tableTop + rowHeight)
+               .stroke();
+            doc.moveTo(tableLeft + colWidths[0] + colWidths[1], tableTop)
+               .lineTo(tableLeft + colWidths[0] + colWidths[1], tableTop + rowHeight)
                .stroke();
         };
         // --- END OF HEADER FUNCTION ---
@@ -311,15 +290,14 @@ class ReportController {
         const absentees = students.filter(s => s.attendanceStatus === 'Absent');
         
         if (absentees.length === 0) {
-            // No absentees case (Python: empty absentees logic)
+            // No absentees case
             doc.fontSize(18).font('Helvetica-Bold');
             doc.text('Absentees List', { align: 'center' });
             doc.moveDown(2);
-            
             doc.fontSize(12).font('Helvetica');
             doc.text('All students are marked Present. No absentees.', { align: 'center' });
         } else {
-            // Group by section (Python: groupby logic)
+            // Group by section
             const sectionGroups = {};
             absentees.forEach(student => {
                 if (!sectionGroups[student.realSection]) {
@@ -328,7 +306,6 @@ class ReportController {
                 sectionGroups[student.realSection].push(student);
             });
 
-            // Generate one page per section (Python: add_page for each section)
             let isFirstSection = true;
             
             Object.keys(sectionGroups).sort().forEach(section => {
@@ -337,71 +314,78 @@ class ReportController {
                 }
                 isFirstSection = false;
 
-                // ✅ Professional Section Title (matching Python format)
                 doc.fontSize(18).font('Helvetica-Bold');
                 doc.text(`Absentees List: Section ${section}`, { align: 'center' });
                 doc.moveDown(1.5);
 
-                // --- ✅ PDF FIX: Table constants and page break logic ---
                 const tableLeft = 40;
-                const tableWidth = 515;
-                const colWidths = [120, 395];
+                // --- ✅ NEW: Adjusted column widths ---
+                const colWidths = [80, 120, 315]; // Section, Class Roll No., Student Name
+                const tableWidth = colWidths.reduce((a, b) => a + b, 0); // 515
                 const rowHeight = 25;
                 const pageBottom = doc.page.height - doc.page.margins.bottom;
 
-                // Draw first header
                 let currentY = doc.y;
                 drawHeader(currentY);
                 currentY += rowHeight;
 
-                // Table data rows
                 doc.font('Helvetica');
                 
                 sectionGroups[section].forEach((student, index) => {
-                    // --- ✅ PDF FIX: Check if a new page is needed BEFORE drawing the row ---
                     if (currentY + rowHeight > pageBottom) {
                         doc.addPage();
-                        currentY = doc.page.margins.top; // Reset Y to top
-                        drawHeader(currentY); // Draw the header again
+                        currentY = doc.page.margins.top;
+                        drawHeader(currentY);
                         currentY += rowHeight;
-                        doc.font('Helvetica'); // Reset font
+                        doc.font('Helvetica');
                     }
-                    // --- END OF PAGE BREAK FIX ---
-
-                    // Draw row background (alternating white/light gray)
+                    
                     const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
                     doc.rect(tableLeft, currentY, tableWidth, rowHeight)
                        .fillAndStroke(bgColor, '#000000');
                     
-                    // Row text
                     doc.fillColor('#000000');
-                    doc.text(student.classRollNumber, tableLeft + 5, currentY + 7, { 
+                    
+                    // --- ✅ NEW: Draw 3 data cells ---
+                    doc.text(student.realSection, tableLeft + 5, currentY + 7, { 
                         width: colWidths[0] - 10, 
                         align: 'center' 
                     });
-                    doc.text(student.studentName, tableLeft + colWidths[0] + 5, currentY + 7, { 
+                    doc.text(student.classRollNumber, tableLeft + colWidths[0] + 5, currentY + 7, { 
                         width: colWidths[1] - 10, 
+                        align: 'center' 
+                    });
+                    doc.text(student.studentName, tableLeft + colWidths[0] + colWidths[1] + 5, currentY + 7, { 
+                        width: colWidths[2] - 10, 
                         align: 'left' 
                     });
 
-                    // Draw vertical line between columns
+                    // --- ✅ NEW: Draw 2 vertical lines ---
                     doc.moveTo(tableLeft + colWidths[0], currentY)
                        .lineTo(tableLeft + colWidths[0], currentY + rowHeight)
+                       .stroke();
+                    doc.moveTo(tableLeft + colWidths[0] + colWidths[1], currentY)
+                       .lineTo(tableLeft + colWidths[0] + colWidths[1], currentY + rowHeight)
                        .stroke();
 
                     currentY += rowHeight;
                 });
 
-                // ✅ Add summary at bottom of each section
-                // --- ✅ PDF FIX: Check for page break for summary text ---
+                // --- ✅ NEW: Add enhanced stats at the bottom ---
                 if (currentY + 20 > pageBottom) {
                     doc.addPage();
-                    currentY = doc.page.margins.top;
                 }
-                doc.moveDown(1); // Use moveDown instead of setting Y
-                doc.fontSize(10).font('Helvetica-Oblique');
-                doc.text(`Total Absentees in Section ${section}: ${sectionGroups[section].length}`, 
-                    { align: 'right' });
+                
+                // Calculate stats
+                const allSectionStudents = students.filter(s => s.realSection === section);
+                const total = allSectionStudents.length;
+                const absentCount = sectionGroups[section].length;
+                const presentCount = total - absentCount;
+                const summaryText = `Total Students: ${total}  |  Present: ${presentCount}  |  Absent: ${absentCount}`;
+
+                doc.moveDown(1.5);
+                doc.fontSize(12).font('Helvetica-Bold');
+                doc.text(summaryText, { align: 'right' });
             });
         }
 
@@ -413,8 +397,6 @@ class ReportController {
 
     /**
      * 🚀 Main API endpoint for generating custom reports
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
      */
     async generateCustomReport(req, res) {
         try {
@@ -443,7 +425,6 @@ class ReportController {
 
             console.log(`🎯 Starting report generation: ${attendanceMode} mode, file: ${req.file.originalname}`);
 
-            // Parse CSV file
             const students = await this.parseCSV(req.file.path);
             
             if (students.length === 0) {
@@ -453,38 +434,31 @@ class ReportController {
                 });
             }
 
-            // Validate CSV structure
             const requiredFields = ['givenRollNumber', 'studentName', 'realSection', 'classRollNumber', 'universityRoll'];
             const firstStudent = students[0];
             const missingFields = requiredFields.filter(field => !firstStudent.hasOwnProperty(field));
             
             if (missingFields.length > 0) {
-                 // Clean up uploaded file
                 fs.unlinkSync(req.file.path);
-                
                 return res.status(400).json({
                     success: false,
                     message: `CSV missing required columns. Your CSV must have headers: ${missingFields.join(', ')}`
                 });
             }
 
-            // Process attendance with Python script logic
             const { students: processedStudents, stats } = this.processAttendance(
                 students, 
                 rollNumbers, 
                 attendanceMode
             );
 
-            // Generate reports
             const [excelFileName, pdfFileName] = await Promise.all([
                 this.generateExcelReport(processedStudents),
-                this.generatePDFReport(processedStudents)
+                this.generatePDFReport(processedStudents) // Passes the full list
             ]);
 
-            // Clean up uploaded file
             fs.unlinkSync(req.file.path);
 
-            // Return download URLs
             const baseUrl = `${req.protocol}://${req.get('host')}`;
             
             res.json({
@@ -506,7 +480,6 @@ class ReportController {
         } catch (error) {
             console.error('❌ Report generation error:', error);
             
-            // Clean up uploaded file if it exists
             if (req.file && fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
