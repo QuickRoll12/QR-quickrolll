@@ -284,4 +284,60 @@ router.get('/records/:id/download-pdf', handleQueryToken, auth, ensureFaculty, e
   }
 });
 
+// Generate section-wise report for attendance record
+router.post('/records/:id/section-report', auth, ensureFaculty, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the attendance record
+    const record = await attendanceRecordService.getAttendanceRecord(id);
+    
+    if (!record) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Attendance record not found' 
+      });
+    }
+    
+    // Ensure the faculty can only access their own records
+    if (record.facultyId !== req.user.facultyId) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'You are not authorized to access this attendance record' 
+      });
+    }
+    
+    // Import section report service
+    const sectionReportService = require('../services/sectionReportService');
+    
+    // Process the attendance data
+    const result = await sectionReportService.processAttendanceReport(
+      record.section, // Section name for CSV lookup (e.g., "DSA")
+      record.presentStudents || [], // Present roll numbers
+      record.absentees || [] // Absent roll numbers
+    );
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Section-wise report generated successfully',
+        data: result.data
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error generating section report:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while generating section report', 
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router;

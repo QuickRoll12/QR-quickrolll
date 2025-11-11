@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import SectionReportModal from '../components/SectionReportModal';
 import '../styles/FacultyPastAttendance.css';
 
 const FacultyPastAttendance = () => {
@@ -28,6 +29,12 @@ const FacultyPastAttendance = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
   const [rollNumbers, setRollNumbers] = useState('');
+  
+  // 📊 SECTION REPORT STATE
+  const [showSectionReportModal, setShowSectionReportModal] = useState(false);
+  const [sectionReportData, setSectionReportData] = useState(null);
+  const [sectionReportLoading, setSectionReportLoading] = useState(false);
+  const [sectionReportError, setSectionReportError] = useState('');
   const [attendanceMode, setAttendanceMode] = useState('present'); // 'present' or 'absent'
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState('');
@@ -313,6 +320,53 @@ This is an automated email sent by the QuickRoll Attendance System.`;
     
     // Show success message
     showSuccessMessage('Email template prepared');
+  };
+
+  // Handle section-wise report generation
+  const handleSectionReport = async (record) => {
+    try {
+      setSectionReportLoading(true);
+      setSectionReportError('');
+      setSectionReportData(null);
+      setShowSectionReportModal(true);
+      
+      const token = localStorage.getItem('token');
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+      
+      const response = await axios.post(
+        `${BACKEND_URL}/api/attendance/records/${record._id}/section-report`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        setSectionReportData(response.data.data);
+      } else {
+        setSectionReportError(response.data.message || 'Failed to generate section report');
+      }
+      
+    } catch (error) {
+      console.error('Error generating section report:', error);
+      setSectionReportError(
+        error.response?.data?.message || 
+        'Failed to generate section report. Please try again.'
+      );
+    } finally {
+      setSectionReportLoading(false);
+    }
+  };
+
+  // Close section report modal
+  const handleCloseSectionReportModal = () => {
+    setShowSectionReportModal(false);
+    setSectionReportData(null);
+    setSectionReportError('');
+    setSectionReportLoading(false);
   };
 
   // Function to show success message
@@ -842,6 +896,12 @@ This is an automated email sent by the QuickRoll Attendance System.`;
                 >
                   <i className="fas fa-edit"></i> Edit Attendance
                 </button>
+                <button 
+                  className="report-button" 
+                  onClick={() => handleSectionReport(record)}
+                >
+                  <i className="fas fa-chart-bar"></i> Report
+                </button>
               </div>
             </div>
           ))}
@@ -1139,6 +1199,15 @@ This is an automated email sent by the QuickRoll Attendance System.`;
           </div>
         </div>
       )}
+
+      {/* Section Report Modal */}
+      <SectionReportModal
+        isOpen={showSectionReportModal}
+        onClose={handleCloseSectionReportModal}
+        reportData={sectionReportData}
+        loading={sectionReportLoading}
+        error={sectionReportError}
+      />
     </div>
   );
 };
