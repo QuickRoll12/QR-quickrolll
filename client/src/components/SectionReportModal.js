@@ -150,8 +150,8 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error }) => 
                           className="copy-btn"
                           onClick={() => {
                             const presentList = reportData.sections[activeTab].present
-                              .map(s => `${s.classRollNumber} - ${s.studentName}`)
-                              .join('\n');
+                              .map(s => s.classRollNumber)
+                              .join(', ');
                             copyToClipboard(presentList, 'Present students');
                           }}
                         >
@@ -161,8 +161,8 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error }) => 
                           className="copy-btn"
                           onClick={() => {
                             const absentList = reportData.sections[activeTab].absent
-                              .map(s => `${s.classRollNumber} - ${s.studentName}`)
-                              .join('\n');
+                              .map(s => s.classRollNumber)
+                              .join(', ');
                             copyToClipboard(absentList, 'Absent students');
                           }}
                         >
@@ -185,7 +185,6 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error }) => 
                                 <div className="student-info">
                                   <div className="student-roll">{student.classRollNumber}</div>
                                   <div className="student-name">{student.studentName}</div>
-                                  <div className="student-university">{student.universityRoll}</div>
                                 </div>
                                 <div className="attendance-status">
                                   {getAttendanceIcon(student.attendanceStatus)}
@@ -214,7 +213,6 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error }) => 
                                 <div className="student-info">
                                   <div className="student-roll">{student.classRollNumber}</div>
                                   <div className="student-name">{student.studentName}</div>
-                                  <div className="student-university">{student.universityRoll}</div>
                                 </div>
                                 <div className="attendance-status">
                                   {getAttendanceIcon(student.attendanceStatus)}
@@ -244,7 +242,6 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error }) => 
                               <div className="student-info">
                                 <div className="student-roll">{student.classRollNumber}</div>
                                 <div className="student-name">{student.studentName}</div>
-                                <div className="student-university">{student.universityRoll}</div>
                               </div>
                               <div className="attendance-status">
                                 {getAttendanceIcon(student.attendanceStatus)}
