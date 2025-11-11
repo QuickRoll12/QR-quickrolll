@@ -380,8 +380,8 @@ This is an automated email sent by the QuickRoll Attendance System.`;
       return;
     }
 
-    // Remove from absent and add to present
-    setAbsentStudents(absentStudents.filter(roll => roll !== rollNumber));
+    // Remove from absent and add to present (with sorting)
+    setAbsentStudents(absentStudents.filter(roll => roll !== rollNumber).sort());
     setPresentStudents([...presentStudents, rollNumber].sort());
     setEditSuccess(`Moved ${rollNumber} to present list`);
     setTimeout(() => setEditSuccess(''), 2000);
@@ -395,65 +395,109 @@ This is an automated email sent by the QuickRoll Attendance System.`;
       return;
     }
 
-    // Remove from present and add to absent
-    setPresentStudents(presentStudents.filter(roll => roll !== rollNumber));
+    // Remove from present and add to absent (with sorting)
+    setPresentStudents(presentStudents.filter(roll => roll !== rollNumber).sort());
     setAbsentStudents([...absentStudents, rollNumber].sort());
     setEditSuccess(`Moved ${rollNumber} to absent list`);
     setTimeout(() => setEditSuccess(''), 2000);
   };
 
-  // Handle adding a new roll number to present list
+  // Handle adding multiple roll numbers to present list (comma-separated)
   const handleAddRollNumber = () => {
     if (!rollNumberToAdd.trim()) {
-      setEditError('Please enter a roll number');
+      setEditError('Please enter roll number(s)');
       return;
     }
 
-    // Validate roll number format
-    let formattedRollNumber = rollNumberToAdd.trim();
+    // Split by comma and process each roll number
+    const rollNumbers = rollNumberToAdd.split(',').map(roll => roll.trim()).filter(roll => roll);
     
-    // Check if it's a number
-    if (!/^\d+$/.test(formattedRollNumber)) {
-      setEditError('Roll number must contain only digits');
+    if (rollNumbers.length === 0) {
+      setEditError('Please enter valid roll number(s)');
       return;
     }
-    
-    // Format single digit roll numbers with leading zero
-    if (formattedRollNumber.length === 1) {
-      formattedRollNumber = `0${formattedRollNumber}`;
-    }
-    
-    // Validate against total students
+
     const totalStudentsNum = parseInt(editingRecord.totalStudents || 0, 10);
-    const rollNumberNum = parseInt(formattedRollNumber, 10);
-    
-    if (rollNumberNum <= 0) {
-      setEditError('Roll number must be greater than 0');
-      return;
+    const validRollNumbers = [];
+    const errors = [];
+    const movedFromAbsent = [];
+    const alreadyPresent = [];
+
+    // Process each roll number
+    for (let rollNumber of rollNumbers) {
+      // Check if it's a number
+      if (!/^\d+$/.test(rollNumber)) {
+        errors.push(`${rollNumber} must contain only digits`);
+        continue;
+      }
+      
+      // Format single digit roll numbers with leading zero
+      let formattedRollNumber = rollNumber;
+      if (formattedRollNumber.length === 1) {
+        formattedRollNumber = `0${formattedRollNumber}`;
+      }
+      
+      // Validate roll number value
+      const rollNumberNum = parseInt(formattedRollNumber, 10);
+      
+      if (rollNumberNum <= 0) {
+        errors.push(`${formattedRollNumber} must be greater than 0`);
+        continue;
+      }
+      
+      if (totalStudentsNum > 0 && rollNumberNum > totalStudentsNum) {
+        errors.push(`${formattedRollNumber} must be ≤ total students (${totalStudentsNum})`);
+        continue;
+      }
+
+      // Check if already in present list
+      if (presentStudents.includes(formattedRollNumber)) {
+        alreadyPresent.push(formattedRollNumber);
+        continue;
+      }
+
+      // Check if in absent list (will be moved)
+      if (absentStudents.includes(formattedRollNumber)) {
+        movedFromAbsent.push(formattedRollNumber);
+      }
+      
+      validRollNumbers.push(formattedRollNumber);
     }
-    
-    if (totalStudentsNum > 0 && rollNumberNum > totalStudentsNum) {
-      setEditError(`Roll number must be less than or equal to total students (${totalStudentsNum})`);
+
+    // Show errors if any
+    if (errors.length > 0) {
+      setEditError(errors.join('; '));
       return;
     }
 
-    // Check if roll number already exists in present or absent lists
-    if (presentStudents.includes(formattedRollNumber)) {
-      setEditError(`Roll number ${formattedRollNumber} is already in the present list`);
-      return;
-    }
-
-    if (absentStudents.includes(formattedRollNumber)) {
-      // If in absent list, move it to present
-      moveToPresent(formattedRollNumber);
+    // Process valid roll numbers
+    if (validRollNumbers.length > 0) {
+      // Remove from absent list if they exist there
+      const updatedAbsentStudents = absentStudents.filter(roll => !validRollNumbers.includes(roll));
+      
+      // Add to present list and sort
+      const updatedPresentStudents = [...presentStudents, ...validRollNumbers].sort();
+      
+      setAbsentStudents(updatedAbsentStudents);
+      setPresentStudents(updatedPresentStudents);
+      
+      // Show success message
+      let successMessage = `Added ${validRollNumbers.length} student(s) to present list`;
+      if (movedFromAbsent.length > 0) {
+        successMessage += ` (moved ${movedFromAbsent.length} from absent)`;
+      }
+      if (alreadyPresent.length > 0) {
+        successMessage += ` (${alreadyPresent.length} already present)`;
+      }
+      
+      setEditSuccess(successMessage);
+      setTimeout(() => setEditSuccess(''), 3000);
+      
       setRollNumberToAdd('');
-      return;
+      setEditError('');
+    } else if (alreadyPresent.length > 0) {
+      setEditError(`Roll number(s) already in present list: ${alreadyPresent.join(', ')}`);
     }
-
-    // Add to present list
-    setPresentStudents([...presentStudents, formattedRollNumber]);
-    setRollNumberToAdd('');
-    setEditError('');
   };
 
   // Remove a roll number completely (not in present or absent)
@@ -827,16 +871,24 @@ This is an automated email sent by the QuickRoll Attendance System.`;
               {editSuccess && <div className="edit-success">{editSuccess}</div>}
               
               <div className="add-roll-number">
-                <h4>Add Roll Number</h4>
+                <h4>Add Roll Numbers</h4>
                 <div className="add-roll-form">
                   <input
                     type="text"
                     value={rollNumberToAdd}
                     onChange={(e) => setRollNumberToAdd(e.target.value)}
-                    placeholder="Enter roll number"
+                    placeholder="Enter roll number(s) - separate multiple with commas (e.g., 01, 05, 12)"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddRollNumber();
+                      }
+                    }}
                   />
                   <button onClick={handleAddRollNumber}>Add</button>
                 </div>
+                <p className="add-roll-help">
+                  💡 <strong>Tip:</strong> You can add multiple roll numbers at once by separating them with commas
+                </p>
               </div>
               
               <div className="edit-lists">
@@ -847,7 +899,7 @@ This is an automated email sent by the QuickRoll Attendance System.`;
                   </h4>
                   <div className="edit-roll-numbers">
                     {presentStudents.length > 0 ? (
-                      presentStudents.map((rollNumber) => (
+                      presentStudents.sort().map((rollNumber) => (
                         <div key={rollNumber} className="edit-roll-badge present">
                           <span>{rollNumber}</span>
                           <div className="badge-actions">
@@ -880,7 +932,7 @@ This is an automated email sent by the QuickRoll Attendance System.`;
                   </h4>
                   <div className="edit-roll-numbers">
                     {absentStudents.length > 0 ? (
-                      absentStudents.map((rollNumber) => (
+                      absentStudents.sort().map((rollNumber) => (
                         <div key={rollNumber} className="edit-roll-badge absent">
                           <span>{rollNumber}</span>
                           <div className="badge-actions">

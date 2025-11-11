@@ -16,7 +16,7 @@ class AttendanceRecordService {
    */
   async saveAttendanceRecord(sessionData, facultyData) {
     try {
-      // Create a new attendance record
+      // Create a new attendance record with sorted roll numbers
       const attendanceRecord = new AttendanceRecord({
         facultyId: facultyData.facultyId,
         facultyName: facultyData.name,
@@ -26,8 +26,8 @@ class AttendanceRecordService {
         section: sessionData.section,
         totalStudents: sessionData.totalStudents,
         presentCount: sessionData.presentStudents.length,
-        absentees: sessionData.absentees,
-        presentStudents: sessionData.presentStudents,
+        absentees: sessionData.absentees ? sessionData.absentees.sort() : [],
+        presentStudents: sessionData.presentStudents ? sessionData.presentStudents.sort() : [],
         sessionType: sessionData.sessionType || 'roll',
         date: new Date()
       });
@@ -303,13 +303,13 @@ class AttendanceRecordService {
         throw new Error(`Roll numbers cannot be in both present and absent lists: ${duplicates.join(', ')}`);
       }
       
-      // Update the record
+      // Update the record with sorted roll numbers
       const updatedRecord = await AttendanceRecord.findByIdAndUpdate(
         recordId,
         {
           $set: {
-            presentStudents,
-            absentees,
+            presentStudents: presentStudents ? presentStudents.sort() : [],
+            absentees: absentees ? absentees.sort() : [],
             presentCount: presentCount || presentStudents.length
           }
         },
