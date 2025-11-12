@@ -40,26 +40,18 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error, recor
   };
 
   const copyToClipboard = (text, type) => {
-    console.log('📋 Copying to clipboard:', text, type);
     navigator.clipboard.writeText(text).then(() => {
-      console.log('📋 Copy successful, showing toast');
       showToast(`${type} copied to clipboard`, 'success');
     }).catch(err => {
-      console.error('📋 Copy failed:', err);
       showToast(`Failed to copy ${type}`, 'error');
     });
   };
 
   // Toast management
   const showToast = (message, type = 'success') => {
-    console.log('🍞 Showing toast:', message, type);
     const id = Date.now();
     const newToast = { id, message, type };
-    setToasts(prev => {
-      console.log('🍞 Current toasts:', prev);
-      console.log('🍞 Adding toast:', newToast);
-      return [...prev, newToast];
-    });
+    setToasts(prev => [...prev, newToast]);
   };
 
   const removeToast = (id) => {
@@ -433,20 +425,17 @@ const SectionReportModal = ({ isOpen, onClose, reportData, loading, error, recor
         </div>
       </div>
       
-      {/* Toast Notifications - Outside modal for proper positioning */}
+      {/* Toast Notifications - Creative Floating Bubbles */}
       {isOpen && (
         <div className="toast-container">
-          {toasts.map(toast => {
-            console.log('🍞 Rendering toast:', toast);
-            return (
-              <Toast
-                key={toast.id}
-                message={toast.message}
-                type={toast.type}
-                onClose={() => removeToast(toast.id)}
-              />
-            );
-          })}
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => removeToast(toast.id)}
+            />
+          ))}
         </div>
       )}
     </>

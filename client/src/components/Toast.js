@@ -1,30 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import '../styles/Toast.css';
 
 const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
-
   useEffect(() => {
-    // Show toast with animation
-    const showTimer = setTimeout(() => {
-      setIsVisible(true);
-    }, 10);
-
-    // Start exit animation
-    const hideTimer = setTimeout(() => {
-      setIsLeaving(true);
-    }, duration - 300);
-
-    // Remove toast
+    // Auto-remove toast after animation completes
     const removeTimer = setTimeout(() => {
-      setIsVisible(false);
       onClose && onClose();
     }, duration);
 
     return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
       clearTimeout(removeTimer);
     };
   }, [duration, onClose]);
@@ -44,10 +28,8 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
     }
   };
 
-  if (!isVisible && !isLeaving) return null;
-
   return (
-    <div className={`toast toast-${type} ${isVisible && !isLeaving ? 'toast-show' : ''} ${isLeaving ? 'toast-hide' : ''}`}>
+    <div className={`toast toast-${type}`}>
       <div className="toast-icon">
         {getIcon()}
       </div>
