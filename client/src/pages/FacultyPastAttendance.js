@@ -35,6 +35,7 @@ const FacultyPastAttendance = () => {
   const [sectionReportData, setSectionReportData] = useState(null);
   const [sectionReportLoading, setSectionReportLoading] = useState(false);
   const [sectionReportError, setSectionReportError] = useState('');
+  const [currentReportRecord, setCurrentReportRecord] = useState(null);
   const [attendanceMode, setAttendanceMode] = useState('present'); // 'present' or 'absent'
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState('');
@@ -329,6 +330,7 @@ This is an automated email sent by the QuickRoll Attendance System.`;
       setSectionReportLoading(true);
       setSectionReportError('');
       setSectionReportData(null);
+      setCurrentReportRecord(record);
       setShowSectionReportModal(true);
       
       const token = localStorage.getItem('token');
@@ -368,6 +370,37 @@ This is an automated email sent by the QuickRoll Attendance System.`;
     setSectionReportData(null);
     setSectionReportError('');
     setSectionReportLoading(false);
+  };
+
+  // Handle record update from section report modal
+  const handleRecordUpdate = (updatedData) => {
+    // Update the records state to reflect changes in the main attendance record
+    setRecords(prevRecords => 
+      prevRecords.map(record => 
+        record._id === currentReportRecord?._id 
+          ? {
+              ...record,
+              presentStudents: updatedData.presentStudents,
+              absentees: updatedData.absentees,
+              presentCount: updatedData.presentCount
+            }
+          : record
+      )
+    );
+    
+    // Update filtered records as well
+    setFilteredRecords(prevRecords => 
+      prevRecords.map(record => 
+        record._id === currentReportRecord?._id 
+          ? {
+              ...record,
+              presentStudents: updatedData.presentStudents,
+              absentees: updatedData.absentees,
+              presentCount: updatedData.presentCount
+            }
+          : record
+      )
+    );
   };
 
   // Function to show success message
@@ -1208,6 +1241,8 @@ This is an automated email sent by the QuickRoll Attendance System.`;
         reportData={sectionReportData}
         loading={sectionReportLoading}
         error={sectionReportError}
+        recordId={currentReportRecord?._id}
+        onRecordUpdate={handleRecordUpdate}
       />
     </div>
   );

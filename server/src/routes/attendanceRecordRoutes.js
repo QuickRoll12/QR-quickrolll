@@ -340,4 +340,116 @@ router.post('/records/:id/section-report', auth, ensureFaculty, async (req, res)
   }
 });
 
+// Move student between present and absent in attendance record
+router.post('/records/:id/move-student', auth, ensureFaculty, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { givenRollNumber, fromStatus, toStatus } = req.body;
+    
+    // Validate input
+    if (!givenRollNumber || !fromStatus || !toStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: givenRollNumber, fromStatus, toStatus'
+      });
+    }
+    
+    if (!['present', 'absent'].includes(fromStatus) || !['present', 'absent'].includes(toStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be either "present" or "absent"'
+      });
+    }
+    
+    if (fromStatus === toStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'fromStatus and toStatus cannot be the same'
+      });
+    }
+    
+    // Get the attendance record
+    const record = await attendanceRecordService.getAttendanceRecord(id);
+    
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found'
+      });
+    }
+    
+    // Ensure the faculty can only modify their own records
+    if (record.facultyId !== req.user.facultyId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to modify this attendance record'
+      });
+    }
+    
+    // Convert givenRollNumber to string for consistent comparison
+    const rollNumberStr = givenRollNumber.toString();
+    
+    // Get current arrays
+    let presentStudents = record.presentStudents || [];
+    let absentees = record.absentees || [];
+    
+    // Check if student exists in the expected source array
+    if (fromStatus === 'present') {
+      if (!presentStudents.includes(rollNumberStr)) {
+        return res.status(400).json({
+          success: false,
+          message: `Student with roll number ${rollNumberStr} is not in present list`
+        });
+      }
+      // Remove from present, add to absent
+      presentStudents = presentStudents.filter(roll => roll !== rollNumberStr);
+      if (!absentees.includes(rollNumberStr)) {
+        absentees.push(rollNumberStr);
+      }
+    } else {
+      if (!absentees.includes(rollNumberStr)) {
+        return res.status(400).json({
+          success: false,
+          message: `Student with roll number ${rollNumberStr} is not in absent list`
+        });
+      }
+      // Remove from absent, add to present
+      absentees = absentees.filter(roll => roll !== rollNumberStr);
+      if (!presentStudents.includes(rollNumberStr)) {
+        presentStudents.push(rollNumberStr);
+      }
+    }
+    
+    // Sort the arrays for consistency
+    presentStudents.sort((a, b) => parseInt(a) - parseInt(b));
+    absentees.sort((a, b) => parseInt(a) - parseInt(b));
+    
+    // Update the record
+    const updatedRecord = await attendanceRecordService.updateAttendanceRecord(id, {
+      presentStudents,
+      absentees,
+      presentCount: presentStudents.length
+    });
+    
+    res.json({
+      success: true,
+      message: `Student ${rollNumberStr} moved from ${fromStatus} to ${toStatus}`,
+      data: {
+        presentCount: presentStudents.length,
+        absentCount: absentees.length,
+        presentStudents,
+        absentees
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error moving student:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while moving student',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
