@@ -29,6 +29,9 @@ import AdminChatbotContent from './pages/AdminChatbotContent';
 import AdminManageFacultyAssignments from './pages/AdminManageFacultyAssignments';
 import StudentAttendanceSummary from './pages/StudentAttendanceSummary';
 import StudentAttendanceDetails from './pages/StudentAttendanceDetails';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import Contact from './pages/Contact';
 import Chatbot from './components/Chatbot';
 
 // Protected Route Component
@@ -122,6 +125,9 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/about" element={<AboutUs />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms-of-service" element={<TermsOfService />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
