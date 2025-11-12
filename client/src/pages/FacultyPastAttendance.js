@@ -237,8 +237,9 @@ const FacultyPastAttendance = () => {
 
   // Function to handle sending an email report with formatted HTML content
   const handleEmailReport = (record) => {
-    // Calculate attendance rate
-    const attendanceRate = ((record.presentCount / record.totalStudents) * 100).toFixed(2);
+    // Calculate attendance rate using actual present students count
+    const actualPresentCount = record.presentStudents ? record.presentStudents.length : 0;
+    const attendanceRate = ((actualPresentCount / record.totalStudents) * 100).toFixed(2);
     
     // Create HTML email content
     const htmlContent = `
@@ -275,11 +276,11 @@ const FacultyPastAttendance = () => {
           </tr>
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; font-weight: bold;">Present:</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${record.presentCount}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${actualPresentCount}</td>
           </tr>
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; font-weight: bold;">Absent:</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${record.totalStudents - record.presentCount}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${record.absentees ? record.absentees.length : 0}</td>
           </tr>
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; font-weight: bold;">Attendance Rate:</td>
@@ -306,8 +307,8 @@ Session Details:
 
 Attendance Summary:
 - Total Students: ${record.totalStudents}
-- Present: ${record.presentCount}
-- Absent: ${record.totalStudents - record.presentCount}
+- Present: ${actualPresentCount}
+- Absent: ${record.absentees ? record.absentees.length : 0}
 - Attendance Rate: ${attendanceRate}%
 
 This is an automated email sent by the QuickRoll Attendance System.`;
@@ -825,11 +826,11 @@ This is an automated email sent by the QuickRoll Attendance System.`;
                   </div>
                   <div className="stat-item">
                     <span className="stat-label">Present:</span>
-                    <span className="stat-value">{record.presentCount}</span>
+                    <span className="stat-value">{record.presentStudents ? record.presentStudents.length : 0}</span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-label">Absent:</span>
-                    <span className="stat-value">{record.totalStudents - record.presentCount}</span>
+                    <span className="stat-value">{record.absentees ? record.absentees.length : 0}</span>
                   </div>
                 </div>
               </div>
