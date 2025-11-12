@@ -14,6 +14,7 @@ This document outlines the comprehensive privacy policy implementation for Quick
 ### **Supporting Pages**
 - **Terms of Service**: `https://yourdomain.com/terms-of-service`
 - **Contact Page**: `https://yourdomain.com/contact`
+- **Account Deletion**: `https://yourdomain.com/account-deletion`
 
 ## 📄 Privacy Policy Content Structure
 
@@ -94,11 +95,44 @@ The privacy policy covers all aspects of QuickRoll's data practices:
 - ✅ **Smooth Animations**: Subtle hover effects and transitions
 - ✅ **Print-Friendly**: Optimized for printing and PDF generation
 
+## 🗑️ Account Deletion Page
+
+### **Trust-Building Features**
+The dedicated account deletion page (`/account-deletion`) includes:
+
+#### **🔄 Clear Process Overview**
+- **3-Step Process**: Submit → Verify → Delete (within 48 hours)
+- **Visual Timeline**: Easy-to-understand process flow
+- **Guaranteed Timeline**: 48-hour processing commitment
+
+#### **🛡️ Trust Indicators**
+- **48-Hour Processing Guarantee**: Clear commitment to quick response
+- **Complete Removal Promise**: All data permanently deleted
+- **GDPR Compliance Badge**: International standards compliance
+- **Confirmation Email**: Users receive deletion confirmation
+
+#### **📝 Professional Form**
+- **Identity Verification**: Name, email, student/faculty ID required
+- **Reason Selection**: Dropdown with common reasons
+- **Email Integration**: Auto-opens email client with pre-filled content
+- **Security Notice**: Clear warning about permanent deletion
+
+#### **📞 Multiple Contact Methods**
+- **Primary Email**: quickrollattendance@gmail.com (24-hour response)
+- **Privacy Officer**: privacy@quickrollattendance.com (48-hour response)
+- **Response Time Guarantees**: Clear expectations set
+
+#### **⚖️ Legal Rights Section**
+- **GDPR Rights**: Access, correct, delete, export, restrict, complain
+- **Visual Rights Grid**: Easy-to-understand user rights
+- **Legal Compliance**: References to applicable laws
+
 ## 🔗 Integration Points
 
 ### **Navigation Links**
-The privacy policy is accessible from:
+The privacy policy and account deletion are accessible from:
 - Footer of all pages
+- Privacy policy cross-references
 - Login/Signup forms
 - User account settings
 - Mobile app about section
@@ -106,6 +140,7 @@ The privacy policy is accessible from:
 ### **Cross-References**
 - Links to Terms of Service
 - Links to Contact page
+- Links to Account Deletion page
 - References to specific app features
 - Educational institution policies
 
@@ -143,6 +178,7 @@ For Google Play Store submission, ensure:
 - [x] Privacy policy page accessible at `/privacy-policy`
 - [x] Terms of service page accessible at `/terms-of-service`
 - [x] Contact page accessible at `/contact`
+- [x] Account deletion page accessible at `/account-deletion`
 - [x] All routes properly configured
 - [x] Mobile responsive design tested
 - [x] Cross-browser compatibility verified

@@ -336,6 +336,20 @@ const PrivacyPolicy = () => {
                   <li>Restrict processing of your information</li>
                   <li>Object to certain types of data processing</li>
                 </ul>
+                <div className="deletion-link-box">
+                  <h4>🗑️ Request Account Deletion</h4>
+                  <p>
+                    Want to delete your QuickRoll account? Visit our dedicated account deletion page 
+                    for a secure and transparent process.
+                  </p>
+                  <a href="/account-deletion" className="deletion-link-btn">
+                    Request Account Deletion
+                  </a>
+                  <p className="deletion-note">
+                    <strong>Processing Time:</strong> Your request will be processed within 48 hours. 
+                    Contact <a href="mailto:quickrollattendance@gmail.com">quickrollattendance@gmail.com</a> for assistance.
+                  </p>
+                </div>
               </div>
 
               <div className="user-rights">
@@ -599,6 +613,7 @@ const PrivacyPolicy = () => {
               </p>
               <div className="footer-links">
                 <a href="/terms-of-service">Terms of Service</a>
+                <a href="/account-deletion">Account Deletion</a>
                 <a href="/contact">Contact Us</a>
                 <a href="/">Back to QuickRoll</a>
               </div>
