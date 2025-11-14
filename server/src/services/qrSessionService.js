@@ -17,7 +17,7 @@ class QRSessionService {
         this.io = null; // Socket.io instance for real-time updates
         
         // 🚀 REDIS OPTIMIZED: Use Redis for shared caching
-        this.CACHE_TTL = 5 * 60; // 5 minutes cache TTL in seconds
+        this.CACHE_TTL = 8 * 60; // 5 minutes cache TTL in seconds
         this.cacheHits = 0; // Track cache performance
         this.cacheMisses = 0;
         
