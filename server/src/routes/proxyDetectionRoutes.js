@@ -14,23 +14,47 @@ const ensureStudentOwnership = (req, res, next) => {
     try {
         const { studentId } = req.body;
         
+        // 🔍 ENHANCED DEBUGGING: Log all relevant data
+        console.log('🔍 STUDENT OWNERSHIP VALIDATION:');
+        console.log('  Request studentId:', studentId);
+        console.log('  JWT user data:', {
+            id: req.user.id || req.user._id,
+            studentId: req.user.studentId,
+            role: req.user.role,
+            classRollNumber: req.user.classRollNumber,
+            semester: req.user.semester,
+            section: req.user.section
+        });
+        
         // Verify the authenticated user is the same student being removed
         if (req.user.role !== 'student') {
+            console.log('❌ VALIDATION FAILED: User role is not student');
             return res.status(403).json({
                 success: false,
                 message: 'Only students can use proxy detection API'
             });
         }
         
-        if (req.user.studentId !== studentId) {
+        // 🔧 FLEXIBLE MATCHING: Accept either studentId or MongoDB ObjectId
+        // This handles cases where Android app sends either field
+        const userStudentId = req.user.studentId;
+        const userObjectId = req.user.id || req.user._id?.toString();
+        
+        if (studentId !== userStudentId && studentId !== userObjectId) {
+            console.log('❌ VALIDATION FAILED: Student ID mismatch');
+            console.log('  Expected studentId:', userStudentId);
+            console.log('  Expected ObjectId:', userObjectId);
+            console.log('  Received:', studentId);
             return res.status(403).json({
                 success: false,
-                message: 'You can only remove yourself from sessions'
+                message: `You can only remove yourself from sessions. Expected: ${userStudentId}, Got: ${studentId}`
             });
         }
         
+        console.log('✅ Student ownership validation passed');
         next();
     } catch (error) {
+        console.log('❌ VALIDATION ERROR:', error.message);
         res.status(403).json({
             success: false,
             message: 'Authorization failed',
@@ -59,7 +83,7 @@ const ensureStudentOwnership = (req, res, next) => {
  *   "detectionMethod": "string"      // Optional: Detection method used (logging purposes)
  * }
  */
-router.post('/remove-student', async (req, res) => {
+router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
     try {
         const { 
             studentId, 
@@ -128,9 +152,13 @@ router.post('/remove-student', async (req, res) => {
                 });
             }
 
-            // Remove from both join and attendance caches
-            const joinRemoved = await removeStudentFromJoinCache(activeSession.sessionId, studentId);
+            // 🔧 SMART CACHE REMOVAL: Use correct identifiers for each cache
+            // Join cache uses actual studentId, attendance cache uses rollNumber
+            const actualStudentId = req.user.studentId; // Always use the correct studentId for join cache
+            const joinRemoved = await removeStudentFromJoinCache(activeSession.sessionId, actualStudentId);
             const attendanceRemoved = await removeStudentFromAttendanceCache(activeSession.sessionId, rollNumber);
+            
+            console.log(`🔧 Cache removal using: studentId=${actualStudentId}, rollNumber=${rollNumber}`);
             
             removedFromSessions.push({
                 sessionId: activeSession.sessionId,
@@ -143,20 +171,22 @@ router.post('/remove-student', async (req, res) => {
                 attendanceCacheRemoved: attendanceRemoved
             });
             
-            console.log(`🚨 PROXY DETECTION: Removed student ${studentId}/${rollNumber} from session ${activeSession.sessionId} (${course}-${semester}-${section}) - Reason: ${reason}`);
+            console.log(`🚨 PROXY DETECTION: Removed student ${actualStudentId}/${rollNumber} from session ${activeSession.sessionId} (${course}-${semester}-${section}) - Reason: ${reason}`);
 
         } catch (error) {
             errors.push(`Error finding or removing from active session: ${error.message}`);
         }
 
         // Prepare response
+        const actualStudentId = req.user.studentId; // Use the correct studentId in response
         const response = {
             success: removedFromSessions.length > 0,
             message: removedFromSessions.length > 0 
                 ? `Student removed from ${removedFromSessions.length} session(s)` 
                 : 'No active sessions found or student was not in any sessions',
             data: {
-                studentId,
+                studentId: actualStudentId, // Return the correct studentId
+                requestedStudentId: studentId, // Show what was requested
                 rollNumber,
                 reason,
                 detectionMethod,
@@ -171,10 +201,9 @@ router.post('/remove-student', async (req, res) => {
 
         // Log the proxy detection event for audit purposes
         console.log(`🚨 PROXY DETECTION EVENT:`, {
-            studentId,
+            studentId: actualStudentId,
+            requestedStudentId: studentId,
             rollNumber,
-            sessionId,
-            groupSessionId,
             reason,
             detectionMethod,
             removedCount: removedFromSessions.length,
@@ -318,8 +347,9 @@ router.post('/student-status', ensureStudentOwnership, async (req, res) => {
 
         const redis = redisCache.getClient();
         
-        // Check both caches
-        const isInJoinCache = await redis.sIsMember(`session:${activeSession.sessionId}:joined`, studentId);
+        // Check both caches using correct identifiers
+        const actualStudentId = req.user.studentId; // Use correct studentId for join cache
+        const isInJoinCache = await redis.sIsMember(`session:${activeSession.sessionId}:joined`, actualStudentId);
         const isInAttendanceCache = await redis.sIsMember(`session:${activeSession.sessionId}:attended`, rollNumber);
         
         res.json({
