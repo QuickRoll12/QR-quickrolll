@@ -1259,6 +1259,11 @@ async joinSession(sessionId, studentData) {
         const updateCacheTime = performance.now() - ft;
         console.log(`[joinSession] Updating cache took: ${updateCacheTime.toFixed(2)} ms`);
 
+        const facultyRoom = `faculty-${session.facultyId}`;
+        socket.to(facultyRoom).emit('qr-studentJoined', {
+            joinedAt: new Date(),
+            totalJoined: redisStats.studentsJoined
+        });
         return {
             success: true,
             message: 'Successfully joined the session. Wait for faculty to start attendance.',
@@ -1283,7 +1288,7 @@ async joinSession(sessionId, studentData) {
                     status: session.status,
                     canScanQR: session.status === 'active',
                     facultyId: session.facultyId,
-                    studentsJoined: session.studentsJoinedCount
+                    studentsJoined: redisStats.studentsJoined
                 }
             };
         }
