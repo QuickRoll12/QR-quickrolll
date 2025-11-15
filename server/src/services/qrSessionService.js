@@ -1259,11 +1259,14 @@ async joinSession(sessionId, studentData) {
         const updateCacheTime = performance.now() - ft;
         console.log(`[joinSession] Updating cache took: ${updateCacheTime.toFixed(2)} ms`);
 
+        const gt = performance.now();
         const facultyRoom = `faculty-${session.facultyId}`;
         this.io.to(facultyRoom).emit('qr-studentJoined', {
             joinedAt: new Date(),
             totalJoined: redisStats.studentsJoined
         });
+        const gtTime = performance.now() - gt;
+        console.log(`[joinSession] Emitting to faculty room took: ${gtTime.toFixed(2)} ms`);
         return {
             success: true,
             message: 'Successfully joined the session. Wait for faculty to start attendance.',
