@@ -856,7 +856,7 @@ class QRSessionService {
             throw new Error('Session not found');
         }
 
-        if (session.facultyId !== session.facultyId) {
+        if (session.facultyId !== facultyData.facultyId) {
             throw new Error('Unauthorized: You can only start attendance for your own sessions');
         }
 

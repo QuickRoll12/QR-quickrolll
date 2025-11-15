@@ -880,9 +880,15 @@ io.on('connection', (socket) => {
                 sections: groupSession.sections
             });
 
+            const facultyData = {
+                facultyId: socket.user.facultyId,
+                name: socket.user.name,
+                email: socket.user.email
+            };
+
             // Start attendance for each individual session and apply the group QR token
             for (const sectionInfo of groupSession.sections) {
-                await qrSessionService.startAttendance(sectionInfo.sessionId, socket.user.facultyId);
+                await qrSessionService.startAttendance(sectionInfo.sessionId, facultyData);
                 
                 // Stop individual QR refresh to avoid conflicts with group QR refresh
                 qrSessionService.stopQRRefresh(sectionInfo.sessionId);
