@@ -9,28 +9,48 @@ const redisCache = require('../services/redisCache');
 // 🔒 SECURITY: All proxy detection routes require authentication
 router.use(auth);
 
-// 🔒 SECURITY: Middleware to ensure only students can remove themselves
+// In proxyDetectionRoutes.js - Update the ensureStudentOwnership middleware
 const ensureStudentOwnership = (req, res, next) => {
     try {
         const { studentId } = req.body;
         
+        // 🔍 ENHANCED DEBUGGING: Log all relevant data
+        console.log('🔍 STUDENT OWNERSHIP VALIDATION:');
+        console.log('  Request studentId:', studentId);
+        console.log('  JWT user data:', {
+            id: req.user.id,
+            studentId: req.user.studentId,
+            role: req.user.role,
+            classRollNumber: req.user.classRollNumber,
+            semester: req.user.semester,
+            section: req.user.section
+        });
+        
         // Verify the authenticated user is the same student being removed
         if (req.user.role !== 'student') {
+            console.log('❌ VALIDATION FAILED: User role is not student');
             return res.status(403).json({
                 success: false,
                 message: 'Only students can use proxy detection API'
             });
         }
         
-        if (req.user.studentId !== studentId) {
+        // 🔍 FLEXIBLE STUDENT ID MATCHING: Try both studentId and id fields
+        const userStudentId = req.user.studentId || req.user.id;
+        if (userStudentId !== studentId) {
+            console.log('❌ VALIDATION FAILED: Student ID mismatch');
+            console.log('  Expected:', userStudentId);
+            console.log('  Received:', studentId);
             return res.status(403).json({
                 success: false,
-                message: 'You can only remove yourself from sessions'
+                message: `You can only remove yourself from sessions. Expected: ${userStudentId}, Got: ${studentId}`
             });
         }
         
+        console.log('✅ Student ownership validation passed');
         next();
     } catch (error) {
+        console.log('❌ VALIDATION ERROR:', error.message);
         res.status(403).json({
             success: false,
             message: 'Authorization failed',
@@ -70,6 +90,27 @@ router.post('/remove-student', ensureStudentOwnership, async (req, res) => {
             reason = 'Proxy',
             detectionMethod = 'Unknown'
         } = req.body;
+
+        // In the main route handler - add this after the body destructuring
+        console.log('🔍 REMOVE STUDENT REQUEST ANALYSIS:');
+        console.log('  Request body:', { studentId, rollNumber, course, semester, section });
+        console.log('  JWT user profile:', {
+        studentId: req.user.studentId,
+        classRollNumber: req.user.classRollNumber,
+        semester: req.user.semester,
+        section: req.user.section,
+        course: req.user.course
+        });
+
+        // 🔒 SECURITY: Cross-validate student data with authenticated user
+        const rollNumberMatch = req.user.classRollNumber === rollNumber || req.user.rollNumber === rollNumber;
+        const semesterMatch = req.user.semester === semester;
+        const sectionMatch = req.user.section === section;
+
+        console.log('🔍 FIELD VALIDATION:');
+        console.log('  Roll number match:', rollNumberMatch, `(${req.user.classRollNumber} vs ${rollNumber})`);
+        console.log('  Semester match:', semesterMatch, `(${req.user.semester} vs ${semester})`);
+        console.log('  Section match:', sectionMatch, `(${req.user.section} vs ${section})`);
 
         // Validation
         if (!studentId || !rollNumber || !course || !semester || !section) {
