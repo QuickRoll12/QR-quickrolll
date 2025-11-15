@@ -974,9 +974,17 @@ class QRSessionService {
             
             const results = await pipeline.exec();
             
+            // 🚀 DEBUG: Log pipeline results for troubleshooting
+            console.log(`📊 JOIN Session ${sessionId} Pipeline Results:`, results);
+            
             // Extract results
             const joinedCount = results[2][1] || 0;
             const attendedCount = results[3][1] || 0;
+            
+            console.log(`📊 JOIN Session ${sessionId} Extracted Stats:`, {
+                joinedCount,
+                attendedCount
+            });
             
             const redisStats = {
                 studentsJoined: joinedCount,
@@ -1135,9 +1143,17 @@ class QRSessionService {
             
             const results = await pipeline.exec();
             
+            // 🚀 DEBUG: Log pipeline results for troubleshooting
+            console.log(`📊 ATTENDANCE Session ${session.sessionId} Pipeline Results:`, results);
+            
             // Extract stats
             const joinedCount = results[2][1] || 0;
             const attendedCount = results[3][1] || 0;
+            
+            console.log(`📊 ATTENDANCE Session ${session.sessionId} Extracted Stats:`, {
+                joinedCount,
+                attendedCount
+            });
             
             const redisStats = {
                 studentsJoined: joinedCount,
