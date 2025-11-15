@@ -104,14 +104,29 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
         }
 
         // 🔒 SECURITY: Cross-validate student data with authenticated user
+        console.log('🔍 CROSS-VALIDATION CHECK:');
+        console.log('  Request data:', { rollNumber, semester, section, course });
+        console.log('  JWT user data:', { 
+            classRollNumber: req.user.classRollNumber, 
+            semester: req.user.semester, 
+            section: req.user.section,
+            course: req.user.course 
+        });
+        
         if (req.user.classRollNumber !== rollNumber || 
             req.user.semester !== semester || 
             req.user.section !== section) {
+            console.log('❌ CROSS-VALIDATION FAILED:');
+            console.log('  rollNumber match:', req.user.classRollNumber === rollNumber, `(${req.user.classRollNumber} vs ${rollNumber})`);
+            console.log('  semester match:', req.user.semester === semester, `(${req.user.semester} vs ${semester})`);
+            console.log('  section match:', req.user.section === section, `(${req.user.section} vs ${section})`);
             return res.status(403).json({
                 success: false,
                 message: 'Student data mismatch with authenticated user'
             });
         }
+        
+        console.log('✅ Cross-validation passed');
 
         let removedFromSessions = [];
         let errors = [];
