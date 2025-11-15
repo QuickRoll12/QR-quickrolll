@@ -167,15 +167,19 @@ const QRAttendancePanel = memo(({
         }
     }, [sessionData?.sessionId, sessionData?.groupSessionId, sessionData?.status, isGroupSession]);
 
-    // EFFECT: Manages the polling interval.
+    // EFFECT: Manages the polling interval - starts from session creation for live join stats
     useEffect(() => {
-        if (sessionData?.status !== 'active') return;
+        // Start polling as soon as session exists (not just when active) for live join counts
+        if (!sessionData?.sessionId && !sessionData?.groupSessionId) return;
+        
+        // Don't poll if session is ended
+        if (sessionData?.status === 'ended') return;
 
         pollAttendanceStats();
         const interval = setInterval(pollAttendanceStats, 6000);
 
         return () => clearInterval(interval);
-    }, [sessionData?.status, pollAttendanceStats]);
+    }, [sessionData?.sessionId, sessionData?.groupSessionId, sessionData?.status, pollAttendanceStats]);
 
     // --- Helper Functions for Rendering ---
     const getStatusColor = (status) => {
