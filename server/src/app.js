@@ -419,54 +419,54 @@ io.on('connection', (socket) => {
     // ========== NEW MOBILE APP SOCKET HANDLERS ==========
 
     // Handle student joining session via socket (for mobile app)
-    socket.on('joinSession', async (data) => {
-        try {
-            if (socket.user.role !== 'student') {
-                throw new Error('Only students can join sessions');
-            }
+    // socket.on('joinSession', async (data) => {
+    //     try {
+    //         if (socket.user.role !== 'student') {
+    //             throw new Error('Only students can join sessions');
+    //         }
 
-            const { sessionId } = data;
-            const studentData = {
-                studentId: socket.user.studentId,
-                name: socket.user.name,
-                classRollNumber: socket.user.classRollNumber,
-                email: socket.user.email,
-                course: socket.user.course,
-                semester: socket.user.semester,
-                section: socket.user.section,
-                fingerprint: data.fingerprint || 'socket-connection',
-                webRTCIPs: data.webRTCIPs || [],
-                userAgent: socket.handshake.headers['user-agent'],
-                ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
-            };
+    //         const { sessionId } = data;
+    //         const studentData = {
+    //             studentId: socket.user.studentId,
+    //             name: socket.user.name,
+    //             classRollNumber: socket.user.classRollNumber,
+    //             email: socket.user.email,
+    //             course: socket.user.course,
+    //             semester: socket.user.semester,
+    //             section: socket.user.section,
+    //             fingerprint: data.fingerprint || 'socket-connection',
+    //             webRTCIPs: data.webRTCIPs || [],
+    //             userAgent: socket.handshake.headers['user-agent'],
+    //             ipAddress: socket.handshake.headers['x-forwarded-for'] || socket.handshake.address
+    //         };
 
-            const result = await qrSessionService.joinSession(sessionId, studentData);
+    //         const result = await qrSessionService.joinSession(sessionId, studentData);
 
-            // Send success response to student
-            socket.emit('sessionJoined', {
-                success: true,
-                message: result.message,
-                sessionData: result.sessionData
-            });
+    //         // Send success response to student
+    //         socket.emit('sessionJoined', {
+    //             success: true,
+    //             message: result.message,
+    //             sessionData: result.sessionData
+    //         });
 
-            // Notify faculty about student joining (only if not already joined)
-            if (result.sessionData && result.sessionData.facultyId) {
-                const facultyRoom = `faculty-${result.sessionData.facultyId}`;
-                socket.to(facultyRoom).emit('qr-studentJoined', {
-                    studentName: studentData.name,
-                    rollNumber: studentData.classRollNumber,
-                    joinedAt: new Date(),
-                    totalJoined: result.sessionData.studentsJoined
-                });
-            }
+    //         // Notify faculty about student joining (only if not already joined)
+    //         if (result.sessionData && result.sessionData.facultyId) {
+    //             const facultyRoom = `faculty-${result.sessionData.facultyId}`;
+    //             socket.to(facultyRoom).emit('qr-studentJoined', {
+    //                 studentName: studentData.name,
+    //                 rollNumber: studentData.classRollNumber,
+    //                 joinedAt: new Date(),
+    //                 totalJoined: result.sessionData.studentsJoined
+    //             });
+    //         }
 
-            // console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
+    //         // console.log(`✅ Student joined session via socket: ${studentData.name} (${studentData.classRollNumber})`);
 
-        } catch (error) {
-            console.error('Join session error:', error);
-            socket.emit('sessionJoinError', { message: error.message });
-        }
-    });
+    //     } catch (error) {
+    //         console.error('Join session error:', error);
+    //         socket.emit('sessionJoinError', { message: error.message });
+    //     }
+    // });
 
     socket.on('qr-endSession', async (data) => {
         try {
