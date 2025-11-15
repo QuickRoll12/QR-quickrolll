@@ -113,11 +113,14 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
             course: req.user.course 
         });
         
-        if (req.user.classRollNumber !== rollNumber || 
+        // 🔧 FLEXIBLE ROLL NUMBER MATCHING: Accept either classRollNumber or studentId as rollNumber
+        const rollNumberMatches = (req.user.classRollNumber === rollNumber) || (req.user.studentId === rollNumber);
+        
+        if (!rollNumberMatches || 
             req.user.semester !== semester || 
             req.user.section !== section) {
             console.log('❌ CROSS-VALIDATION FAILED:');
-            console.log('  rollNumber match:', req.user.classRollNumber === rollNumber, `(${req.user.classRollNumber} vs ${rollNumber})`);
+            console.log('  rollNumber match:', rollNumberMatches, `(${req.user.classRollNumber} or ${req.user.studentId} vs ${rollNumber})`);
             console.log('  semester match:', req.user.semester === semester, `(${req.user.semester} vs ${semester})`);
             console.log('  section match:', req.user.section === section, `(${req.user.section} vs ${section})`);
             return res.status(403).json({
@@ -168,12 +171,13 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
             }
 
             // 🔧 SMART CACHE REMOVAL: Use correct identifiers for each cache
-            // Join cache uses actual studentId, attendance cache uses rollNumber
+            // Join cache uses actual studentId, attendance cache uses classRollNumber
             const actualStudentId = req.user.studentId; // Always use the correct studentId for join cache
+            const actualRollNumber = req.user.classRollNumber; // Always use the correct classRollNumber for attendance cache
             const joinRemoved = await removeStudentFromJoinCache(activeSession.sessionId, actualStudentId);
-            const attendanceRemoved = await removeStudentFromAttendanceCache(activeSession.sessionId, rollNumber);
+            const attendanceRemoved = await removeStudentFromAttendanceCache(activeSession.sessionId, actualRollNumber);
             
-            console.log(`🔧 Cache removal using: studentId=${actualStudentId}, rollNumber=${rollNumber}`);
+            console.log(`🔧 Cache removal using: studentId=${actualStudentId}, classRollNumber=${actualRollNumber}`);
             
             removedFromSessions.push({
                 sessionId: activeSession.sessionId,
@@ -186,7 +190,7 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
                 attendanceCacheRemoved: attendanceRemoved
             });
             
-            console.log(`🚨 PROXY DETECTION: Removed student ${actualStudentId}/${rollNumber} from session ${activeSession.sessionId} (${course}-${semester}-${section}) - Reason: ${reason}`);
+            console.log(`🚨 PROXY DETECTION: Removed student ${actualStudentId}/${actualRollNumber} from session ${activeSession.sessionId} (${course}-${semester}-${section}) - Reason: ${reason}`);
 
         } catch (error) {
             errors.push(`Error finding or removing from active session: ${error.message}`);
@@ -194,6 +198,7 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
 
         // Prepare response
         const actualStudentId = req.user.studentId; // Use the correct studentId in response
+        const actualRollNumber = req.user.classRollNumber; // Use the correct classRollNumber in response
         const response = {
             success: removedFromSessions.length > 0,
             message: removedFromSessions.length > 0 
@@ -202,7 +207,8 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
             data: {
                 studentId: actualStudentId, // Return the correct studentId
                 requestedStudentId: studentId, // Show what was requested
-                rollNumber,
+                rollNumber: actualRollNumber, // Return the correct classRollNumber
+                requestedRollNumber: rollNumber, // Show what was requested
                 reason,
                 detectionMethod,
                 removedFromSessions,
@@ -218,7 +224,8 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
         console.log(`🚨 PROXY DETECTION EVENT:`, {
             studentId: actualStudentId,
             requestedStudentId: studentId,
-            rollNumber,
+            rollNumber: actualRollNumber,
+            requestedRollNumber: rollNumber,
             reason,
             detectionMethod,
             removedCount: removedFromSessions.length,

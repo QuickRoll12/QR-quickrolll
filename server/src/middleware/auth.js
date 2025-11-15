@@ -16,17 +16,6 @@ const auth = async (req, res, next) => {
       throw new Error('User not found');
     }
 
-    // 🔍 DEBUG: Log user data loaded from database
-    console.log('🔍 AUTH MIDDLEWARE - User loaded from DB:', {
-      id: user._id?.toString(),
-      studentId: user.studentId,
-      classRollNumber: user.classRollNumber,
-      semester: user.semester,
-      section: user.section,
-      course: user.course,
-      role: user.role
-    });
-
     req.user = user;
     req.token = token;
     next();
