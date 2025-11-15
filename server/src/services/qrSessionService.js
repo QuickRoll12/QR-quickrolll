@@ -849,14 +849,14 @@ class QRSessionService {
      * @param {string} facultyId - Faculty ID
      * @returns {Object} - QR token data
      */
-    async startAttendance(sessionId, facultyId) {
+    async startAttendance(sessionId, facultyData) {
         const session = await this.getSessionById(sessionId);
         
         if (!session) {
             throw new Error('Session not found');
         }
 
-        if (session.facultyId !== facultyId) {
+        if (session.facultyId !== facultyData.facultyId) {
             throw new Error('Unauthorized: You can only start attendance for your own sessions');
         }
 
@@ -871,7 +871,7 @@ class QRSessionService {
         // Generate first QR token
         const tokenData = await qrTokenService.generateQRToken({
             sessionId: session.sessionId,
-            facultyId: session.facultyId,
+            facultyId: facultyData.facultyId,
             department: session.department,
             semester: session.semester,
             section: session.section
@@ -903,6 +903,8 @@ class QRSessionService {
             },
             sessionData: {
                 sessionId,
+                facultyName: facultyData.name,
+                facultyId: facultyData.facultyId,
                 department: session.department,
                 semester: session.semester,
                 section: session.section,

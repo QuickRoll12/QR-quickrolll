@@ -386,7 +386,13 @@ io.on('connection', (socket) => {
                 throw new Error('Only faculty members can start QR attendance');
             }
 
-            const result = await qrSessionService.startAttendance(data.sessionId, socket.user.facultyId);
+            const facultyData = {
+                facultyId: socket.user.facultyId,
+                name: socket.user.name,
+                email: socket.user.email
+            };
+
+            const result = await qrSessionService.startAttendance(data.sessionId, facultyData);
 
             // Emit to faculty with QR data
             socket.emit('qr-attendanceStarted', result);
