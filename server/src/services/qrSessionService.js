@@ -1260,7 +1260,7 @@ async joinSession(sessionId, studentData) {
         console.log(`[joinSession] Updating cache took: ${updateCacheTime.toFixed(2)} ms`);
 
         const facultyRoom = `faculty-${session.facultyId}`;
-        socket.to(facultyRoom).emit('qr-studentJoined', {
+        this.io.to(facultyRoom).emit('qr-studentJoined', {
             joinedAt: new Date(),
             totalJoined: redisStats.studentsJoined
         });
