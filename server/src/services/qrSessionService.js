@@ -128,6 +128,59 @@ class QRSessionService {
     }
 
     /**
+     * 🚀 OPTIMIZED: Get active session for section with Redis caching
+     * @param {string} department - Department
+     * @param {string} semester - Semester  
+     * @param {string} section - Section
+     * @returns {Object} - Active session object or null
+     */
+    async getActiveSessionForSection(department, semester, section) {
+        const cacheKey = `active_session:${department}-${semester}-${section}`;
+        
+        try {
+            // Try Redis cache first
+            const cachedSession = await redisCache.get(cacheKey);
+            if (cachedSession) {
+                this.cacheHits++;
+                return cachedSession;
+            }
+            
+            // Cache miss - fetch from database
+            this.cacheMisses++;
+            const QRSession = require('../models/QRSession');
+            const session = await QRSession.findActiveSessionForSection(department, semester, section);
+            
+            if (session) {
+                await redisCache.set(cacheKey, session, 180);
+            }
+            
+            return session;
+            
+        } catch (error) {
+            console.error('❌ Error in getActiveSessionForSection cache:', error);
+            // Fallback to direct database call
+            const QRSession = require('../models/QRSession');
+            return await QRSession.findActiveSessionForSection(department, semester, section);
+        }
+    }
+
+    /**
+     * 🚀 CACHE INVALIDATION: Invalidate active session cache for a section
+     * @param {string} department - Department
+     * @param {string} semester - Semester
+     * @param {string} section - Section
+     */
+    async invalidateActiveSessionCache(department, semester, section) {
+        const cacheKey = `active_session:${department}-${semester}-${section}`;
+        try {
+            await redisCache.del(cacheKey);
+            console.log(`🗑️ Invalidated active session cache: ${cacheKey}`);
+        } catch (error) {
+            console.error('❌ Error invalidating session cache:', error);
+        }
+    }
+
+    /**
      * Get active session from cache
      * @param {string} sessionId - Session ID
      * @returns {Object|null} - Session data or null
@@ -713,6 +766,7 @@ class QRSessionService {
 
         // 🚀 OPTIMIZED: Preload device cache for this section
         await this.preloadDeviceCache(qrSession);
+        await this.getActiveSessionForSection(department,semester,section);
 
         console.log(`✅ QR Session started: ${sessionId} for ${department}-${semester}-${section}`);
 
@@ -764,6 +818,9 @@ class QRSessionService {
 
         // Update cache
         this.activeSessions.set(sessionId, session);
+        
+        // 🚀 INVALIDATE CACHE: Session status changed
+        await this.invalidateActiveSessionCache(session.department, session.semester, session.section);
 
         // 🚀 GET LIVE REDIS STATS FOR LOCK RESPONSE
         const redisStats = await this.getSessionStatsFromRedis(sessionId);
@@ -819,6 +876,9 @@ class QRSessionService {
 
         // Update cache
         this.activeSessions.set(sessionId, session);
+        
+        // 🚀 INVALIDATE CACHE: Session status changed
+        await this.invalidateActiveSessionCache(session.department, session.semester, session.section);
 
         // 🚀 GET LIVE REDIS STATS FOR UNLOCK RESPONSE
         const redisStats = await this.getSessionStatsFromRedis(sessionId);
@@ -867,6 +927,9 @@ class QRSessionService {
         // Update session status
         session.status = 'active';
         session.startedAt = new Date();
+        
+        // 🚀 INVALIDATE CACHE: Session status changed to active
+        await this.invalidateActiveSessionCache(session.department, session.semester, session.section);
 
         // Generate first QR token
         const tokenData = await qrTokenService.generateQRToken({
@@ -940,28 +1003,7 @@ class QRSessionService {
             throw new Error('You are not enrolled in this section');
         }
 
-        // Optimized join data preparation
-        // const joinData = {
-        //     sessionId,
-        //     studentId: studentData.studentId,
-        //     studentName: studentData.name,
-        //     rollNumber: studentData.classRollNumber,
-        //     email: studentData.email,
-        //     department: session.department,
-        //     semester: session.semester,
-        //     section: session.section,
-        //     deviceInfo: {
-        //         fingerprint: studentData.fingerprint,
-        //         webRTCIPs: studentData.webRTCIPs,
-        //         userAgent: studentData.userAgent,
-        //         ipAddress: studentData.ipAddress
-        //     }
-        // };
-
         try {
-            // Atomic operation - create join record
-            // await SessionJoin.create(joinData); (If you want you can uncomment the code to join the record in the database.)
-
             // 🚀 PIPELINE OPTIMIZATION: Combine session join and stats retrieval
             const redis = redisCache.getClient();
             const pipeline = redis.multi();
@@ -1003,9 +1045,7 @@ class QRSessionService {
                     sessionId,
                     status: session.status,
                     canScanQR: session.status === 'active',
-                    joinedAt: new Date(),
-                    facultyId: session.facultyId,
-                    studentsJoined: redisStats.studentsJoined
+                    joinedAt: new Date()
                 }
             };
         } catch (err) {
@@ -1019,8 +1059,7 @@ class QRSessionService {
                         sessionId,
                         status: session.status,
                         canScanQR: session.status === 'active',
-                        facultyId: session.facultyId,
-                        studentsJoined: session.studentsJoinedCount
+                        joinedAt: new Date()
                     }
                 };
             }
@@ -1216,6 +1255,9 @@ class QRSessionService {
         // 🚀 CLEAR REDIS CACHES (new optimization)
         await this.clearSessionJoinCache(sessionId);
         await this.clearSessionAttendanceCache(sessionId);
+        
+        // 🚀 INVALIDATE ACTIVE SESSION CACHE: Session ended
+        await this.invalidateActiveSessionCache(session.department, session.semester, session.section);
         
         // Clean up any other sessions for this section to prevent conflicts
         try {

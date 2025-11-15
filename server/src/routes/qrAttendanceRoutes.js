@@ -328,11 +328,10 @@ router.get('/session-status', auth, ensureStudent, async (req, res) => {
 router.post('/join-session', auth, ensureStudent, async (req, res) => {
     try {
         const student = req.user;
-        const { fingerprint, webRTCIPs } = req.body;
+        const { fingerprint } = req.body;
 
-        // Get active session for student's section
-        const QRSession = require('../models/QRSession');
-        const session = await QRSession.findActiveSessionForSection(
+        // 🚀 OPTIMIZED: Get active session from Redis cache (eliminates DB bottleneck)
+        const session = await qrSessionService.getActiveSessionForSection(
             student.course,
             student.semester,
             student.section
@@ -353,10 +352,7 @@ router.post('/join-session', auth, ensureStudent, async (req, res) => {
             course: student.course,
             semester: student.semester,
             section: student.section,
-            fingerprint,
-            webRTCIPs,
-            userAgent: req.get('User-Agent'),
-            ipAddress: req.ip
+            fingerprint
         };
 
         const result = await qrSessionService.joinSession(session.sessionId, studentData);
@@ -383,8 +379,6 @@ router.post('/scan-qr', auth, ensureStudent, async (req, res) => {
         const { 
             qrToken, 
             fingerprint,
-            photoFilename, 
-            photoCloudinaryUrl 
         } = req.body;
 
         if (!qrToken) {
@@ -403,10 +397,6 @@ router.post('/scan-qr', auth, ensureStudent, async (req, res) => {
             semester: student.semester,
             section: student.section,
             fingerprint,
-            userAgent: req.get('User-Agent'),
-            ipAddress: req.ip,
-            photoFilename,
-            photoCloudinaryUrl
         };
 
         const result = await qrSessionService.markAttendance(qrToken, studentData);
