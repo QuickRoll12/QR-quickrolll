@@ -350,8 +350,9 @@ class QRSessionService {
             pipeline.sCard(`session:${sessionId}:attended`);
             const results = await pipeline.exec();
             
-            const joinedCount = results[0][1] || 0;
-            const attendedCount = results[1][1] || 0;
+            // Handle both [error, result] and direct result formats
+            const joinedCount = Array.isArray(results[0]) ? (results[0][1] || 0) : (results[0] || 0);
+            const attendedCount = Array.isArray(results[1]) ? (results[1][1] || 0) : (results[1] || 0);
             
             return {
                 studentsJoined: joinedCount,
@@ -977,9 +978,9 @@ class QRSessionService {
             // 🚀 DEBUG: Log pipeline results for troubleshooting
             console.log(`📊 JOIN Session ${sessionId} Pipeline Results:`, results);
             
-            // Extract results
-            const joinedCount = results[2][1] || 0;
-            const attendedCount = results[3][1] || 0;
+            // Extract results - handle both [error, result] and direct result formats
+            const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
+            const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
             
             console.log(`📊 JOIN Session ${sessionId} Extracted Stats:`, {
                 joinedCount,
@@ -1146,9 +1147,9 @@ class QRSessionService {
             // 🚀 DEBUG: Log pipeline results for troubleshooting
             console.log(`📊 ATTENDANCE Session ${session.sessionId} Pipeline Results:`, results);
             
-            // Extract stats
-            const joinedCount = results[2][1] || 0;
-            const attendedCount = results[3][1] || 0;
+            // Extract stats - handle both [error, result] and direct result formats
+            const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
+            const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
             
             console.log(`📊 ATTENDANCE Session ${session.sessionId} Extracted Stats:`, {
                 joinedCount,
