@@ -197,11 +197,11 @@ class QRSessionService {
         try {
             const redis = redisCache.getClient();
             
-            // Add student to Redis SET
-            await redis.sAdd(`session:${sessionId}:joined`, studentId);
-            
-            // Set TTL (2 hours)
-            await redis.expire(`session:${sessionId}:joined`, 7200);
+            // 🚀 PIPELINE OPTIMIZATION: Combine sAdd and expire operations
+            const pipeline = redis.multi();
+            pipeline.sAdd(`session:${sessionId}:joined`, studentId);
+            pipeline.expire(`session:${sessionId}:joined`, 7200);
+            await pipeline.exec();
             
             return true;
         } catch (error) {
@@ -265,11 +265,11 @@ class QRSessionService {
         try {
             const redis = redisCache.getClient();
             
-            // Add roll number to Redis SET
-            await redis.sAdd(`session:${sessionId}:attended`, rollNumber);
-            
-            // Set TTL (2 hours)
-            await redis.expire(`session:${sessionId}:attended`, 7200);
+            // 🚀 PIPELINE OPTIMIZATION: Combine sAdd and expire operations
+            const pipeline = redis.multi();
+            pipeline.sAdd(`session:${sessionId}:attended`, rollNumber);
+            pipeline.expire(`session:${sessionId}:attended`, 7200);
+            await pipeline.exec();
             
             return true;
         } catch (error) {
@@ -344,10 +344,14 @@ class QRSessionService {
         try {
             const redis = redisCache.getClient();
             
-            // Get counts directly from Redis SETs
-            const joinedCount = await redis.sCard(`session:${sessionId}:joined`) || 0;
-            const attendedCount = await redis.sCard(`session:${sessionId}:attended`) || 0;
+            // 🚀 PIPELINE OPTIMIZATION: Batch both sCard operations
+            const pipeline = redis.multi();
+            pipeline.sCard(`session:${sessionId}:joined`);
+            pipeline.sCard(`session:${sessionId}:attended`);
+            const results = await pipeline.exec();
             
+            const joinedCount = results[0][1] || 0;
+            const attendedCount = results[1][1] || 0;
             
             return {
                 studentsJoined: joinedCount,
@@ -515,7 +519,28 @@ class QRSessionService {
     }
 
     /**
-     * 🚨 PROXY DETECTION: Remove student from session caches
+     * � PIPELINE OPTIMIZATION: Clear both session caches efficiently
+     * @param {string} sessionId - Session ID
+     */
+    async clearAllSessionCaches(sessionId) {
+        try {
+            const redis = redisCache.getClient();
+            
+            // 🚀 PIPELINE OPTIMIZATION: Clear both caches in one operation
+            const pipeline = redis.multi();
+            pipeline.del(`session:${sessionId}:joined`);
+            pipeline.del(`session:${sessionId}:attended`);
+            await pipeline.exec();
+            
+            console.log(`🧹 Cleared all caches for session ${sessionId}`);
+        } catch (error) {
+            console.warn('⚠️ Redis session cache clear failed:', error.message);
+            // Not critical - cache will expire naturally
+        }
+    }
+
+    /**
+     * � PROXY DETECTION: Remove student from session caches
      * This method is called by the proxy detection system to remove flagged students
      * @param {string} sessionId - Session ID
      * @param {string} studentId - Student ID (for join cache)
@@ -535,11 +560,14 @@ class QRSessionService {
 
             const redis = redisCache.getClient();
             
-            // Remove from join cache (studentId)
-            const joinRemoved = await redis.sRem(`session:${sessionId}:joined`, studentId);
+            // 🚀 PIPELINE OPTIMIZATION: Batch both sRem operations
+            const pipeline = redis.multi();
+            pipeline.sRem(`session:${sessionId}:joined`, studentId);
+            pipeline.sRem(`session:${sessionId}:attended`, rollNumber);
+            const results = await pipeline.exec();
             
-            // Remove from attendance cache (rollNumber)
-            const attendanceRemoved = await redis.sRem(`session:${sessionId}:attended`, rollNumber);
+            const joinRemoved = results[0][1];
+            const attendanceRemoved = results[1][1];
             
             console.log(`🚨 PROXY REMOVAL: Session ${sessionId} - Student ${studentId}/${rollNumber} - Join: ${joinRemoved > 0}, Attendance: ${attendanceRemoved > 0}`);
             
@@ -579,9 +607,14 @@ class QRSessionService {
 
             const redis = redisCache.getClient();
             
-            // Check both caches
-            const isInJoinCache = await redis.sIsMember(`session:${sessionId}:joined`, studentId);
-            const isInAttendanceCache = await redis.sIsMember(`session:${sessionId}:attended`, rollNumber);
+            // 🚀 PIPELINE OPTIMIZATION: Batch both sIsMember operations
+            const pipeline = redis.multi();
+            pipeline.sIsMember(`session:${sessionId}:joined`, studentId);
+            pipeline.sIsMember(`session:${sessionId}:attended`, rollNumber);
+            const results = await pipeline.exec();
+            
+            const isInJoinCache = results[0][1];
+            const isInAttendanceCache = results[1][1];
             
             return {
                 success: true,
@@ -927,24 +960,34 @@ class QRSessionService {
             // Atomic operation - create join record
             // await SessionJoin.create(joinData); (If you want you can uncomment the code to join the record in the database.)
 
-            // 🚀 ADD TO REDIS CACHE (new optimization)
-            await this.addStudentToSessionCache(sessionId, studentData.studentId);
-
-            // 🚀 REDIS-BASED STATS: Database join counter is now commented out, using Redis as source of truth
-            // const updatedSession = await QRSession.findOneAndUpdate(
-            //     { sessionId },
-            //     { $inc: { studentsJoinedCount: 1 } },
-            //     { new: true }
-            // );
+            // 🚀 PIPELINE OPTIMIZATION: Combine session join and stats retrieval
+            const redis = redisCache.getClient();
+            const pipeline = redis.multi();
+            
+            // Add student to join cache with TTL
+            pipeline.sAdd(`session:${sessionId}:joined`, studentData.studentId);
+            pipeline.expire(`session:${sessionId}:joined`, 7200);
+            
+            // Get current stats in same pipeline
+            pipeline.sCard(`session:${sessionId}:joined`);
+            pipeline.sCard(`session:${sessionId}:attended`);
+            
+            const results = await pipeline.exec();
+            
+            // Extract results
+            const joinedCount = results[2][1] || 0;
+            const attendedCount = results[3][1] || 0;
+            
+            const redisStats = {
+                studentsJoined: joinedCount,
+                studentsPresent: attendedCount
+            };
 
             // Get session without incrementing counter (for cache update)
             const updatedSession = await this.getSessionById(sessionId);
 
             // Update cache with session data
             this.activeSessions.set(sessionId, updatedSession);
-
-            // 🚀 GET LIVE REDIS STATS FOR RESPONSE
-            const redisStats = await this.getSessionStatsFromRedis(sessionId);
 
             return {
                 success: true,
@@ -1005,8 +1048,10 @@ class QRSessionService {
             throw new Error('You are not enrolled in this section');
         }
 
-        // 🚀 REDIS CACHE CHECK (replaces DB query for massive performance gain)
-        const hasJoined = await this.hasStudentJoinedSession(session.sessionId, studentData.studentId);
+        // 🚀 STEP 1: Check if student has joined (must be done first)
+        const redis = redisCache.getClient();
+        const hasJoined = await redis.sIsMember(`session:${session.sessionId}:joined`, studentData.studentId);
+        
         if (!hasJoined) {
             throw new Error('You must join the session first');
         }
@@ -1077,30 +1122,33 @@ class QRSessionService {
         try {
             // await SessionAttendance.create(attendanceData);
 
-            // 🚀 ADD TO REDIS ATTENDANCE CACHE (replaces SessionAttendance.create)
-            await this.addStudentToAttendanceCache(session.sessionId, studentData.classRollNumber);
-
-            // 🚀 REDIS-BASED STATS: Database counters are now commented out, using Redis as source of truth
-            // const updatedSession = await QRSession.findOneAndUpdate(
-            //     { sessionId: session.sessionId },
-            //     { 
-            //         $inc: { 
-            //             studentsPresentCount: 1,
-            //             'analytics.totalQRScans': 1 
-            //         }
-            //     },
-            //     { new: true }
-            // );
+            // 🚀 PIPELINE OPTIMIZATION: Add to attendance cache and get stats after all validations pass
+            const pipeline = redis.multi();
+            
+            // Add to attendance cache with TTL
+            pipeline.sAdd(`session:${session.sessionId}:attended`, studentData.classRollNumber);
+            pipeline.expire(`session:${session.sessionId}:attended`, 7200);
+            
+            // Get updated stats
+            pipeline.sCard(`session:${session.sessionId}:joined`);
+            pipeline.sCard(`session:${session.sessionId}:attended`);
+            
+            const results = await pipeline.exec();
+            
+            // Extract stats
+            const joinedCount = results[2][1] || 0;
+            const attendedCount = results[3][1] || 0;
+            
+            const redisStats = {
+                studentsJoined: joinedCount,
+                studentsPresent: attendedCount
+            };
 
             // Get session without incrementing counter (for cache update)
             const updatedSession = await this.getSessionById(session.sessionId);
 
             // Update cache with session data
             this.activeSessions.set(session.sessionId, updatedSession);
-
-
-            // 🚀 GET LIVE REDIS STATS FOR RESPONSE
-            const redisStats = await this.getSessionStatsFromRedis(session.sessionId);
 
             return {
                 success: true,
