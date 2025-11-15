@@ -1152,7 +1152,8 @@ class QRSessionService {
                     studentName: studentData.name,
                     rollNumber: studentData.classRollNumber,
                     markedAt: new Date(),
-                    status: 'present'
+                    status: 'present',
+                    attendanceScore: 1.0
                 }
             };
 
