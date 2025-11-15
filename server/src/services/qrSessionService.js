@@ -921,521 +921,209 @@ class QRSessionService {
      * @param {Object} studentData - Student information
      * @returns {Object} - Join result
      */
-    // async joinSession(sessionId, studentData) {
-    //     const session = await this.getSessionById(sessionId);
+    async joinSession(sessionId, studentData) {
+        const session = await this.getSessionById(sessionId);
         
-    //     if (!session) {
-    //         throw new Error('Session not found');
-    //     }
+        if (!session) {
+            throw new Error('Session not found');
+        }
 
-    //     if (!session.canJoin()) {
-    //         throw new Error('Session is locked. You cannot join at this time.');
-    //     }
+        if (!session.canJoin()) {
+            throw new Error('Session is locked. You cannot join at this time.');
+        }
 
-    //     // Check if student belongs to this section
-    //     if (studentData.course !== session.department || 
-    //         studentData.semester !== session.semester || 
-    //         studentData.section !== session.section) {
-    //         throw new Error('You are not enrolled in this section');
-    //     }
+        // Check if student belongs to this section
+        if (studentData.course !== session.department || 
+            studentData.semester !== session.semester || 
+            studentData.section !== session.section) {
+            throw new Error('You are not enrolled in this section');
+        }
 
-    //     // Optimized join data preparation
-    //     // const joinData = {
-    //     //     sessionId,
-    //     //     studentId: studentData.studentId,
-    //     //     studentName: studentData.name,
-    //     //     rollNumber: studentData.classRollNumber,
-    //     //     email: studentData.email,
-    //     //     department: session.department,
-    //     //     semester: session.semester,
-    //     //     section: session.section,
-    //     //     deviceInfo: {
-    //     //         fingerprint: studentData.fingerprint,
-    //     //         webRTCIPs: studentData.webRTCIPs,
-    //     //         userAgent: studentData.userAgent,
-    //     //         ipAddress: studentData.ipAddress
-    //     //     }
-    //     // };
+        // Optimized join data preparation
+        // const joinData = {
+        //     sessionId,
+        //     studentId: studentData.studentId,
+        //     studentName: studentData.name,
+        //     rollNumber: studentData.classRollNumber,
+        //     email: studentData.email,
+        //     department: session.department,
+        //     semester: session.semester,
+        //     section: session.section,
+        //     deviceInfo: {
+        //         fingerprint: studentData.fingerprint,
+        //         webRTCIPs: studentData.webRTCIPs,
+        //         userAgent: studentData.userAgent,
+        //         ipAddress: studentData.ipAddress
+        //     }
+        // };
 
-    //     try {
-    //         // Atomic operation - create join record
-    //         // await SessionJoin.create(joinData); (If you want you can uncomment the code to join the record in the database.)
+        try {
+            // Atomic operation - create join record
+            // await SessionJoin.create(joinData); (If you want you can uncomment the code to join the record in the database.)
 
-    //         // 🚀 PIPELINE OPTIMIZATION: Combine session join and stats retrieval
-    //         const redis = redisCache.getClient();
-    //         const pipeline = redis.multi();
+            // 🚀 PIPELINE OPTIMIZATION: Combine session join and stats retrieval
+            const redis = redisCache.getClient();
+            const pipeline = redis.multi();
             
-    //         // Add student to join cache with TTL
-    //         pipeline.sAdd(`session:${sessionId}:joined`, studentData.studentId);
-    //         pipeline.expire(`session:${sessionId}:joined`, 7200);
+            // Add student to join cache with TTL
+            pipeline.sAdd(`session:${sessionId}:joined`, studentData.studentId);
+            pipeline.expire(`session:${sessionId}:joined`, 7200);
             
-    //         // Get current stats in same pipeline
-    //         pipeline.sCard(`session:${sessionId}:joined`);
-    //         pipeline.sCard(`session:${sessionId}:attended`);
+            // Get current stats in same pipeline
+            pipeline.sCard(`session:${sessionId}:joined`);
+            pipeline.sCard(`session:${sessionId}:attended`);
             
-    //         const results = await pipeline.exec();
+            const results = await pipeline.exec();
             
-    //         // Extract results - handle both [error, result] and direct result formats
-    //         const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
-    //         const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
+            // Extract results - handle both [error, result] and direct result formats
+            const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
+            const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
 
-    //         const redisStats = {
-    //             studentsJoined: joinedCount,
-    //             studentsPresent: attendedCount
-    //         };
+            const redisStats = {
+                studentsJoined: joinedCount,
+                studentsPresent: attendedCount
+            };
 
-    //         // Get session without incrementing counter (for cache update)
-    //         const updatedSession = await this.getSessionById(sessionId);
+            // Get session without incrementing counter (for cache update)
+            const updatedSession = await this.getSessionById(sessionId);
 
-    //         // Update cache with session data
-    //         this.activeSessions.set(sessionId, updatedSession);
+            // Update cache with session data
+            this.activeSessions.set(sessionId, updatedSession);
 
-    //         return {
-    //             success: true,
-    //             message: 'Successfully joined the session. Wait for faculty to start attendance.',
-    //             sessionData: {
-    //                 sessionId,
-    //                 status: session.status,
-    //                 canScanQR: session.status === 'active',
-    //                 joinedAt: new Date(),
-    //                 facultyId: session.facultyId,
-    //                 studentsJoined: redisStats.studentsJoined
-    //             }
-    //         };
-    //     } catch (err) {
-    //         // Handle duplicate key error (student already joined)
-    //         if (err.code === 11000) {
-    //             return {
-    //                 success: true,
-    //                 message: 'You have already joined this session',
-    //                 alreadyJoined: true,
-    //                 sessionData: {
-    //                     sessionId,
-    //                     status: session.status,
-    //                     canScanQR: session.status === 'active',
-    //                     facultyId: session.facultyId,
-    //                     studentsJoined: session.studentsJoinedCount
-    //                 }
-    //             };
-    //         }
-    //         throw err;
-    //     }
-    // }
+            const facultyRoom = `faculty-${session.facultyId}`;
+            this.io.to(facultyRoom).emit('qr-studentJoined', {
+                totalJoined: redisStats.studentsJoined
+            });
 
-    // /**
-    //  * Mark attendance via QR scan
-    //  * @param {string} qrToken - QR token from scan
-    //  * @param {Object} studentData - Student information
-    //  * @returns {Object} - Attendance result
-    //  */
-    // async markAttendance(qrToken, studentData) {
-    //     // Validate QR token (pass student data for group token validation)
-    //     const tokenValidation = await qrTokenService.validateQRToken(qrToken, studentData);
-    //     if (!tokenValidation.valid) {
-    //         throw new Error(tokenValidation.error);
-    //     }
-
-    //     const { sessionData: tokenSessionData } = tokenValidation;
-    //     const session = await this.getSessionById(tokenSessionData.sessionId);
-
-    //     if (!session) {
-    //         throw new Error('Session not found');
-    //     }
-
-    //     // Check if student belongs to this section
-    //     if (studentData.course !== session.department || 
-    //         studentData.semester !== session.semester || 
-    //         studentData.section !== session.section) {
-    //         throw new Error('You are not enrolled in this section');
-    //     }
-
-    //     // 🚀 STEP 1: Check if student has joined (must be done first)
-    //     const redis = redisCache.getClient();
-    //     const hasJoined = await redis.sIsMember(`session:${session.sessionId}:joined`, studentData.studentId);
-        
-    //     if (!hasJoined) {
-    //         throw new Error('You must join the session first');
-    //     }
-
-    //     // Optimized: Check if student already marked attendance using new collection
-    //     // const existingAttendance = await SessionAttendance.findOne({
-    //     //     sessionId: session.sessionId,
-    //     //     studentId: studentData.studentId
-    //     // });
-
-    //     // if (existingAttendance) {
-    //     //     throw new Error('Attendance already marked for this session');
-    //     // }
-
-    //     // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
-    //     const storedDeviceId = await this.getStudentDeviceId(
-    //         studentData.studentId, 
-    //         session.department, 
-    //         session.semester, 
-    //         session.section
-    //     );
-
-    //     // console.log(
-    //     //     `🔎 Checking fingerprint for ${studentData.name}: stored=${storedDeviceId}, received=${studentData.fingerprint}`
-    //     // );
-
-    //     // Validate fingerprint against stored device ID
-    //     if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
-    //         throw new Error('Attendance cannot be marked. Suspicious activity detected !');
-    //     }
-
-    //     // // If no device ID stored, this is first time - update it ( *** This Case is not possible, because login first time is mandatory****)
-    //     // if (!storedDeviceId) {
-    //     //     console.log(`📱 First time device registration for ${studentData.name}`);
-    //     //     await User.updateOne(
-    //     //         { studentId: studentData.studentId },
-    //     //         { deviceId: studentData.fingerprint }
-    //     //     );
-    //     //     // Update cache
-    //     //     this.deviceCache.set(studentData.studentId, studentData.fingerprint);
-    //     //     this.cacheExpiry.set(studentData.studentId, Date.now() + this.CACHE_TTL);
-    //     // }
-
-    //     // NOTE: We don't mark token as "used" because multiple students should be able to scan the same QR code
-    //     // Individual duplicate prevention is handled by checking if student already marked attendance
-
-    //     // Optimized: Prepare attendance data for new collection
-    //     // const attendanceData = {
-    //     //     sessionId: session.sessionId,
-    //     //     studentId: studentData.studentId,
-    //     //     studentName: studentData.name,
-    //     //     rollNumber: studentData.classRollNumber,
-    //     //     email: studentData.email,
-    //     //     qrToken: qrToken,
-    //     //     department: session.department,
-    //     //     semester: session.semester,
-    //     //     section: session.section,
-    //     //     deviceInfo: {
-    //     //         fingerprint: studentData.fingerprint,
-    //     //         userAgent: studentData.userAgent,
-    //     //         ipAddress: studentData.ipAddress
-    //     //     },
-    //     //     photoFilename: studentData.photoFilename,
-    //     //     photoCloudinaryUrl: studentData.photoCloudinaryUrl,
-    //     //     verificationStatus: 'verified'
-    //     // };
-
-    //     try {
-    //         // await SessionAttendance.create(attendanceData);
-
-    //         // 🚀 PIPELINE OPTIMIZATION: Add to attendance cache and get stats after all validations pass
-    //         const pipeline = redis.multi();
-            
-    //         // Add to attendance cache with TTL
-    //         pipeline.sAdd(`session:${session.sessionId}:attended`, studentData.classRollNumber);
-    //         pipeline.expire(`session:${session.sessionId}:attended`, 7200);
-            
-    //         // Get updated stats
-    //         pipeline.sCard(`session:${session.sessionId}:joined`);
-    //         pipeline.sCard(`session:${session.sessionId}:attended`);
-            
-    //         const results = await pipeline.exec();
-            
-    //         // Extract stats - handle both [error, result] and direct result formats
-    //         const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
-    //         const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
-            
-    //         const redisStats = {
-    //             studentsJoined: joinedCount,
-    //             studentsPresent: attendedCount
-    //         };
-
-    //         // Get session without incrementing counter (for cache update)
-    //         const updatedSession = await this.getSessionById(session.sessionId);
-
-    //         // Update cache with session data
-    //         this.activeSessions.set(session.sessionId, updatedSession);
-
-    //         return {
-    //             success: true,
-    //             message: 'Attendance marked successfully!',
-    //             attendanceData: {
-    //                 sessionId: session.sessionId,
-    //                 studentName: studentData.name,
-    //                 rollNumber: studentData.classRollNumber,
-    //                 markedAt: new Date(),
-    //                 status: 'present'
-    //             },
-    //             sessionStats: {
-    //                 totalStudents: session.totalStudents,
-    //                 studentsJoined: redisStats.studentsJoined,
-    //                 studentsPresent: redisStats.studentsPresent,
-    //                 presentPercentage: session.totalStudents > 0 ? Math.round((redisStats.studentsPresent / session.totalStudents) * 100) : 0,
-    //             }
-    //         };
-
-    //     } catch (err) {
-    //         // Handle duplicate key error (student already marked attendance)
-    //         if (err.code === 11000) {
-    //             throw new Error('Attendance already marked for this session');
-    //         }
-    //         throw err;
-    //     }
-    // }
-
-    /**
- * Student joins a session
- * @param {string} sessionId - Session ID
- * @param {Object} studentData - Student information
- * @returns {Object} - Join result
- */
-async joinSession(sessionId, studentData) {
-    const at = performance.now();
-    const session = await this.getSessionById(sessionId);
-    const getSessionByIdTime = performance.now() - at;
-    console.log(`[Join session]Get session by ID took: ${getSessionByIdTime} ms`);
-    
-    if (!session) {
-        throw new Error('Session not found');
-    }
-
-    if (!session.canJoin()) {
-        throw new Error('Session is locked. You cannot join at this time.');
-    }
-
-    const bt = performance.now();
-    // Check if student belongs to this section
-    if (studentData.course !== session.department || 
-        studentData.semester !== session.semester || 
-        studentData.section !== session.section) {
-        throw new Error('You are not enrolled in this section');
-    }
-    const ct = performance.now();
-    const sectionCheckTime = ct - bt;
-    console.log(`[Join session]Section check took: ${sectionCheckTime} ms`);
-
-    // ... [joinData preparation is commented out, which is fine] ...
-
-    try {
-        // ... [SessionJoin.create is commented out, which is fine] ...
-
-        // 🚀 PIPELINE OPTIMIZATION: Combine session join and stats retrieval
-        // --- ADDED: Start timer ---
-        const pipelineStartTime = performance.now();
-        const redis = redisCache.getClient();
-        const pipeline = redis.multi();
-        
-        // Add student to join cache with TTL
-        pipeline.sAdd(`session:${sessionId}:joined`, studentData.studentId);
-        pipeline.expire(`session:${sessionId}:joined`, 7200);
-        
-        // Get current stats in same pipeline
-        pipeline.sCard(`session:${sessionId}:joined`);
-        pipeline.sCard(`session:${sessionId}:attended`);
-        
-        const results = await pipeline.exec();
-        
-        // --- ADDED: End timer and log duration ---
-        const pipelineEndTime = performance.now();
-        const pipelineDurationMs = pipelineEndTime - pipelineStartTime;
-        console.log(`[joinSession] Redis pipeline execution took: ${pipelineDurationMs.toFixed(2)} ms`);
-        
-        const dt = performance.now();
-        // Extract results - handle both [error, result] and direct result formats
-        const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
-        const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
-        const extractResultsTime = performance.now() - dt;
-        console.log(`[joinSession] Extract results took: ${extractResultsTime.toFixed(2)} ms`);
-
-        const redisStats = {
-            studentsJoined: joinedCount,
-            studentsPresent: attendedCount
-        };
-
-        const et = performance.now();
-        // Get session without incrementing counter (for cache update)
-        const updatedSession = await this.getSessionById(sessionId);
-        const getSessionByIdTime = performance.now() - et;
-        console.log(`[joinSession] Updating session by ID took: ${getSessionByIdTime.toFixed(2)} ms`);
-
-        const ft = performance.now();
-        // Update cache with session data
-        this.activeSessions.set(sessionId, updatedSession);
-        const updateCacheTime = performance.now() - ft;
-        console.log(`[joinSession] Updating cache took: ${updateCacheTime.toFixed(2)} ms`);
-
-        const gt = performance.now();
-        const facultyRoom = `faculty-${session.facultyId}`;
-        this.io.to(facultyRoom).emit('qr-studentJoined', {
-            joinedAt: new Date(),
-            totalJoined: redisStats.studentsJoined
-        });
-        const gtTime = performance.now() - gt;
-        console.log(`[joinSession] Emitting to faculty room took: ${gtTime.toFixed(2)} ms`);
-        return {
-            success: true,
-            message: 'Successfully joined the session. Wait for faculty to start attendance.',
-            sessionData: {
-                sessionId,
-                status: session.status,
-                canScanQR: session.status === 'active',
-                joinedAt: new Date(),
-                facultyId: session.facultyId,
-                studentsJoined: redisStats.studentsJoined
-            }
-        };
-    } catch (err) {
-        // Handle duplicate key error (student already joined)
-        if (err.code === 11000) {
             return {
                 success: true,
-                message: 'You have already joined this session',
-                alreadyJoined: true,
+                message: 'Successfully joined the session. Wait for faculty to start attendance.',
                 sessionData: {
                     sessionId,
                     status: session.status,
                     canScanQR: session.status === 'active',
+                    joinedAt: new Date(),
                     facultyId: session.facultyId,
                     studentsJoined: redisStats.studentsJoined
                 }
             };
-        }
-        throw err;
-    }
-}
-
-/**
- * Mark attendance via QR scan
- * @param {string} qrToken - QR token from scan
- * @param {Object} studentData - Student information
- * @returns {Object} - Attendance result
- */
-async markAttendance(qrToken, studentData) {
-    // Validate QR token (pass student data for group token validation)
-    const at = performance.now();
-    const tokenValidation = await qrTokenService.validateQRToken(qrToken, studentData);
-    if (!tokenValidation.valid) {
-        throw new Error(tokenValidation.error);
-    }
-    const tokenValidationTime = performance.now() - at;
-    console.log(`[Mark attendance]Token validation took: ${tokenValidationTime} ms`);
-
-    const bt = performance.now();
-
-    const { sessionData: tokenSessionData } = tokenValidation;
-    const session = await this.getSessionById(tokenSessionData.sessionId);
-
-    if (!session) {
-        throw new Error('Session not found');
-    }
-    const getSessionByIdTime = performance.now() - bt;
-    console.log(`[Mark attendance]Get session by ID took: ${getSessionByIdTime} ms`);
-
-    const ct = performance.now();
-    // Check if student belongs to this section
-    if (studentData.course !== session.department || 
-        studentData.semester !== session.semester || 
-        studentData.section !== session.section) {
-        throw new Error('You are not enrolled in this section');
-    }
-    const sectionCheckTime = performance.now() - ct;
-    console.log(`[Mark attendance]Section check took: ${sectionCheckTime} ms`);
-
-    const dt = performance.now();
-    // 🚀 STEP 1: Check if student has joined (must be done first)
-    const redis = redisCache.getClient();
-    const hasJoined = await redis.sIsMember(`session:${session.sessionId}:joined`, studentData.studentId);
-    
-    if (!hasJoined) {
-        throw new Error('You must join the session first');
-    }
-    const hasJoinedTime = performance.now() - dt;
-    console.log(`[Mark attendance]Has joined check took: ${hasJoinedTime} ms`);
-
-    const et = performance.now();
-    // ... [existingAttendance check is commented out, which is fine] ...
-
-    // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
-    const storedDeviceId = await this.getStudentDeviceId(
-        studentData.studentId, 
-        session.department, 
-        session.semester, 
-        session.section
-    );
-    const getStudentDeviceIdTime = performance.now() - et;
-    console.log(`[Mark attendance]Get student device ID took: ${getStudentDeviceIdTime} ms`);
-
-    const ft = performance.now();
-    // Validate fingerprint against stored device ID
-    if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
-        throw new Error('Attendance cannot be marked. Suspicious activity detected !');
-    }
-    const fingerprintCheckTime = performance.now() - ft;
-    console.log(`[Mark attendance]Fingerprint check took: ${fingerprintCheckTime} ms`);
-
-    // ... [First time device registration is commented out, which is fine] ...
-    // ... [attendanceData preparation is commented out, which is fine] ...
-
-    try {
-        // ... [SessionAttendance.create is commented out, which is fine] ...
-
-        // 🚀 PIPELINE OPTIMIZATION: Add to attendance cache and get stats after all validations pass
-        // --- ADDED: Start timer ---
-        const pipelineStartTime = performance.now();
-        const pipeline = redis.multi();
-        
-        // Add to attendance cache with TTL
-        pipeline.sAdd(`session:${session.sessionId}:attended`, studentData.classRollNumber);
-        pipeline.expire(`session:${session.sessionId}:attended`, 7200);
-        
-        // Get updated stats
-        pipeline.sCard(`session:${session.sessionId}:joined`);
-        pipeline.sCard(`session:${session.sessionId}:attended`);
-        
-        
-        const results = await pipeline.exec();
-        
-        // --- ADDED: End timer and log duration ---
-        const pipelineEndTime = performance.now();
-        const pipelineDurationMs = pipelineEndTime - pipelineStartTime;
-        console.log(`[markAttendance] Redis pipeline execution took: ${pipelineDurationMs.toFixed(2)} ms`);
-        
-        // Extract stats - handle both [error, result] and direct result formats
-        const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
-        const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
-        
-        const redisStats = {
-            studentsJoined: joinedCount,
-            studentsPresent: attendedCount
-        };
-
-        // Get session without incrementing counter (for cache update)
-        const updatedSession = await this.getSessionById(session.sessionId);
-
-        // Update cache with session data
-        this.activeSessions.set(session.sessionId, updatedSession);
-
-        return {
-            success: true,
-            message: 'Attendance marked successfully!',
-            attendanceData: {
-                sessionId: session.sessionId,
-                studentName: studentData.name,
-                rollNumber: studentData.classRollNumber,
-                markedAt: new Date(),
-                status: 'present'
-            },
-            sessionStats: {
-                totalStudents: session.totalStudents,
-                studentsJoined: redisStats.studentsJoined,
-                studentsPresent: redisStats.studentsPresent,
-                presentPercentage: session.totalStudents > 0 ? Math.round((redisStats.studentsPresent / session.totalStudents) * 100) : 0,
+        } catch (err) {
+            // Handle duplicate key error (student already joined)
+            if (err.code === 11000) {
+                return {
+                    success: true,
+                    message: 'You have already joined this session',
+                    alreadyJoined: true,
+                    sessionData: {
+                        sessionId,
+                        status: session.status,
+                        canScanQR: session.status === 'active',
+                        facultyId: session.facultyId,
+                        studentsJoined: session.studentsJoinedCount
+                    }
+                };
             }
-        };
-
-    } catch (err) {
-        // Handle duplicate key error (student already marked attendance)
-        if (err.code === 11000) {
-            throw new Error('Attendance already marked for this session');
+            throw err;
         }
-        throw err;
     }
-}
+
+    /**
+     * Mark attendance via QR scan
+     * @param {string} qrToken - QR token from scan
+     * @param {Object} studentData - Student information
+     * @returns {Object} - Attendance result
+     */
+    async markAttendance(qrToken, studentData) {
+        // Validate QR token (pass student data for group token validation)
+        const tokenValidation = await qrTokenService.validateQRToken(qrToken, studentData);
+        if (!tokenValidation.valid) {
+            throw new Error(tokenValidation.error);
+        }
+
+        const { sessionData: tokenSessionData } = tokenValidation;
+        const session = await this.getSessionById(tokenSessionData.sessionId);
+
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        // Check if student belongs to this section
+        if (studentData.course !== session.department || 
+            studentData.semester !== session.semester || 
+            studentData.section !== session.section) {
+            throw new Error('You are not enrolled in this section');
+        }
+
+        // 🚀 STEP 1: Check if student has joined (must be done first)
+        const redis = redisCache.getClient();
+        const hasJoined = await redis.sIsMember(`session:${session.sessionId}:joined`, studentData.studentId);
+        
+        if (!hasJoined) {
+            throw new Error('You must join the session first');
+        }
+
+        // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
+        const storedDeviceId = await this.getStudentDeviceId(
+            studentData.studentId, 
+            session.department, 
+            session.semester, 
+            session.section
+        );
+
+        // Validate fingerprint against stored device ID
+        if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
+            throw new Error('Attendance cannot be marked. Suspicious activity detected !');
+        }
+
+        try {
+            // 🚀 PIPELINE OPTIMIZATION: Add to attendance cache and get stats after all validations pass
+            const pipeline = redis.multi();
+            
+            // Add to attendance cache with TTL
+            pipeline.sAdd(`session:${session.sessionId}:attended`, studentData.classRollNumber);
+            pipeline.expire(`session:${session.sessionId}:attended`, 7200);
+            
+            // Get updated stats
+            pipeline.sCard(`session:${session.sessionId}:joined`);
+            pipeline.sCard(`session:${session.sessionId}:attended`);
+            
+            const results = await pipeline.exec();
+            
+            // Extract stats - handle both [error, result] and direct result formats
+            const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
+            const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
+            
+            const redisStats = {
+                studentsJoined: joinedCount,
+                studentsPresent: attendedCount
+            };
+
+            // Get session without incrementing counter (for cache update)
+            const updatedSession = await this.getSessionById(session.sessionId);
+
+            // Update cache with session data
+            this.activeSessions.set(session.sessionId, updatedSession);
+
+            return {
+                success: true,
+                message: 'Attendance marked successfully!',
+                attendanceData: {
+                    sessionId: session.sessionId,
+                    studentName: studentData.name,
+                    rollNumber: studentData.classRollNumber,
+                    markedAt: new Date(),
+                    status: 'present'
+                }
+            };
+
+        } catch (err) {
+            // Handle duplicate key error (student already marked attendance)
+            if (err.code === 11000) {
+                throw new Error('Attendance already marked for this session');
+            }
+            throw err;
+        }
+    }
 
     /**
      * End a session and create final attendance record
