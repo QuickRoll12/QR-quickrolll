@@ -1185,7 +1185,10 @@ class QRSessionService {
  * @returns {Object} - Join result
  */
 async joinSession(sessionId, studentData) {
+    const at = performance.now();
     const session = await this.getSessionById(sessionId);
+    const getSessionByIdTime = performance.now() - at;
+    console.log(`[Join session]Get session by ID took: ${getSessionByIdTime} ms`);
     
     if (!session) {
         throw new Error('Session not found');
@@ -1195,12 +1198,16 @@ async joinSession(sessionId, studentData) {
         throw new Error('Session is locked. You cannot join at this time.');
     }
 
+    const bt = performance.now();
     // Check if student belongs to this section
     if (studentData.course !== session.department || 
         studentData.semester !== session.semester || 
         studentData.section !== session.section) {
         throw new Error('You are not enrolled in this section');
     }
+    const ct = performance.now();
+    const sectionCheckTime = ct - bt;
+    console.log(`[Join session]Section check took: ${sectionCheckTime} ms`);
 
     // ... [joinData preparation is commented out, which is fine] ...
 
@@ -1228,20 +1235,29 @@ async joinSession(sessionId, studentData) {
         const pipelineDurationMs = pipelineEndTime - pipelineStartTime;
         console.log(`[joinSession] Redis pipeline execution took: ${pipelineDurationMs.toFixed(2)} ms`);
         
+        const dt = performance.now();
         // Extract results - handle both [error, result] and direct result formats
         const joinedCount = Array.isArray(results[2]) ? (results[2][1] || 0) : (results[2] || 0);
         const attendedCount = Array.isArray(results[3]) ? (results[3][1] || 0) : (results[3] || 0);
+        const extractResultsTime = performance.now() - dt;
+        console.log(`[joinSession] Extract results took: ${extractResultsTime.toFixed(2)} ms`);
 
         const redisStats = {
             studentsJoined: joinedCount,
             studentsPresent: attendedCount
         };
 
+        const et = performance.now();
         // Get session without incrementing counter (for cache update)
         const updatedSession = await this.getSessionById(sessionId);
+        const getSessionByIdTime = performance.now() - et;
+        console.log(`[joinSession] Updating session by ID took: ${getSessionByIdTime.toFixed(2)} ms`);
 
+        const ft = performance.now();
         // Update cache with session data
         this.activeSessions.set(sessionId, updatedSession);
+        const updateCacheTime = performance.now() - ft;
+        console.log(`[joinSession] Updating cache took: ${updateCacheTime.toFixed(2)} ms`);
 
         return {
             success: true,
@@ -1283,10 +1299,15 @@ async joinSession(sessionId, studentData) {
  */
 async markAttendance(qrToken, studentData) {
     // Validate QR token (pass student data for group token validation)
+    const at = performance.now();
     const tokenValidation = await qrTokenService.validateQRToken(qrToken, studentData);
     if (!tokenValidation.valid) {
         throw new Error(tokenValidation.error);
     }
+    const tokenValidationTime = performance.now() - at;
+    console.log(`[Mark attendance]Token validation took: ${tokenValidationTime} ms`);
+
+    const bt = performance.now();
 
     const { sessionData: tokenSessionData } = tokenValidation;
     const session = await this.getSessionById(tokenSessionData.sessionId);
@@ -1294,14 +1315,20 @@ async markAttendance(qrToken, studentData) {
     if (!session) {
         throw new Error('Session not found');
     }
+    const getSessionByIdTime = performance.now() - bt;
+    console.log(`[Mark attendance]Get session by ID took: ${getSessionByIdTime} ms`);
 
+    const ct = performance.now();
     // Check if student belongs to this section
     if (studentData.course !== session.department || 
         studentData.semester !== session.semester || 
         studentData.section !== session.section) {
         throw new Error('You are not enrolled in this section');
     }
+    const sectionCheckTime = performance.now() - ct;
+    console.log(`[Mark attendance]Section check took: ${sectionCheckTime} ms`);
 
+    const dt = performance.now();
     // 🚀 STEP 1: Check if student has joined (must be done first)
     const redis = redisCache.getClient();
     const hasJoined = await redis.sIsMember(`session:${session.sessionId}:joined`, studentData.studentId);
@@ -1309,7 +1336,10 @@ async markAttendance(qrToken, studentData) {
     if (!hasJoined) {
         throw new Error('You must join the session first');
     }
+    const hasJoinedTime = performance.now() - dt;
+    console.log(`[Mark attendance]Has joined check took: ${hasJoinedTime} ms`);
 
+    const et = performance.now();
     // ... [existingAttendance check is commented out, which is fine] ...
 
     // 🚀 OPTIMIZED: Fingerprint validation using cached device ID from User schema
@@ -1319,11 +1349,16 @@ async markAttendance(qrToken, studentData) {
         session.semester, 
         session.section
     );
+    const getStudentDeviceIdTime = performance.now() - et;
+    console.log(`[Mark attendance]Get student device ID took: ${getStudentDeviceIdTime} ms`);
 
+    const ft = performance.now();
     // Validate fingerprint against stored device ID
     if (storedDeviceId && storedDeviceId !== studentData.fingerprint) {
         throw new Error('Attendance cannot be marked. Suspicious activity detected !');
     }
+    const fingerprintCheckTime = performance.now() - ft;
+    console.log(`[Mark attendance]Fingerprint check took: ${fingerprintCheckTime} ms`);
 
     // ... [First time device registration is commented out, which is fine] ...
     // ... [attendanceData preparation is commented out, which is fine] ...
