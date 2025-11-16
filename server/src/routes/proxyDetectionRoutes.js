@@ -14,21 +14,8 @@ const ensureStudentOwnership = (req, res, next) => {
     try {
         const { studentId } = req.body;
         
-        // 🔍 ENHANCED DEBUGGING: Log all relevant data
-        console.log('🔍 STUDENT OWNERSHIP VALIDATION:');
-        console.log('  Request studentId:', studentId);
-        console.log('  JWT user data:', {
-            id: req.user.id || req.user._id,
-            studentId: req.user.studentId,
-            role: req.user.role,
-            classRollNumber: req.user.classRollNumber,
-            semester: req.user.semester,
-            section: req.user.section
-        });
-        
         // Verify the authenticated user is the same student being removed
         if (req.user.role !== 'student') {
-            console.log('❌ VALIDATION FAILED: User role is not student');
             return res.status(403).json({
                 success: false,
                 message: 'Only students can use proxy detection API'
@@ -41,20 +28,14 @@ const ensureStudentOwnership = (req, res, next) => {
         const userObjectId = req.user.id || req.user._id?.toString();
         
         if (studentId !== userStudentId && studentId !== userObjectId) {
-            console.log('❌ VALIDATION FAILED: Student ID mismatch');
-            console.log('  Expected studentId:', userStudentId);
-            console.log('  Expected ObjectId:', userObjectId);
-            console.log('  Received:', studentId);
             return res.status(403).json({
                 success: false,
                 message: `You can only remove yourself from sessions. Expected: ${userStudentId}, Got: ${studentId}`
             });
         }
         
-        console.log('✅ Student ownership validation passed');
         next();
     } catch (error) {
-        console.log('❌ VALIDATION ERROR:', error.message);
         res.status(403).json({
             success: false,
             message: 'Authorization failed',
@@ -102,35 +83,18 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
                 message: 'studentId, rollNumber, course, semester, and section are required'
             });
         }
-
-        // 🔒 SECURITY: Cross-validate student data with authenticated user
-        console.log('🔍 CROSS-VALIDATION CHECK:');
-        console.log('  Request data:', { rollNumber, semester, section, course });
-        console.log('  JWT user data:', { 
-            classRollNumber: req.user.classRollNumber, 
-            semester: req.user.semester, 
-            section: req.user.section,
-            course: req.user.course 
-        });
         
-        // 🔧 FLEXIBLE ROLL NUMBER MATCHING: Accept either classRollNumber or studentId as rollNumber
         const rollNumberMatches = (req.user.classRollNumber === rollNumber) || (req.user.studentId === rollNumber);
         
         if (!rollNumberMatches || 
             req.user.semester !== semester || 
             req.user.section !== section) {
-            console.log('❌ CROSS-VALIDATION FAILED:');
-            console.log('  rollNumber match:', rollNumberMatches, `(${req.user.classRollNumber} or ${req.user.studentId} vs ${rollNumber})`);
-            console.log('  semester match:', req.user.semester === semester, `(${req.user.semester} vs ${semester})`);
-            console.log('  section match:', req.user.section === section, `(${req.user.section} vs ${section})`);
             return res.status(403).json({
                 success: false,
                 message: 'Student data mismatch with authenticated user'
             });
         }
         
-        console.log('✅ Cross-validation passed');
-
         let removedFromSessions = [];
         let errors = [];
 
@@ -176,8 +140,6 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
             const actualRollNumber = req.user.classRollNumber; // Always use the correct classRollNumber for attendance cache
             const joinRemoved = await removeStudentFromJoinCache(activeSession.sessionId, actualStudentId);
             const attendanceRemoved = await removeStudentFromAttendanceCache(activeSession.sessionId, actualRollNumber);
-            
-            console.log(`🔧 Cache removal using: studentId=${actualStudentId}, classRollNumber=${actualRollNumber}`);
             
             removedFromSessions.push({
                 sessionId: activeSession.sessionId,
