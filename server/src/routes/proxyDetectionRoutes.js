@@ -4,6 +4,8 @@ const auth = require('../middleware/auth');
 const qrSessionService = require('../services/qrSessionService');
 const QRSession = require('../models/QRSession');
 const GroupSession = require('../models/GroupSession');
+const CameraViolation = require('../models/CameraViolation');
+const User = require('../models/User');
 const redisCache = require('../services/redisCache');
 
 // 🔒 SECURITY: All proxy detection routes require authentication
@@ -153,6 +155,23 @@ router.post('/remove-student',ensureStudentOwnership, async (req, res) => {
             });
             
             console.log(`🚨 PROXY DETECTION: Removed student ${actualStudentId}/${actualRollNumber} from session ${activeSession.sessionId} (${course}-${semester}-${section}) - Reason: ${reason}`);
+
+            // 📝 LOG CAMERA VIOLATION: Save to database for faculty review
+            try {
+                const userDetails = await User.findById(req.user.id);
+                if (userDetails) {
+                    await CameraViolation.create({
+                        name: userDetails.name,
+                        section: section,
+                        classRollNumber: actualRollNumber,
+                        reason: reason
+                    });
+                    console.log(`📝 Camera violation logged for student: ${userDetails.name}`);
+                }
+            } catch (logError) {
+                console.error(`❌ Failed to log camera violation:`, logError.message);
+                // Don't fail the main operation if logging fails
+            }
 
         } catch (error) {
             errors.push(`Error finding or removing from active session: ${error.message}`);

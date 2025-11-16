@@ -23,7 +23,7 @@ const SuspiciousActivity = () => {
                 const token = localStorage.getItem('token');
                 // Fix the environment variable to match what's used in the rest of the app
                 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
-                const response = await axios.get(`${BACKEND_URL}/api/suspicious-activity`, {
+                const response = await axios.get(`${BACKEND_URL}/api/faculty/suspicious-activity`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuspiciousUsers(response.data);
@@ -193,45 +193,202 @@ const SuspiciousActivity = () => {
             
             <div style={styles.cardContainer}>
                 {suspiciousUsers.length > 0 ? (
-                    suspiciousUsers.map((user, index) => (
-                        <div key={index} style={styles.card}>
-                            <div style={styles.cardTitle}>
-                                <span>⚠️ Suspicious Activity</span>
-                                <span style={styles.badge}>Alert</span>
+                    suspiciousUsers.map((user, index) => {
+                        const isCameraViolation = user.violationType === 'CAMERA_MONITORING';
+                        const violationDate = new Date(user.timestamp);
+                        const indianDate = violationDate.toLocaleDateString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                        });
+                        const indianTime = violationDate.toLocaleTimeString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        });
+
+                        return (
+                            <div 
+                                key={index} 
+                                style={{
+                                    ...styles.card,
+                                    borderLeft: `6px solid ${isCameraViolation ? '#e74c3c' : '#f39c12'}`,
+                                    background: isCameraViolation 
+                                        ? 'linear-gradient(135deg, #fdf2f2, #ffffff)' 
+                                        : 'linear-gradient(135deg, #fef9e7, #ffffff)',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {/* Decorative corner */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    right: 0,
+                                    width: '80px',
+                                    height: '80px',
+                                    background: `linear-gradient(135deg, ${isCameraViolation ? '#e74c3c20' : '#f39c1220'}, transparent)`,
+                                    borderRadius: '0 0 0 80px'
+                                }}></div>
+
+                                <div style={{
+                                    ...styles.cardTitle,
+                                    background: isCameraViolation 
+                                        ? 'linear-gradient(135deg, #e74c3c, #c0392b)' 
+                                        : 'linear-gradient(135deg, #f39c12, #e67e22)',
+                                    color: 'white',
+                                    padding: '12px 16px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {isCameraViolation ? '📹' : '🌐'} 
+                                        {isCameraViolation ? 'Camera Violation' : 'VPN Detection'}
+                                    </span>
+                                    <span style={{
+                                        ...styles.badge,
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        color: 'white',
+                                        border: '1px solid rgba(255, 255, 255, 0.3)'
+                                    }}>
+                                        {isCameraViolation ? 'HIGH' : 'MEDIUM'}
+                                    </span>
+                                </div>
+
+                                {/* Student Info Section */}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.8)',
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    marginBottom: '16px',
+                                    border: '1px solid rgba(0, 0, 0, 0.05)'
+                                }}>
+                                    <div style={{
+                                        ...styles.cardInfo,
+                                        fontSize: '18px',
+                                        fontWeight: '600',
+                                        color: '#2c3e50',
+                                        marginBottom: '12px',
+                                        borderBottom: '2px solid #ecf0f1',
+                                        paddingBottom: '8px'
+                                    }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            👤 {user.name}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                                        <div style={styles.cardInfo}>
+                                            <span style={styles.label}>Roll Number:</span>
+                                            <span style={{ fontWeight: '600', color: '#2c3e50' }}>{user.classRollNumber}</span>
+                                        </div>
+                                        <div style={styles.cardInfo}>
+                                            <span style={styles.label}>Section:</span>
+                                            <span style={{ fontWeight: '600', color: '#2c3e50' }}>{user.section}</span>
+                                        </div>
+                                        {user.course && (
+                                            <div style={styles.cardInfo}>
+                                                <span style={styles.label}>Course:</span>
+                                                <span style={{ fontWeight: '600', color: '#2c3e50' }}>{user.course}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Violation Details */}
+                                <div style={{
+                                    background: isCameraViolation 
+                                        ? 'linear-gradient(135deg, #fdf2f2, #fef5f5)' 
+                                        : 'linear-gradient(135deg, #fef9e7, #fffbf0)',
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    marginBottom: '16px',
+                                    border: `1px solid ${isCameraViolation ? '#fecaca' : '#fed7aa'}`
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        marginBottom: '8px',
+                                        color: isCameraViolation ? '#c0392b' : '#e67e22',
+                                        fontWeight: '600'
+                                    }}>
+                                        📋 Reason: {user.reason}
+                                    </div>
+                                    
+                                    {!isCameraViolation && user.ipAddress && (
+                                        <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#666' }}>
+                                            <span>🌐 IP: {user.ipAddress}</span>
+                                            {user.country && <span>🗺️ Location: {user.country}</span>}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Date & Time in Indian Format */}
+                                <div style={{
+                                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                    color: 'white',
+                                    padding: '12px 16px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        📅 <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{indianDate}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        🕐 <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{indianTime}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>Name:</span>
-                                <span>{user.name}</span>
-                            </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>Course:</span>
-                                <span>{user.course}</span>
-                            </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>Section:</span>
-                                <span>{user.section}</span>
-                            </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>Roll Number:</span>
-                                <span>{user.classRollNumber}</span>
-                            </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>IP Address:</span>
-                                <span>{user.ipAddress}</span>
-                            </div>
-                            <div style={styles.cardInfo}>
-                                <span style={styles.label}>Country:</span>
-                                <span>{user.country}</span>
-                            </div>
-                            <div style={styles.timestamp}>
-        Detected: {formattedDate.replace(',', ' -')}
-    </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
-                    <div style={styles.noDataContainer}>
-                        <h3>No Suspicious Activity Detected</h3>
-                        <p>The system has not detected any suspicious behavior at this time.</p>
+                    <div style={{
+                        ...styles.noDataContainer,
+                        background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+                        border: '2px solid #bbf7d0',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ fontSize: '64px', marginBottom: '20px' }}>🛡️</div>
+                        <h3 style={{ color: '#15803d', marginBottom: '12px', fontSize: '24px' }}>All Clear!</h3>
+                        <p style={{ color: '#166534', fontSize: '16px', marginBottom: '20px' }}>
+                            No suspicious activities detected. Your attendance system is secure.
+                        </p>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: '16px',
+                            marginTop: '24px'
+                        }}>
+                            <div style={{
+                                background: 'white',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                border: '1px solid #bbf7d0'
+                            }}>
+                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📹</div>
+                                <div style={{ fontWeight: '600', color: '#15803d' }}>Camera Monitoring</div>
+                                <div style={{ fontSize: '12px', color: '#166534' }}>Active & Secure</div>
+                            </div>
+                            <div style={{
+                                background: 'white',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                border: '1px solid #bbf7d0'
+                            }}>
+                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>🌐</div>
+                                <div style={{ fontWeight: '600', color: '#15803d' }}>VPN Detection</div>
+                                <div style={{ fontSize: '12px', color: '#166534' }}>Operational</div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
