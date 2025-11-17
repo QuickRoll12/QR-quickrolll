@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const FacultyRequest = require('../models/facultyRequest');
 const { upload } = require('../config/cloudinary');
 const PasswordResetCode = require('../models/PasswordResetCode');
+const PasswordResetAttempt = require('../models/PasswordResetAttempt');
 const { getFileUrl } = require('../config/s3');
 
 const generateToken = (userId) => {
@@ -395,37 +396,107 @@ exports.getProfile = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
 
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'No account found with this email address' });
     }
 
     // Check if user is a student or faculty
     if (user.role === 'student') {
-      // For students, generate a 6-digit verification code
+      // === STUDENT PASSWORD RESET WITH ROBUST SECURITY ===
+      
+      // 1. Check for account lockout (10 failed attempts in last hour)
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentFailedAttempts = await PasswordResetAttempt.countDocuments({
+        email,
+        attemptType: 'verify',
+        success: false,
+        timestamp: { $gte: oneHourAgo }
+      });
+
+      if (recentFailedAttempts >= 10) {
+        return res.status(429).json({ 
+          message: 'Too many failed verification attempts. Your account is temporarily locked for security. Please try again in 1 hour.',
+          locked: true,
+          retryAfter: 3600 // seconds
+        });
+      }
+
+      // 2. Check for existing active code (cooldown period)
+      const existingCode = await PasswordResetCode.findOne({ email }).sort({ createdAt: -1 });
+      
+      if (existingCode) {
+        const timeSinceLastRequest = Date.now() - existingCode.requestedAt.getTime();
+        const cooldownPeriod = 2 * 60 * 1000; // 2 minutes in milliseconds
+        
+        if (timeSinceLastRequest < cooldownPeriod) {
+          const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastRequest) / 1000);
+          return res.status(429).json({ 
+            message: `Please wait ${Math.ceil(remainingTime / 60)} minute(s) before requesting a new code`,
+            cooldown: true,
+            retryAfter: remainingTime
+          });
+        }
+      }
+
+      // 3. Check daily request limit (5 requests per day)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dailyRequestCount = await PasswordResetAttempt.countDocuments({
+        email,
+        attemptType: 'request',
+        timestamp: { $gte: oneDayAgo }
+      });
+
+      if (dailyRequestCount >= 5) {
+        return res.status(429).json({ 
+          message: 'Daily limit reached. You can only request 5 password reset codes per day. Please try again tomorrow.',
+          dailyLimitReached: true
+        });
+      }
+
+      // 4. Delete all previous codes for this email (single active code policy)
+      await PasswordResetCode.deleteMany({ email });
+
+      // 5. Generate new 6-digit verification code
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Store the code in the database
+      // 6. Store the code in the database
       const passwordResetCode = new PasswordResetCode({
         email,
-        code: verificationCode
+        code: verificationCode,
+        attempts: 0,
+        requestedAt: new Date()
       });
       
       await passwordResetCode.save();
+
+      // 7. Log the request attempt
+      await PasswordResetAttempt.create({
+        email,
+        ipAddress,
+        attemptType: 'request',
+        success: true,
+        timestamp: new Date()
+      });
       
-      // Send the verification code via email
+      // 8. Send the verification code via email
       try {
         await sendPasswordResetCode(email, verificationCode);
         return res.json({ 
-          message: 'Password reset code sent to your email',
+          message: 'Password reset code sent to your email. The code is valid for 10 minutes.',
           isStudent: true,
-          role: 'student'
+          role: 'student',
+          expiresIn: 600, // seconds
+          cooldownPeriod: 120 // seconds
         });
       } catch (emailError) {
         console.error('Failed to send password reset code:', emailError);
-        return res.status(500).json({ message: 'Failed to send password reset code' });
+        // Delete the code if email fails
+        await PasswordResetCode.deleteOne({ email, code: verificationCode });
+        return res.status(500).json({ message: 'Failed to send password reset code. Please try again.' });
       }
     } else {
       // For faculty, use the existing token-based approach
@@ -448,7 +519,7 @@ exports.forgotPassword = async (req, res) => {
     }
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Error processing request', error: error.message });
+    res.status(500).json({ message: 'Error processing request. Please try again.', error: error.message });
   }
 };
 
@@ -625,6 +696,7 @@ exports.resendVerificationEmail = async (req, res) => {
 exports.verifyCode = async (req, res) => {
   try {
     const { email, code } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
 
     if (!email || !code) {
       return res.status(400).json({ message: 'Email and verification code are required' });
@@ -634,17 +706,49 @@ exports.verifyCode = async (req, res) => {
     const resetCodeDoc = await PasswordResetCode.findOne({ email, code });
     
     if (!resetCodeDoc) {
+      // Log failed verification attempt
+      await PasswordResetAttempt.create({
+        email,
+        ipAddress,
+        attemptType: 'verify',
+        success: false,
+        timestamp: new Date()
+      });
+      
       return res.status(400).json({ message: 'Invalid or expired verification code' });
     }
     
+    // Check if attempts exceeded
+    if (resetCodeDoc.attempts >= 5) {
+      // Invalidate the code
+      await PasswordResetCode.deleteOne({ _id: resetCodeDoc._id });
+      
+      return res.status(400).json({ 
+        message: 'Too many incorrect attempts. This code has been invalidated. Please request a new code.',
+        attemptsExceeded: true
+      });
+    }
+    
+    // Increment attempt counter
+    resetCodeDoc.attempts += 1;
+    await resetCodeDoc.save();
+    
+    // Log successful verification attempt
+    await PasswordResetAttempt.create({
+      email,
+      ipAddress,
+      attemptType: 'verify',
+      success: true,
+      timestamp: new Date()
+    });
+    
     // Code is valid
+    const remainingAttempts = 5 - resetCodeDoc.attempts;
     res.json({ 
       message: 'Verification code is valid',
-      valid: true
+      valid: true,
+      remainingAttempts: remainingAttempts
     });
-
-    // Delete the verification code from the database
-    await PasswordResetCode.deleteOne({ email, code });
   } catch (error) {
     console.error('Verify code error:', error);
     res.status(500).json({ message: 'Error verifying code', error: error.message });
