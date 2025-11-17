@@ -114,6 +114,31 @@ const getFileUrl = (key) => {
 };
 
 /**
+ * Generate presigned URL for viewing/downloading files from S3
+ * @param {string} key - S3 object key (file path)
+ * @param {number} expires - URL expiration time in seconds (default: 3600 = 1 hour)
+ * @returns {Promise<string>} - Presigned URL for viewing
+ */
+const generatePresignedViewUrl = (key, expires = 3600) => {
+  return new Promise((resolve, reject) => {
+    const params = {
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Expires: expires
+    };
+
+    s3.getSignedUrl('getObject', params, (error, url) => {
+      if (error) {
+        console.error('Error generating presigned view URL:', error);
+        reject(error);
+      } else {
+        resolve(url);
+      }
+    });
+  });
+};
+
+/**
  * Generate unique S3 key for faculty request photos
  * @param {string} originalName - Original filename
  * @returns {string} - Unique S3 key
@@ -141,6 +166,7 @@ module.exports = {
   s3,
   BUCKET_NAME,
   generatePresignedUploadUrl,
+  generatePresignedViewUrl,
   downloadFile,
   deleteFile,
   fileExists,

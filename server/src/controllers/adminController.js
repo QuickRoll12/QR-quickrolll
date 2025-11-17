@@ -7,13 +7,44 @@ const xlsx = require('xlsx');
 const crypto = require('crypto');
 const mongoose = require('mongoose'); // Import mongoose
 const { sendFacultyCredentials, sendFacultyRejectionEmail } = require('../services/emailService');
-const { downloadFile, deleteFile } = require('../config/s3');
+const { downloadFile, deleteFile, generatePresignedViewUrl } = require('../config/s3');
 
 // Get all faculty requests
 exports.getFacultyRequests = async (req, res) => {
   try {
     const requests = await FacultyRequest.find().sort({ createdAt: -1 });
-    res.json(requests);
+    
+    // Generate presigned URLs for S3 images
+    const requestsWithPresignedUrls = await Promise.all(
+      requests.map(async (request) => {
+        const requestObj = request.toObject();
+        
+        // Check if this is an S3 URL
+        if (requestObj.photoUrl && requestObj.photoUrl.includes('.s3.') && requestObj.photoUrl.includes('amazonaws.com')) {
+          try {
+            // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/key
+            const urlParts = requestObj.photoUrl.split('amazonaws.com/');
+            if (urlParts.length > 1) {
+              const s3Key = urlParts[1];
+              console.log('Generating presigned URL for S3 key:', s3Key);
+              
+              // Generate presigned URL (1 hour expiry)
+              const presignedUrl = await generatePresignedViewUrl(s3Key, 3600);
+              requestObj.photoUrl = presignedUrl;
+              
+              console.log('✅ Generated presigned URL for:', requestObj.name);
+            }
+          } catch (error) {
+            console.error('❌ Error generating presigned URL:', error.message);
+            // Keep the original photoUrl as fallback
+          }
+        }
+        
+        return requestObj;
+      })
+    );
+    
+    res.json(requestsWithPresignedUrls);
   } catch (error) {
     console.error('Error fetching faculty requests:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
