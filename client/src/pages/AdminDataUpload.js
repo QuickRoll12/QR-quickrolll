@@ -209,17 +209,24 @@ const AdminDataUpload = () => {
 
         console.log('🚀 Step 2: Uploading file to S3...');
         
-        // Step 2: Upload file directly to S3 using presigned URL
-        // IMPORTANT: 
-        // 1. Content-Type must match exactly what was used to generate the presigned URL
-        // 2. Do NOT send Authorization header - presigned URL already contains auth
-        await axios.put(uploadUrl, selectedFile, {
+        // Step 2: Upload file directly to S3 using fetch()
+        // We use fetch() here to avoid global Axios interceptors
+        // which add an 'Authorization' header and break the S3 request.
+
+        const res = await fetch(uploadUrl, {
+          method: 'PUT',
           headers: {
-            'Content-Type': fileType
+            'Content-Type': fileType,
           },
-          // Don't send any auth headers to S3 - presigned URL handles authentication
-          transformRequest: [(data) => data] // Prevent axios from modifying the request
+          body: selectedFile,
         });
+
+        if (!res.ok) {
+          // If the upload failed, throw an error to trigger the catch block
+          const errorText = await res.text();
+          console.error('S3 upload fetch error:', errorText);
+          throw new Error('S3 file upload failed');
+        }
         
         console.log('✅ File uploaded to S3 successfully');
         console.log('🚀 Step 3: Sending S3 key to backend for processing...');
