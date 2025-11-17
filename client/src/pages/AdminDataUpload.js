@@ -4,6 +4,9 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import '../styles/AdminDataUpload.css';
 
+// Use environment variable directly
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+
 const AdminDataUpload = () => {
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -170,7 +173,7 @@ const AdminDataUpload = () => {
       try {
         // Step 1: Get presigned URL from backend
         const uploadUrlResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/admin/get-upload-url`,
+          `${BACKEND_URL}/api/admin/get-upload-url`,
           {
             params: {
               fileName: selectedFile.name,
@@ -193,7 +196,7 @@ const AdminDataUpload = () => {
 
         // Step 3: Process file via backend using S3 key (no file upload)
         const response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/admin/upload-student-data-s3`,
+          `${BACKEND_URL}/api/admin/upload-student-data-s3`,
           { s3Key }, // Send S3 key instead of file
           {
             headers: {
@@ -214,7 +217,7 @@ const AdminDataUpload = () => {
         formData.append('file', selectedFile);
 
         const response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/admin/upload-student-data`,
+          `${BACKEND_URL}/api/admin/upload-student-data`,
           formData,
           {
             headers: {
