@@ -32,16 +32,6 @@ const AdminFacultyRequests = () => {
         }
       });
       
-      console.log('📥 Received', response.data.length, 'faculty requests from backend');
-      response.data.forEach((request, index) => {
-        console.log(`\n📋 Request ${index + 1}:`, {
-          name: request.name,
-          photoUrl: request.photoUrl?.substring(0, 100) + '...',
-          isS3Url: request.photoUrl?.includes('amazonaws.com'),
-          hasPresignedParams: request.photoUrl?.includes('X-Amz-')
-        });
-      });
-      
       setRequests(response.data);
     } catch (error) {
       console.error('Error fetching faculty requests:', error);
@@ -269,19 +259,7 @@ const AdminFacultyRequests = () => {
               
               <div className="id-card-preview">
                 <h4>ID Card Photo</h4>
-                <img 
-                  src={request.photoUrl} 
-                  alt="Faculty ID Card" 
-                  onLoad={(e) => {
-                    console.log('✅ Image loaded successfully for:', request.name);
-                    console.log('   URL:', e.target.src?.substring(0, 100) + '...');
-                  }}
-                  onError={(e) => {
-                    console.error('❌ Image failed to load for:', request.name);
-                    console.error('   Failed URL:', e.target.src?.substring(0, 100) + '...');
-                    console.error('   Full URL:', e.target.src);
-                  }}
-                />
+                <img src={request.photoUrl} alt="Faculty ID Card" />
               </div>
               
               {request.status === 'pending' && (
