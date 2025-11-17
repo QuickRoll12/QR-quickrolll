@@ -13,11 +13,17 @@ const { downloadFile, deleteFile, generatePresignedViewUrl } = require('../confi
 exports.getFacultyRequests = async (req, res) => {
   try {
     const requests = await FacultyRequest.find().sort({ createdAt: -1 });
+    console.log('\n Found', requests.length, 'faculty requests');
     
     // Generate presigned URLs for S3 images
     const requestsWithPresignedUrls = await Promise.all(
-      requests.map(async (request) => {
+      requests.map(async (request, index) => {
         const requestObj = request.toObject();
+        
+        console.log(`\n Processing request ${index + 1}/${requests.length}:`);
+        console.log('  - Name:', requestObj.name);
+        console.log('  - Original photoUrl:', requestObj.photoUrl);
+        console.log('  - URL type:', requestObj.photoUrl?.includes('.s3.') ? 'S3 URL' : 'Other URL');
         
         // Check if this is an S3 URL
         if (requestObj.photoUrl && requestObj.photoUrl.includes('.s3.') && requestObj.photoUrl.includes('amazonaws.com')) {
@@ -26,24 +32,32 @@ exports.getFacultyRequests = async (req, res) => {
             const urlParts = requestObj.photoUrl.split('amazonaws.com/');
             if (urlParts.length > 1) {
               const s3Key = urlParts[1];
-              console.log('Generating presigned URL for S3 key:', s3Key);
+              console.log('  - Extracted S3 key:', s3Key);
               
               // Generate presigned URL (1 hour expiry)
               const presignedUrl = await generatePresignedViewUrl(s3Key, 3600);
-              requestObj.photoUrl = presignedUrl;
+              console.log('  - Generated presigned URL');
+              console.log('  - Presigned URL preview:', presignedUrl.substring(0, 100) + '...');
               
-              console.log('✅ Generated presigned URL for:', requestObj.name);
+              requestObj.photoUrl = presignedUrl;
+            } else {
+              console.log('  - Failed to extract S3 key from URL');
             }
           } catch (error) {
-            console.error('❌ Error generating presigned URL:', error.message);
+            console.error('  - Error generating presigned URL:', error.message);
+            console.error('  - Error code:', error.code);
+            console.error('  - Full error:', error);
             // Keep the original photoUrl as fallback
           }
+        } else {
+          console.log('  - Not an S3 URL, using as-is');
         }
         
         return requestObj;
       })
     );
     
+    console.log('\n Sending', requestsWithPresignedUrls.length, 'requests to frontend\n');
     res.json(requestsWithPresignedUrls);
   } catch (error) {
     console.error('Error fetching faculty requests:', error);
