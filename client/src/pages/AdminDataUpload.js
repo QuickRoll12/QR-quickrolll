@@ -173,13 +173,30 @@ const AdminDataUpload = () => {
       try {
         console.log('🚀 Step 1: Getting presigned URL from backend...');
         
+        // Determine the correct MIME type for Excel files
+        let fileType = selectedFile.type;
+        if (!fileType || fileType === '') {
+          // If browser doesn't provide type, determine from extension
+          if (selectedFile.name.endsWith('.xlsx')) {
+            fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          } else if (selectedFile.name.endsWith('.xls')) {
+            fileType = 'application/vnd.ms-excel';
+          } else if (selectedFile.name.endsWith('.csv')) {
+            fileType = 'text/csv';
+          } else {
+            fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; // Default to .xlsx
+          }
+        }
+        
+        console.log('📄 File type:', fileType);
+        
         // Step 1: Get presigned URL from backend
         const uploadUrlResponse = await axios.get(
           `${BACKEND_URL}/api/admin/get-upload-url`,
           {
             params: {
               fileName: selectedFile.name,
-              fileType: selectedFile.type
+              fileType: fileType
             },
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -193,9 +210,10 @@ const AdminDataUpload = () => {
         console.log('🚀 Step 2: Uploading file to S3...');
         
         // Step 2: Upload file directly to S3 using presigned URL
+        // IMPORTANT: Content-Type must match exactly what was used to generate the presigned URL
         await axios.put(uploadUrl, selectedFile, {
           headers: {
-            'Content-Type': selectedFile.type
+            'Content-Type': fileType
           }
         });
         
