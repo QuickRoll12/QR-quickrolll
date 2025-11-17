@@ -126,15 +126,8 @@ const ensureAdmin = (req, res, next) => {
   }
 };
 
-// Get all faculty requests
-router.get('/faculty-requests', ensureAdmin, async (req, res) => {
-  try {
-    const requests = await FacultyRequest.find().sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while fetching faculty requests' });
-  }
-});
+// Get all faculty requests - use the controller which generates presigned URLs
+router.get('/faculty-requests', ensureAdmin, adminController.getFacultyRequests);
 
 // Approve faculty request - use the controller instead of implementing in the route
 router.post('/approve-faculty/:requestId', ensureAdmin, adminController.approveFacultyRequest);
