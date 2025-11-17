@@ -7,6 +7,7 @@ const xlsx = require('xlsx');
 const crypto = require('crypto');
 const mongoose = require('mongoose'); // Import mongoose
 const { sendFacultyCredentials, sendFacultyRejectionEmail } = require('../services/emailService');
+const { downloadFile, deleteFile } = require('../config/s3');
 
 // Get all faculty requests
 exports.getFacultyRequests = async (req, res) => {
@@ -186,12 +187,24 @@ exports.rejectFacultyRequest = async (req, res) => {
 // Preview student data from Excel file
 exports.previewStudentData = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+    // Handle both S3 approach (with s3Key) and traditional approach (with file upload)
+    const { s3Key } = req.body;
+    let fileBuffer;
+    
+    if (s3Key) {
+      // New S3 approach: download file from S3
+      console.log('Using S3 approach - downloading file:', s3Key);
+      fileBuffer = await downloadFile(s3Key);
+    } else if (req.file && req.file.buffer) {
+      // Traditional approach: use uploaded file buffer
+      console.log('Using traditional approach - processing uploaded file');
+      fileBuffer = req.file.buffer;
+    } else {
+      return res.status(400).json({ message: 'No file uploaded or S3 key provided' });
     }
     
-    // Read Excel file
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    // Read Excel file from buffer
+    const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
@@ -214,6 +227,17 @@ exports.previewStudentData = async (req, res) => {
     // Return preview of first 5 rows (or all if less than 5)
     const previewData = data.slice(0, 5);
     
+    // If using S3 approach, delete the temporary file after preview
+    if (s3Key) {
+      try {
+        await deleteFile(s3Key);
+        console.log('Temporary S3 file deleted after preview:', s3Key);
+      } catch (deleteError) {
+        console.error('Error deleting temporary S3 file:', deleteError);
+        // Don't fail the request if cleanup fails
+      }
+    }
+    
     res.json({ 
       message: 'File preview generated successfully',
       totalRecords: data.length,
@@ -221,6 +245,17 @@ exports.previewStudentData = async (req, res) => {
     });
   } catch (error) {
     console.error('Error previewing student data:', error);
+    
+    // Cleanup S3 file even on error
+    if (s3Key) {
+      try {
+        await deleteFile(s3Key);
+        console.log('Temporary S3 file deleted after error:', s3Key);
+      } catch (deleteError) {
+        console.error('Error deleting temporary S3 file on error:', deleteError);
+      }
+    }
+    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -228,12 +263,24 @@ exports.previewStudentData = async (req, res) => {
 // Upload and process student data from Excel file
 exports.uploadStudentData = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+    // Handle both S3 approach (with s3Key) and traditional approach (with file upload)
+    const { s3Key } = req.body;
+    let fileBuffer;
+    
+    if (s3Key) {
+      // New S3 approach: download file from S3
+      console.log('Using S3 approach - downloading file for processing:', s3Key);
+      fileBuffer = await downloadFile(s3Key);
+    } else if (req.file && req.file.buffer) {
+      // Traditional approach: use uploaded file buffer
+      console.log('Using traditional approach - processing uploaded file');
+      fileBuffer = req.file.buffer;
+    } else {
+      return res.status(400).json({ message: 'No file uploaded or S3 key provided' });
     }
     
-    // Read Excel file
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    // Read Excel file from buffer
+    const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
@@ -324,12 +371,34 @@ exports.uploadStudentData = async (req, res) => {
       }
     }
     
+    // If using S3 approach, delete the temporary file after processing
+    if (s3Key) {
+      try {
+        await deleteFile(s3Key);
+        console.log('Temporary S3 file deleted after processing:', s3Key);
+      } catch (deleteError) {
+        console.error('Error deleting temporary S3 file:', deleteError);
+        // Don't fail the request if cleanup fails
+      }
+    }
+    
     res.json({
       message: 'Student data processed',
       stats: results
     });
   } catch (error) {
     console.error('Error uploading student data:', error);
+    
+    // Cleanup S3 file even on error
+    if (s3Key) {
+      try {
+        await deleteFile(s3Key);
+        console.log('Temporary S3 file deleted after error:', s3Key);
+      } catch (deleteError) {
+        console.error('Error deleting temporary S3 file on error:', deleteError);
+      }
+    }
+    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

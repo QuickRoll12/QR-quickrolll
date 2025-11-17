@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const FacultyRequest = require('../models/facultyRequest');
 const { upload } = require('../config/cloudinary');
 const PasswordResetCode = require('../models/PasswordResetCode');
+const { getFileUrl } = require('../config/s3');
 
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -653,7 +654,8 @@ exports.verifyCode = async (req, res) => {
 // Handle faculty account requests
 exports.facultyRequest = async (req, res) => {
   try {
-    const { name, email, department, photoUrl } = req.body;
+    // Handle both S3 approach (with s3Key) and traditional approach (with photoUrl)
+    const { name, email, department, photoUrl, s3Key } = req.body;
     
     // Parse teaching assignments from the request body
     let teachingAssignments = [];
@@ -666,9 +668,27 @@ exports.facultyRequest = async (req, res) => {
       return res.status(400).json({ message: 'Invalid teaching assignments format' });
     }
     
+    // Determine photo URL based on approach used
+    let finalPhotoUrl = photoUrl;
+    
+    // If S3 key is provided (new approach), generate S3 URL
+    if (s3Key) {
+      finalPhotoUrl = getFileUrl(s3Key);
+      console.log('Using S3 approach - Generated photo URL:', finalPhotoUrl);
+    }
+    // If traditional approach with photoUrl from Cloudinary upload
+    else if (photoUrl) {
+      console.log('Using traditional approach - Photo URL:', photoUrl);
+    }
+    // If neither S3 key nor photoUrl provided, it's an error
+    else {
+      console.error('Missing photo: neither s3Key nor photoUrl provided');
+      return res.status(400).json({ message: 'Photo is required' });
+    }
+    
     // Validate inputs
-    if (!name || !email || !department || !photoUrl) {
-      console.error('Missing required fields:', { name, email, department, photoUrl });
+    if (!name || !email || !department) {
+      console.error('Missing required fields:', { name, email, department });
       return res.status(400).json({ message: 'All fields are required' });
     }
     
@@ -707,8 +727,8 @@ exports.facultyRequest = async (req, res) => {
       name,
       email,
       department,
-      teachingAssignments, // Only use the new teaching assignments field
-      photoUrl
+      teachingAssignments,
+      photoUrl: finalPhotoUrl // Use the determined photo URL (S3 or Cloudinary)
     });
     
     await newRequest.save();

@@ -166,22 +166,68 @@ const AdminDataUpload = () => {
     setSuccess('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/admin/upload-student-data`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+      // NEW S3 APPROACH: Get presigned URL and upload directly to S3
+      try {
+        // Step 1: Get presigned URL from backend
+        const uploadUrlResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL}/admin/get-upload-url`,
+          {
+            params: {
+              fileName: selectedFile.name,
+              fileType: selectedFile.type
+            },
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
           }
-        }
-      );
+        );
 
-      setUploadStats(response.data.stats);
-      setSuccess('Student data processed successfully');
+        const { uploadUrl, s3Key } = uploadUrlResponse.data;
+
+        // Step 2: Upload file directly to S3 using presigned URL
+        await axios.put(uploadUrl, selectedFile, {
+          headers: {
+            'Content-Type': selectedFile.type
+          }
+        });
+
+        // Step 3: Process file via backend using S3 key (no file upload)
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/admin/upload-student-data-s3`,
+          { s3Key }, // Send S3 key instead of file
+          {
+            headers: {
+              'Content-Type': 'application/json', // JSON, not multipart!
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+
+        setUploadStats(response.data.stats);
+        setSuccess('Student data processed successfully');
+
+      } catch (s3Error) {
+        console.error('S3 upload failed, falling back to traditional approach:', s3Error);
+        
+        // FALLBACK: Use traditional multipart upload if S3 fails
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/admin/upload-student-data`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+
+        setUploadStats(response.data.stats);
+        setSuccess('Student data processed successfully');
+      }
+
     } catch (error) {
       console.error('Upload error:', error);
       setError(

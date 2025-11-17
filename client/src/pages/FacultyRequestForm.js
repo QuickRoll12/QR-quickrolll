@@ -162,41 +162,94 @@ const FacultyRequestForm = () => {
       setLoading(true);
       setError('');
       
-      // Create form data for file upload
-      const formData = new FormData();
-      formData.append('name', name.trim());
-      formData.append('email', email.trim());
-      formData.append('department', department);
+      // NEW S3 APPROACH: Get presigned URL and upload directly to S3
+      try {
+        // Step 1: Get presigned URL from backend
+        const uploadUrlResponse = await axios.get(`${BACKEND_URL}/api/auth/get-upload-url`, {
+          params: {
+            fileName: photo.name,
+            fileType: photo.type
+          }
+        });
+        
+        const { uploadUrl, s3Key } = uploadUrlResponse.data;
+        
+        // Step 2: Upload file directly to S3 using presigned URL
+        await axios.put(uploadUrl, photo, {
+          headers: {
+            'Content-Type': photo.type
+          }
+        });
+        
+        // Step 3: Submit form data with S3 key (no file upload to backend)
+        const requestData = {
+          name: name.trim(),
+          email: email.trim(),
+          department,
+          teachingAssignments: JSON.stringify(teachingAssignments),
+          s3Key // Send S3 key instead of file
+        };
+        
+        const response = await axios.post(`${BACKEND_URL}/api/auth/faculty-request-s3`, requestData, {
+          headers: {
+            'Content-Type': 'application/json' // JSON, not multipart!
+          }
+        });
+        
+        const successMessage = response.data.message || 'Your request has been submitted successfully. You will receive an email once approved.';
+        setMessage(successMessage);
+        showNotificationMessage(successMessage, 'success');
+        
+        // Reset form
+        setName('');
+        setEmail('');
+        setDepartment('');
+        setTeachingAssignments([]);
+        setSelectedSemester('');
+        setSelectedSection('');
+        setPhoto(null);
+        setPhotoPreview(null);
+        
+        setTimeout(() => {
+          navigate('/login');
+        }, 5000);
+        
+      } catch (s3Error) {
+        console.error('S3 upload failed, falling back to traditional approach:', s3Error);
+        
+        // FALLBACK: Use traditional multipart upload if S3 fails
+        const formData = new FormData();
+        formData.append('name', name.trim());
+        formData.append('email', email.trim());
+        formData.append('department', department);
+        formData.append('teachingAssignments', JSON.stringify(teachingAssignments));
+        formData.append('photo', photo);
+        
+        const response = await axios.post(`${BACKEND_URL}/api/auth/faculty-request`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        const successMessage = response.data.message || 'Your request has been submitted successfully. You will receive an email once approved.';
+        setMessage(successMessage);
+        showNotificationMessage(successMessage, 'success');
+        
+        // Reset form
+        setName('');
+        setEmail('');
+        setDepartment('');
+        setTeachingAssignments([]);
+        setSelectedSemester('');
+        setSelectedSection('');
+        setPhoto(null);
+        setPhotoPreview(null);
+        
+        setTimeout(() => {
+          navigate('/login');
+        }, 5000);
+      }
       
-      // Add teaching assignments (semester-section combinations)
-      formData.append('teachingAssignments', JSON.stringify(teachingAssignments));
-      
-      formData.append('photo', photo);
-      
-      // Submit request to API
-      const response = await axios.post(`${BACKEND_URL}/api/auth/faculty-request`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      
-      const successMessage = response.data.message || 'Your request has been submitted successfully. You will receive an email once approved.';
-      setMessage(successMessage);
-      showNotificationMessage(successMessage, 'success');
-      
-      // Reset form
-      setName('');
-      setEmail('');
-      setDepartment('');
-      setTeachingAssignments([]);
-      setSelectedSemester('');
-      setSelectedSection('');
-      setPhoto(null);
-      setPhotoPreview(null);
-      
-      setTimeout(() => {
-        navigate('/login');
-      }, 5000);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to submit request. Please try again.';
       setError(errorMessage);

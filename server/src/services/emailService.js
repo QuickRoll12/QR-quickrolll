@@ -94,7 +94,7 @@ const sendFacultyCredentials = async (email, name, facultyId, tempPassword) => {
       <ol>
         <li>
           Click this link to reset your password directly: 
-          <a href="https://quick-roll-test-uzkx.onrender.com/forgot-password">Forgot Password?</a>
+          <a href="${process.env.FRONTEND_URL}/forgot-password">Forgot Password?</a>
         </li>
         <li>Enter your Gmail address (the one you used while submitting the faculty request).</li>
         <li>Enter your Faculty ID (provided in the email above).</li>

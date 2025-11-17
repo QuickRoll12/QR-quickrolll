@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const adminController = require('../controllers/adminController');
+const { generatePresignedUploadUrl, generateAdminUploadKey } = require('../config/s3');
 
 // Configure multer for memory storage (for Excel files)
 const upload = multer({ 
@@ -141,6 +142,43 @@ router.post('/approve-faculty/:requestId', ensureAdmin, adminController.approveF
 // Reject faculty request - use the controller instead of implementing in the route
 router.post('/reject-faculty/:requestId', ensureAdmin, adminController.rejectFacultyRequest);
 
+// Get presigned URL for admin file uploads (Excel/CSV)
+router.get('/get-upload-url', ensureAdmin, async (req, res) => {
+  try {
+    const { fileName, fileType } = req.query;
+    
+    if (!fileName || !fileType) {
+      return res.status(400).json({ message: 'fileName and fileType are required' });
+    }
+    
+    // Validate file type (same validation as multer)
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv'
+    ];
+    
+    if (!allowedMimes.includes(fileType)) {
+      return res.status(400).json({ message: 'Invalid file type. Please upload Excel (.xlsx, .xls) or CSV files only.' });
+    }
+    
+    // Generate unique S3 key for admin uploads (temporary)
+    const s3Key = generateAdminUploadKey(fileName);
+    
+    // Generate presigned URL (5 minutes expiry)
+    const uploadUrl = await generatePresignedUploadUrl(s3Key, fileType, 300);
+    
+    res.json({ 
+      uploadUrl, 
+      s3Key,
+      message: 'Presigned URL generated successfully' 
+    });
+  } catch (error) {
+    console.error('Error generating admin presigned URL:', error);
+    res.status(500).json({ message: 'Failed to generate upload URL', error: error.message });
+  }
+});
+
 // Multer error handling middleware
 const handleMulterError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -162,10 +200,14 @@ const handleMulterError = (err, req, res, next) => {
     next();
 };
 
-// Preview student data from Excel file
+// Preview student data from Excel file (traditional approach)
 router.post('/preview-student-data', ensureAdmin, upload.single('file'), handleMulterError, adminController.previewStudentData);
 
-// Upload and process student data from Excel file
+// Upload and process student data from Excel file (traditional approach)
 router.post('/upload-student-data', ensureAdmin, upload.single('file'), handleMulterError, adminController.uploadStudentData);
+
+// NEW S3-only routes (no file upload, just S3 key processing)
+router.post('/preview-student-data-s3', ensureAdmin, adminController.previewStudentData);
+router.post('/upload-student-data-s3', ensureAdmin, adminController.uploadStudentData);
 
 module.exports = router;
