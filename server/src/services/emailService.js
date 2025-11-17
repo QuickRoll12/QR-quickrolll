@@ -159,65 +159,181 @@ const sendVerificationEmail = async (email, token) => {
 
 // AWS mail service:
 
-/**
- * A reusable function to create a professional HTML email template.
- */
-const createEmailTemplate = (title, bodyContent) => {
+const createEmailTemplate = ({ title, bodyHtml, iconEmoji = '', button }) => {
+  const buttonHtml = button
+    ? `
+    <table border="0" cellpadding="0" cellspacing="0" class="btn-container">
+      <tr>
+        <td align="center">
+          <a href="${button.link}" target="_blank" class="button">${button.text}</a>
+        </td>
+      </tr>
+    </table>
+    `
+    : '';
+
+  const iconHtml = iconEmoji
+    ? `<div class="icon-box">${iconEmoji}</div>`
+    : '';
+
+  // This is the new template HTML and CSS
   return `
+    <!DOCTYPE html>
     <html lang="en">
     <head>
-      <meta charset="UTF-M-8">
+      <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; }
-        .container { width: 90%; max-width: 600px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-        .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px; }
-        .content p { margin-bottom: 20px; }
-        .code-box { background-color: #f4f4f4; border-radius: 5px; padding: 10px 20px; font-size: 28px; font-weight: bold; letter-spacing: 3px; text-align: center; margin: 20px 0; }
-        .button { display: inline-block; padding: 12px 25px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
-        .footer { background-color: #f9f9f9; color: #777; padding: 20px; text-align: center; font-size: 12px; }
-        .footer p { margin: 5px 0; }
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100% !important;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          background-color: #1a1a1a;
+          color: #e0e0e0;
+        }
+        .container {
+          width: 100%;
+          max-width: 550px;
+          margin: 20px auto;
+          background-color: #2b2b2b;
+          border: 1px solid #444;
+          border-radius: 16px;
+          overflow: hidden;
+        }
+        .header {
+          padding: 25px 30px;
+          background-color: #333;
+          border-bottom: 1px solid #444;
+        }
+        .header h1 {
+          margin: 0;
+          color: #ffffff;
+          font-size: 24px;
+          font-weight: 700;
+        }
+        .icon-box {
+          padding-top: 40px;
+          font-size: 48px;
+          text-align: center;
+        }
+        .content {
+          padding: 30px;
+        }
+        .content h2 {
+          color: #ffffff;
+          font-size: 22px;
+          font-weight: 500;
+          margin-top: 0;
+          margin-bottom: 20px;
+        }
+        .content p {
+          color: #c0c0c0;
+          font-size: 16px;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        .content ul, .content ol {
+          color: #c0c0c0;
+          padding-left: 25px;
+        }
+        .content li {
+          margin-bottom: 10px;
+        }
+        .code-box {
+          background-color: #1a1a1a;
+          border: 1px solid #444;
+          border-radius: 8px;
+          padding: 15px 20px;
+          font-size: 28px;
+          font-weight: 700;
+          letter-spacing: 3px;
+          text-align: center;
+          margin: 25px 0;
+          color: #ffffff;
+        }
+        .btn-container {
+          width: 100%;
+          margin-top: 30px;
+        }
+        .button {
+          display: inline-block;
+          background-color: #007bff;
+          color: #ffffff;
+          font-size: 16px;
+          font-weight: 500;
+          text-decoration: none;
+          padding: 14px 28px;
+          border-radius: 8px;
+          transition: background-color 0.2s ease;
+        }
+        .button:hover {
+          background-color: #0056b3;
+        }
+        .footer {
+          padding: 30px;
+          text-align: center;
+          font-size: 12px;
+          color: #888;
+        }
+        .footer p {
+          margin: 5px 0;
+        }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <h1>QuickRoll</h1>
-        </div>
-        <div class="content">
-          ${bodyContent}
-          <p>Thank you,<br>The QuickRoll Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} QuickRoll. All rights reserved.</p>
-          <p>You received this email because you are registered with our service.</p>
-        </div>
-      </div>
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td align="center">
+            <div class="container">
+              <div class="header">
+                <h1>QuickRoll</h1>
+              </div>
+              ${iconHtml}
+              <div class="content">
+                <h2>${title}</h2>
+                ${bodyHtml}
+                ${buttonHtml}
+              </div>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} QuickRoll. All rights reserved.</p>
+              <p>You're receiving this because of activity on your account.</p>
+            </div>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;
 };
 
-// --- 1. Password Reset Email ---
+// --- 1. Password Reset Email (Refactored) ---
 const sendPasswordResetCode = async (email, code) => {
-  const title = 'Password Reset Request';
-  const bodyContent = `
-    <p>Hello,</p>
-    <p>We received a request to reset the password for your QuickRoll account associated with this email. If you did not make this request, please disregard this email.</p>
-    <p>To proceed with the password reset, please use the following verification code:</p>
+  // Define the specific body content
+  const bodyHtml = `
+    <p>We received a request to reset the password for your QuickRoll account. If you did not make this request, please disregard this email.</p>
+    <p>Your verification code is:</p>
     
     <div class="code-box">${code}</div>
     
-    <p>This code will expire in 5 minutes. For your security, please do not share this code with anyone.</p>
+    <p style="font-size: 14px; color: #888;">This code will expire in 5 minutes. For your security, do not share this code.</p>
   `;
 
+  // Build the email using the new template
+  const html = createEmailTemplate({
+    iconEmoji: '🔒',
+    title: 'Your Security Code',
+    bodyHtml: bodyHtml
+    // No button needed
+  });
+
   const mailOptions = {
-    from: 'security@quickrollattendance.live',
+    from: '"QuickRoll Security" <security@quickrollattendance.live>',
     to: email,
-    subject: 'Your QuickRoll Password Reset Code',
-    html: createEmailTemplate(title, bodyContent),
+    subject: 'QuickRoll Password Reset Code',
+    html: html,
     text: `Your QuickRoll password reset code is: ${code}. It expires in 5 minutes.`
   };
 
@@ -230,35 +346,36 @@ const sendPasswordResetCode = async (email, code) => {
   }
 };
 
-// --- 2. Faculty Credentials (Welcome) Email ---
+// --- 2. Faculty Credentials (Welcome) Email (Refactored) ---
 const sendFacultyCredentials = async (email, name, facultyId) => {
-  const title = 'Welcome to QuickRoll!';
-  const bodyContent = `
+  const bodyHtml = `
     <p>Dear ${name},</p>
-    <p>We are pleased to inform you that your faculty account for the <strong>QuickRoll Attendance System</strong> has been approved.</p>
-    <p>To ensure your account's security, your first step is to set your personal password. Please follow these instructions:</p>
+    <p>We are thrilled to inform you that your faculty account for the <strong>QuickRoll Attendance System</strong> has been approved and is now active.</p>
     
-    <p><strong>Your Account Details (For Reference):</strong></p>
-    <ul style="list-style-type: none; padding-left: 0;">
+    <p style="font-size: 14px; color: #888; margin-top: 20px;">Your account details for reference:</p>
+    <ul style="font-size: 14px; list-style-type: none; padding-left: 0;">
       <li><strong>Email:</strong> ${email}</li>
       <li><strong>Faculty ID:</strong> ${facultyId}</li>
     </ul>
 
-    <p><strong>Steps to Get Started:</strong></p>
-    <ol>
-      <li>Visit the password reset page: <a href="${process.env.FRONTEND_URL}/forgot-password" class="button">Set Your Password</a></li>
-      <li>Enter your email address (<strong>${email}</strong>).</li>
-      <li>Enter your Faculty ID (<strong>${facultyId}</strong>).</li>
-      <li>Follow the prompts to create your new, secure password.</li>
-    </ol>
-    <p>Once set, you can log in to the QuickRoll system. We're excited to have you on board.</p>
+    <p>Your first step is to set a secure password for your account. Please click the button below to get started:</p>
   `;
+  
+  const html = createEmailTemplate({
+    iconEmoji: '🚀',
+    title: 'Welcome to QuickRoll!',
+    bodyHtml: bodyHtml,
+    button: {
+      text: 'Set Your Password',
+      link: `${process.env.FRONTEND_URL}/forgot-password`
+    }
+  });
 
   const mailOptions = {
-    from: 'notification@quickrollattendance.live',
+    from: '"QuickRoll Team" <hello@quickrollattendance.live>',
     to: email,
     subject: 'Welcome to QuickRoll! Your Faculty Account is Ready',
-    html: createEmailTemplate(title, bodyContent),
+    html: html,
   };
 
   try {
@@ -270,24 +387,30 @@ const sendFacultyCredentials = async (email, name, facultyId) => {
   }
 };
 
-// --- 3. Faculty Rejection Email ---
+// --- 3. Faculty Rejection Email (Refactored) ---
 const sendFacultyRejectionEmail = async (email, name, reason = '') => {
-  const title = 'QuickRoll Account Status';
-  const bodyContent = `
+  const reasonHtml = reason
+    ? `<p><strong>Reason provided:</strong> ${reason}</p>`
+    : '';
+  
+  const bodyHtml = `
     <p>Dear ${name},</p>
-    <p>Thank you for your interest in the QuickRoll Attendance System. After a careful review of your faculty account request, we are unable to approve it at this time.</p>
-    
-    ${reason ? `<p><strong>Reason for rejection:</strong> ${reason}</p>` : ''}
-    
-    <p>If you believe this decision was made in error or if you have new information to provide, please contact your institution's administrator directly.</p>
-    <p>We appreciate your understanding.</p>
+    <p>Thank you for your interest in the QuickRoll Attendance System. After a review of your faculty account request, we were unable to approve it at this time.</p>
+    ${reasonHtml}
+    <p>If you believe this was in error or have new information to provide, please contact your institution's administrator directly. We appreciate your understanding.</p>
   `;
 
+  const html = createEmailTemplate({
+    iconEmoji: 'ℹ️',
+    title: 'Account Request Status',
+    bodyHtml: bodyHtml
+  });
+
   const mailOptions = {
-    from: 'notification@quickrollattendance.live',
+    from: '"QuickRoll Accounts" <accounts@quickrollattendance.live>',
     to: email,
     subject: 'Update on Your QuickRoll Faculty Account Request',
-    html: createEmailTemplate(title, bodyContent),
+    html: html,
   };
 
   try {
