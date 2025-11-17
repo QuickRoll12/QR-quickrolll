@@ -73,9 +73,9 @@ const FacultyRequestForm = () => {
       return false;
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 1024 * 1024; // 1MB
     if (photo.size > maxSize) {
-      showNotificationMessage('Photo size should not exceed 5MB', 'error');
+      showNotificationMessage('Photo size should not exceed 1MB. Please compress your image.', 'error');
       return false;
     }
 
@@ -92,10 +92,12 @@ const FacultyRequestForm = () => {
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024;
+      // Validate file size (1MB max)
+      const maxSize = 1024 * 1024;
       if (file.size > maxSize) {
-        showNotificationMessage('Photo size should not exceed 5MB', 'error');
+        const fileSizeMB = (file.size / 1024).toFixed(2);
+        showNotificationMessage(`Photo size is ${fileSizeMB}KB. Maximum allowed size is 1MB. Please compress your image.`, 'error');
+        e.target.value = ''; // Clear the file input
         return;
       }
 
@@ -215,7 +217,18 @@ const FacultyRequestForm = () => {
         }, 5000);
         
       } catch (s3Error) {
-        console.error('S3 upload failed, falling back to traditional approach:', s3Error);
+        console.error('S3 upload failed:', s3Error);
+        
+        // Show detailed error message
+        let errorDetail = 'S3 upload failed';
+        if (s3Error.response) {
+          errorDetail = s3Error.response.data?.message || s3Error.response.statusText || errorDetail;
+        } else if (s3Error.request) {
+          errorDetail = 'Network error - unable to reach server';
+        } else {
+          errorDetail = s3Error.message || errorDetail;
+        }
+        console.error('Error details:', errorDetail);
         
         // FALLBACK: Use traditional multipart upload if S3 fails
         const formData = new FormData();
@@ -251,7 +264,25 @@ const FacultyRequestForm = () => {
       }
       
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to submit request. Please try again.';
+      console.error('Faculty request submission error:', error);
+      
+      // Detailed error message
+      let errorMessage = 'Failed to submit request. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error - unable to reach server. Please check your connection.';
+        console.error('No response received:', error.request);
+      } else {
+        // Error in request setup
+        errorMessage = error.message || errorMessage;
+        console.error('Request setup error:', error.message);
+      }
+      
       setError(errorMessage);
       showNotificationMessage(errorMessage, 'error');
     } finally {

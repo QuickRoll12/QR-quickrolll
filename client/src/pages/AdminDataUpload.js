@@ -90,6 +90,16 @@ const AdminDataUpload = () => {
     // Check file type
     if (!file.name.match(/\.(xlsx|xls)$/)) {
       setError('Please upload an Excel file (.xlsx or .xls)');
+      event.target.value = ''; // Clear the file input
+      return;
+    }
+
+    // Check file size (20MB max)
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setError(`File size is ${fileSizeMB}MB. Maximum allowed size is 20MB. Please reduce the file size.`);
+      event.target.value = ''; // Clear the file input
       return;
     }
 
@@ -238,10 +248,23 @@ const AdminDataUpload = () => {
 
       } catch (s3Error) {
         console.error('❌ S3 upload failed, falling back to traditional approach:', s3Error);
-        console.error('Error details:', s3Error.response?.data || s3Error.message);
+        
+        // Show detailed error message
+        let errorDetail = 'S3 upload failed';
+        if (s3Error.response) {
+          errorDetail = s3Error.response.data?.message || s3Error.response.statusText || errorDetail;
+          console.error('Server error response:', s3Error.response.data);
+        } else if (s3Error.request) {
+          errorDetail = 'Network error - unable to reach server';
+          console.error('No response received:', s3Error.request);
+        } else {
+          errorDetail = s3Error.message || errorDetail;
+          console.error('Request setup error:', s3Error.message);
+        }
+        console.error('Error details:', errorDetail);
         
         // FALLBACK: Use traditional multipart upload if S3 fails
-        console.log('🔄 Using traditional multipart upload...');
+        console.log('🔄 Falling back to traditional multipart upload...');
         const formData = new FormData();
         formData.append('file', selectedFile);
 
@@ -256,17 +279,31 @@ const AdminDataUpload = () => {
           }
         );
 
-        console.log('✅ Traditional upload complete:', response.data);
         setUploadStats(response.data.stats);
         setSuccess('Student data processed successfully');
       }
 
     } catch (error) {
       console.error('Upload error:', error);
-      setError(
-        error.response?.data?.message || 
-        'Error uploading file. Please try again.'
-      );
+      
+      // Detailed error message
+      let errorMessage = 'Error uploading file. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error - unable to reach server. Please check your connection.';
+        console.error('No response received:', error.request);
+      } else {
+        // Error in request setup
+        errorMessage = error.message || errorMessage;
+        console.error('Request setup error:', error.message);
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
