@@ -171,6 +171,8 @@ const AdminDataUpload = () => {
     try {
       // NEW S3 APPROACH: Get presigned URL and upload directly to S3
       try {
+        console.log('🚀 Step 1: Getting presigned URL from backend...');
+        
         // Step 1: Get presigned URL from backend
         const uploadUrlResponse = await axios.get(
           `${BACKEND_URL}/api/admin/get-upload-url`,
@@ -186,13 +188,19 @@ const AdminDataUpload = () => {
         );
 
         const { uploadUrl, s3Key } = uploadUrlResponse.data;
+        console.log('✅ Presigned URL received, S3 key:', s3Key);
 
+        console.log('🚀 Step 2: Uploading file to S3...');
+        
         // Step 2: Upload file directly to S3 using presigned URL
         await axios.put(uploadUrl, selectedFile, {
           headers: {
             'Content-Type': selectedFile.type
           }
         });
+        
+        console.log('✅ File uploaded to S3 successfully');
+        console.log('🚀 Step 3: Sending S3 key to backend for processing...');
 
         // Step 3: Process file via backend using S3 key (no file upload)
         const response = await axios.post(
@@ -206,13 +214,16 @@ const AdminDataUpload = () => {
           }
         );
 
+        console.log('✅ Backend processing complete:', response.data);
         setUploadStats(response.data.stats);
         setSuccess('Student data processed successfully');
 
       } catch (s3Error) {
-        console.error('S3 upload failed, falling back to traditional approach:', s3Error);
+        console.error('❌ S3 upload failed, falling back to traditional approach:', s3Error);
+        console.error('Error details:', s3Error.response?.data || s3Error.message);
         
         // FALLBACK: Use traditional multipart upload if S3 fails
+        console.log('🔄 Using traditional multipart upload...');
         const formData = new FormData();
         formData.append('file', selectedFile);
 
@@ -227,6 +238,7 @@ const AdminDataUpload = () => {
           }
         );
 
+        console.log('✅ Traditional upload complete:', response.data);
         setUploadStats(response.data.stats);
         setSuccess('Student data processed successfully');
       }

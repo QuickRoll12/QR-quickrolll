@@ -286,10 +286,14 @@ exports.previewStudentData = async (req, res) => {
     
     res.status(500).json({ message: 'Server error', error: error.message });
   }
-};
+}
 
 // Upload and process student data from Excel file
 exports.uploadStudentData = async (req, res) => {
+  console.log('\n uploadStudentData controller called!');
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file ? 'File present' : 'No file');
+  
   let s3KeyToDelete = null;
   
   try {
@@ -300,7 +304,7 @@ exports.uploadStudentData = async (req, res) => {
     if (s3Key) {
       // New S3 approach: download file from S3
       s3KeyToDelete = s3Key; // Store for cleanup
-      console.log('📥 Using S3 approach - downloading file for processing:', s3Key);
+      console.log(' Using S3 approach - downloading file for processing:', s3Key);
       
       try {
         fileBuffer = await downloadFile(s3Key);
