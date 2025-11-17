@@ -290,10 +290,6 @@ exports.previewStudentData = async (req, res) => {
 
 // Upload and process student data from Excel file
 exports.uploadStudentData = async (req, res) => {
-  console.log('\n uploadStudentData controller called!');
-  console.log('Request body:', req.body);
-  console.log('Request file:', req.file ? 'File present' : 'No file');
-  
   let s3KeyToDelete = null;
   
   try {
@@ -304,25 +300,21 @@ exports.uploadStudentData = async (req, res) => {
     if (s3Key) {
       // New S3 approach: download file from S3
       s3KeyToDelete = s3Key; // Store for cleanup
-      console.log(' Using S3 approach - downloading file for processing:', s3Key);
       
       try {
         fileBuffer = await downloadFile(s3Key);
-        console.log('✅ File downloaded from S3 successfully, size:', fileBuffer.length, 'bytes');
       } catch (downloadError) {
         console.error('❌ Failed to download file from S3:', downloadError);
         throw new Error('Failed to download file from S3: ' + downloadError.message);
       }
     } else if (req.file && req.file.buffer) {
       // Traditional approach: use uploaded file buffer
-      console.log('📥 Using traditional approach - processing uploaded file');
       fileBuffer = req.file.buffer;
     } else {
       return res.status(400).json({ message: 'No file uploaded or S3 key provided' });
     }
     
     // Read Excel file from buffer
-    console.log('📖 Reading Excel file...');
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -331,8 +323,6 @@ exports.uploadStudentData = async (req, res) => {
     if (data.length === 0) {
       return res.status(400).json({ message: 'Excel file is empty' });
     }
-    
-    console.log(`📊 Found ${data.length} records to process`);
     
     // Validate required fields
     const requiredFields = ['name', 'email', 'studentId', 'course', 'section', 'semester', 'classRollNumber', 'universityRollNumber'];
@@ -349,16 +339,9 @@ exports.uploadStudentData = async (req, res) => {
     // This is a workaround for the duplicate key error issue
     const defaultSectionId = new mongoose.Types.ObjectId();
     
-    console.log('🔄 Starting to process student records...');
-    
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowNum = i + 2; // +2 because Excel is 1-indexed and we skip the header row
-      
-      // Log progress every 10 records
-      if (i % 10 === 0) {
-        console.log(`⏳ Processing record ${i + 1}/${data.length}...`);
-      }
       
       try {
         // Check for missing fields
