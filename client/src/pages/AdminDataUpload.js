@@ -210,11 +210,15 @@ const AdminDataUpload = () => {
         console.log('🚀 Step 2: Uploading file to S3...');
         
         // Step 2: Upload file directly to S3 using presigned URL
-        // IMPORTANT: Content-Type must match exactly what was used to generate the presigned URL
+        // IMPORTANT: 
+        // 1. Content-Type must match exactly what was used to generate the presigned URL
+        // 2. Do NOT send Authorization header - presigned URL already contains auth
         await axios.put(uploadUrl, selectedFile, {
           headers: {
             'Content-Type': fileType
-          }
+          },
+          // Don't send any auth headers to S3 - presigned URL handles authentication
+          transformRequest: [(data) => data] // Prevent axios from modifying the request
         });
         
         console.log('✅ File uploaded to S3 successfully');
