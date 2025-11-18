@@ -21,6 +21,8 @@ import AdminFacultyRequests from './pages/AdminFacultyRequests';
 import AdminDataUpload from './pages/AdminDataUpload';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminSuspiciousDevices from './pages/AdminSuspiciousDevices';
+import AdminStudentRecords from './pages/AdminStudentRecords';
+import AdminFacultyRecords from './pages/AdminFacultyRecords';
 import FacultyPastAttendance from './pages/FacultyPastAttendance';
 import Footer from './components/Footer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -237,6 +239,22 @@ function App() {
                   element={
                     <ProtectedRoute allowedRoles={['admin']}>
                       <AdminManageFacultyAssignments />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin/student-records" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <AdminStudentRecords />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin/faculty-records" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <AdminFacultyRecords />
                     </ProtectedRoute>
                   } 
                 />

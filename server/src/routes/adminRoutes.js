@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const adminController = require('../controllers/adminController');
+const userManagementController = require('../controllers/userManagementController');
 const { generatePresignedUploadUrl, generateAdminUploadKey } = require('../config/s3');
 
 // Configure multer for memory storage (for Excel files)
@@ -202,5 +203,25 @@ router.post('/upload-student-data', ensureAdmin, upload.single('file'), handleMu
 // NEW S3-only routes (no file upload, just S3 key processing)
 router.post('/preview-student-data-s3', ensureAdmin, adminController.previewStudentData);
 router.post('/upload-student-data-s3', ensureAdmin, adminController.uploadStudentData);
+
+// ==================== USER MANAGEMENT ROUTES ====================
+
+// Student Management
+router.get('/students', ensureAdmin, userManagementController.getStudents);
+router.get('/students/:id', ensureAdmin, userManagementController.getUserById);
+router.put('/students/:id', ensureAdmin, userManagementController.updateUser);
+router.delete('/students/:id', ensureAdmin, userManagementController.deleteUser);
+
+// Faculty Management
+router.get('/faculty', ensureAdmin, userManagementController.getFaculty);
+router.get('/faculty/:id', ensureAdmin, userManagementController.getUserById);
+router.put('/faculty/:id', ensureAdmin, userManagementController.updateUser);
+router.delete('/faculty/:id', ensureAdmin, userManagementController.deleteUser);
+
+// Filter Options
+router.get('/filter-options', ensureAdmin, userManagementController.getFilterOptions);
+
+// Export
+router.get('/export-users', ensureAdmin, userManagementController.exportUsers);
 
 module.exports = router;

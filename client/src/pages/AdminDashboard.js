@@ -87,6 +87,26 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        <div className="admin-card" onClick={() => navigateTo('/admin/student-records')}>
+          <div className="card-icon">
+            <i className="fas fa-user-graduate"></i>
+          </div>
+          <div className="card-content">
+            <h3>Student Records</h3>
+            <p>View, search, and manage student records</p>
+          </div>
+        </div>
+
+        <div className="admin-card" onClick={() => navigateTo('/admin/faculty-records')}>
+          <div className="card-icon">
+            <i className="fas fa-users"></i>
+          </div>
+          <div className="card-content">
+            <h3>Faculty Records</h3>
+            <p>View, search, and manage faculty records</p>
+          </div>
+        </div>
+
         <div className="admin-card" onClick={() => navigateTo('/admin/suspicious-devices')}>
           <div className="card-icon">
             <i className="fas fa-shield-alt"></i>
