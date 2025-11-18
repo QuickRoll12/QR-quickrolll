@@ -288,20 +288,26 @@ exports.previewStudentData = async (req, res) => {
   }
 }
 
+// --- Make sure you import bcrypt! ---
+const bcrypt = require('bcryptjs'); 
+const mongoose = require('mongoose');
+// const User = require('../models/User');
+// const { downloadFile, deleteFile } = require('../services/s3Service');
+// const xlsx = require('xlsx');
+
 exports.uploadStudentData = async (req, res) => {
   let s3KeyToDelete = null;
 
   try {
-    // --- STEP 1: Get File Buffer (No change) ---
+    // --- STEP 1 & 2: Get File and Parse (No change) ---
     const { s3Key } = req.body;
     let fileBuffer;
-    
+
     if (s3Key) {
       s3KeyToDelete = s3Key;
       try {
         fileBuffer = await downloadFile(s3Key);
       } catch (downloadError) {
-        console.error('❌ Failed to download file from S3:', downloadError);
         throw new Error('Failed to download file from S3: ' + downloadError.message);
       }
     } else if (req.file && req.file.buffer) {
@@ -310,7 +316,6 @@ exports.uploadStudentData = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded or S3 key provided' });
     }
 
-    // --- STEP 2: Parse Excel (No change) ---
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -320,9 +325,8 @@ exports.uploadStudentData = async (req, res) => {
       return res.status(400).json({ message: 'Excel file is empty' });
     }
 
-    // --- STEP 3: OPTIMIZATION - First Pass & In-Memory Validation ---
+    // --- STEP 3: In-Memory Validation (No change) ---
     const requiredFields = ['name', 'email', 'studentId', 'course', 'section', 'semester', 'classRollNumber', 'universityRollNumber'];
-    
     const results = {
       totalRecords: data.length,
       successCount: 0,
@@ -330,31 +334,23 @@ exports.uploadStudentData = async (req, res) => {
       errors: []
     };
     
-    // To check for duplicates *within the file*
     const emailsInFile = new Set();
     const studentIdsInFile = new Set();
     const univRollsInFile = new Set();
-
-    // To check for duplicates *in the database*
     const emailsToQuery = [];
     const studentIdsToQuery = [];
     const univRollsToQuery = [];
-
-    // Rows that pass the first-pass in-memory validation
     const rowsToProcess = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNum = i + 2; // Excel row number
+      const rowNum = i + 2;
       
-      // 1. Check for missing fields
       const missingFields = requiredFields.filter(field => !row.hasOwnProperty(field));
       if (missingFields.length > 0) {
         results.errors.push({ row: rowNum, message: `Missing required fields: ${missingFields.join(', ')}` });
-        continue; // Skip this row
+        continue;
       }
-
-      // 2. Check for duplicates *within the file*
       if (emailsInFile.has(row.email)) {
         results.errors.push({ row: rowNum, message: `Duplicate email in file: ${row.email}` });
         continue;
@@ -368,87 +364,93 @@ exports.uploadStudentData = async (req, res) => {
         continue;
       }
 
-      // If valid so far, add to sets and arrays for DB checking
       emailsInFile.add(row.email);
       studentIdsInFile.add(row.studentId);
       univRollsInFile.add(row.universityRollNumber);
-      
       emailsToQuery.push(row.email);
       studentIdsToQuery.push(row.studentId);
       univRollsToQuery.push(row.universityRollNumber);
-
       rowsToProcess.push({ row, rowNum });
     }
     
-    // --- STEP 4: OPTIMIZATION - Bulk Database Validation ---
-    
-    // Run all 3 queries in parallel
+    // --- STEP 4: Bulk Database Validation (No change) ---
     const [existingEmails, existingStudentIds, existingUnivRolls] = await Promise.all([
       User.find({ email: { $in: emailsToQuery } }, 'email').lean(),
       User.find({ studentId: { $in: studentIdsToQuery } }, 'studentId').lean(),
       User.find({ universityRollNumber: { $in: univRollsToQuery } }, 'universityRollNumber').lean()
     ]);
 
-    // Convert arrays to Sets for fast O(1) lookup
     const existingEmailSet = new Set(existingEmails.map(u => u.email));
     const existingStudentIdSet = new Set(existingStudentIds.map(u => u.studentId));
     const existingUnivRollSet = new Set(existingUnivRolls.map(u => u.universityRollNumber));
 
-    // --- STEP 5: OPTIMIZATION - Final Processing & Row-by-Row Save ---
+    // --- STEP 5: OPTIMIZATION - Bulk Insert ---
 
     const defaultSectionId = new mongoose.Types.ObjectId();
     const defaultPassword = 'quickroll';
     
-    // Loop only over the rows that passed the first validation
-    for (const { row, rowNum } of rowsToProcess) {
-      try {
-        // 1. Check against bulk DB results (now an in-memory check)
-        if (existingEmailSet.has(row.email)) {
-          throw new Error(`Email ${row.email} already exists in database`);
-        }
-        if (existingStudentIdSet.has(row.studentId)) {
-          throw new Error(`Student ID ${row.studentId} already exists in database`);
-        }
-        if (existingUnivRollSet.has(row.universityRollNumber)) {
-          throw new Error(`University Roll Number ${row.universityRollNumber} already exists in database`);
-        }
-        
-        // 2. All checks passed, create and save the new student
-        const newStudent = new User({
-          name: row.name,
-          email: row.email,
-          password: defaultPassword, // Will be hashed by pre-save hook
-          role: 'student',
-          studentId: row.studentId,
-          facultyId: 'N/A',
-          course: row.course,
-          section: row.section,
-          semester: row.semester,
-          classRollNumber: row.classRollNumber,
-          universityRollNumber: row.universityRollNumber,
-          photo_url: row.photo_url || '/default-student.png',
-          sectionId: defaultSectionId,
-          isVerified: true,
-          passwordChangeRequired: true,
-          sectionsTeaching: []
-        });
+    // --- 🚀 NEW: Hash the password ONCE ---
+    const saltRounds = 10; // Or get from your config
+    const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
 
-        await newStudent.save(); // This is the only 'await' in the loop
-        
-        results.successCount++;
-        
-      } catch (error) {
-        // Record any error from the DB checks or the .save() operation
-        results.errors.push({
-          row: rowNum,
-          message: error.message
-        });
+    // --- 🚀 NEW: Build an array for bulk insert ---
+    const studentsToInsert = [];
+
+    for (const { row, rowNum } of rowsToProcess) {
+      // 1. Check against bulk DB results (in-memory)
+      if (existingEmailSet.has(row.email)) {
+        results.errors.push({ row: rowNum, message: `Email ${row.email} already exists in database` });
+        continue; // Go to next row
       }
+      if (existingStudentIdSet.has(row.studentId)) {
+        results.errors.push({ row: rowNum, message: `Student ID ${row.studentId} already exists in database` });
+        continue;
+      }
+      if (existingUnivRollSet.has(row.universityRollNumber)) {
+        results.errors.push({ row: rowNum, message: `University Roll Number ${row.universityRollNumber} already exists in database` });
+        continue;
+      }
+      
+      // 2. All checks passed, create a plain object (NOT a model instance)
+      const newStudentObject = {
+        name: row.name,
+        email: row.email,
+        password: hashedPassword, // Use the pre-hashed password
+        role: 'student',
+        studentId: row.studentId,
+        facultyId: 'N/A',
+        course: row.course,
+        section: row.section,
+        semester: row.semester,
+        classRollNumber: row.classRollNumber,
+        universityRollNumber: row.universityRollNumber,
+        photo_url: row.photo_url || '/default-student.png',
+        sectionId: defaultSectionId,
+        isVerified: true,
+        passwordChangeRequired: true,
+        sectionsTeaching: []
+      };
+
+      // 3. Add the object to our array
+      studentsToInsert.push(newStudentObject);
     }
     
-    // --- STEP 6: Final Tally & S3 Cleanup (Modified) ---
+    // --- 🚀 NEW: Perform the single bulk insert ---
+    if (studentsToInsert.length > 0) {
+      try {
+        // 'ordered: false' tells Mongo to try inserting all, even if some fail
+        // This is good for "best effort" uploads
+        await User.insertMany(studentsToInsert, { ordered: false });
+        results.successCount = studentsToInsert.length;
+      } catch (insertError) {
+        // Handle potential errors from insertMany (e.g., if 'ordered: false' isn't used)
+        console.error('Bulk insert failed:', insertError);
+        // Even if the bulk insert has issues, we'll still report the validation errors
+        results.errors.push({ row: 'N/A', message: `Bulk insert operation failed: ${insertError.message}` });
+      }
+    }
 
-    // Final error count is just the length of the errors array
+    // --- STEP 6: Final Tally & S3 Cleanup ---
     results.errorCount = results.errors.length;
 
     console.log(`\n✅ Processing complete!`);
@@ -470,17 +472,13 @@ exports.uploadStudentData = async (req, res) => {
 
   } catch (error) {
     console.error('Error uploading student data:', error);
-
-    // Identical error cleanup (No change)
-    if (s3KeyToDelete) { // Use the variable from the top
+    if (s3KeyToDelete) {
       try {
         await deleteFile(s3KeyToDelete);
-        console.log('Temporary S3 file deleted after error:', s3KeyToDelete);
       } catch (deleteError) {
         console.error('Error deleting temporary S3 file on error:', deleteError);
       }
     }
-    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
