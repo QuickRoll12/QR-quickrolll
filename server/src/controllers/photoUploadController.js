@@ -84,11 +84,23 @@ class PhotoUploadController {
         });
       }
 
-      // Validate S3 key format
-      if (!s3Key.startsWith(`profiles/${userId}/`)) {
+      // Get user to validate S3 key format with studentId
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Sanitize studentId for validation (same logic as S3 service)
+      const sanitizedStudentId = user.studentId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      // Validate S3 key format with studentId
+      if (!s3Key.startsWith(`profiles/${sanitizedStudentId}/`)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid S3 key format'
+          message: `Invalid S3 key format. Expected format: profiles/${sanitizedStudentId}/...`
         });
       }
 
@@ -105,15 +117,10 @@ class PhotoUploadController {
       const cloudFrontUrl = s3PhotoService.generateCloudFrontUrl(s3Key);
 
       // Update user record
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        { 
-          photo_url: cloudFrontUrl,
-          passwordChangeRequired: false, // Mark as completed
-          updatedAt: new Date()
-        },
-        { new: true, select: '-password' }
-      );
+      user.photo_url = cloudFrontUrl;
+      user.passwordChangeRequired = false; // Mark as completed
+      user.updatedAt = new Date();
+      const updatedUser = await user.save();
 
       if (!updatedUser) {
         return res.status(404).json({
