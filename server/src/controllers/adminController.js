@@ -431,19 +431,36 @@ exports.uploadStudentData = async (req, res) => {
     // --- 🚀 NEW: Perform the single bulk insert ---
     if (studentsToInsert.length > 0) {
       try {
-        // 'ordered: false' tells Mongo to try inserting all, even if some fail
-        // This is good for "best effort" uploads
-        await User.insertMany(studentsToInsert, { ordered: false });
-        results.successCount = studentsToInsert.length;
+        const insertedDocs = await User.insertMany(studentsToInsert, { ordered: false });
+        results.successCount = insertedDocs.length;
+
       } catch (insertError) {
-        // Handle potential errors from insertMany (e.g., if 'ordered: false' isn't used)
-        console.error('Bulk insert failed:', insertError);
-        // Even if the bulk insert has issues, we'll still report the validation errors
-        results.errors.push({ row: 'N/A', message: `Bulk insert operation failed: ${insertError.message}` });
+        if (insertError.name === 'MongoBulkWriteError') {
+          results.successCount = insertError.result.nInserted;
+          insertError.writeErrors.forEach(err => {
+            if (err.code === 11000) {
+              const key = Object.keys(err.keyPattern)[0];
+              const value = err.keyValue[key];
+              results.errors.push({
+                row: 'N/A (Bulk)',
+                message: `User with ${key} '${value}' already exists.`
+              });
+            } else {
+              results.errors.push({
+                row: 'N/A (Bulk)',
+                message: err.errmsg
+              });
+            }
+          });
+        } else {
+          results.errors.push({
+            row: 'N/A',
+            message: `Bulk insert operation failed: ${insertError.message}`
+          });
+        }
       }
     }
 
-    // --- STEP 6: Final Tally & S3 Cleanup ---
     results.errorCount = results.errors.length;
 
     console.log(`\n✅ Processing complete!`);
