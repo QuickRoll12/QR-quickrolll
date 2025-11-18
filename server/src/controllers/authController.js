@@ -374,7 +374,8 @@ exports.login = async (req, res) => {
         semester: user.semester,
         section: user.section,
         classRollNumber: user.classRollNumber,
-        photorequired : user.passwordChangeRequired
+        photorequired : user.passwordChangeRequired,
+        photo_url: user.photo_url
       }
     });
 
