@@ -16,6 +16,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const sheetMappingRoutes = require('./routes/sheetMappingRoutes');
 const attendanceRecordRoutes = require('./routes/attendanceRecordRoutes');
 const photoVerificationRoutes = require('./routes/photoVerificationRoutes');
+const photoUploadRoutes = require('./routes/photoUploadRoutes');
 const facultyAssignmentRoutes = require('./routes/facultyAssignmentRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
@@ -116,6 +117,7 @@ app.use('/reports', express.static(path.join(__dirname, '../public/reports')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', photoUploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', facultyRoutes);
 app.use('/api/reports', reportRoutes);
