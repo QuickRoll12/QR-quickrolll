@@ -16,6 +16,7 @@
   padding: 25px;
   border-radius: 15px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  gap: 20px;
 }
 
 .user-management-header h1 {
@@ -23,6 +24,25 @@
   color: #2d3748;
   font-size: 28px;
   font-weight: 700;
+}
+
+.back-btn {
+  background: #f7fafc;
+  color: #2d3748;
+  border: 2px solid #e2e8f0;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+  transform: translateX(-3px);
 }
 
 .export-btn {
@@ -36,6 +56,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  white-space: nowrap;
 }
 
 .export-btn:hover {

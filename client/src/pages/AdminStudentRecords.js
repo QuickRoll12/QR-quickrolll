@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/userManagement.css';
 
 const AdminStudentRecords = () => {
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -50,7 +52,7 @@ const AdminStudentRecords = () => {
 
   const fetchFilterOptions = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/api/admin/filter-options?role=student`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -66,7 +68,7 @@ const AdminStudentRecords = () => {
     setError('');
     
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         page: currentPage,
         limit: recordsPerPage,
@@ -128,7 +130,7 @@ const AdminStudentRecords = () => {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('token');
       await axios.put(
         `${API_URL}/api/admin/students/${editingStudent._id}`,
         editingStudent,
@@ -160,7 +162,7 @@ const AdminStudentRecords = () => {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('token');
       await axios.delete(
         `${API_URL}/api/admin/students/${deletingStudent._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -181,7 +183,7 @@ const AdminStudentRecords = () => {
   // Handle export
   const handleExport = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         role: 'student',
         department: department,
@@ -220,6 +222,9 @@ const AdminStudentRecords = () => {
   return (
     <div className="user-management-container">
       <div className="user-management-header">
+        <button className="back-btn" onClick={() => navigate('/admin/dashboard')}>
+          ← Back to Dashboard
+        </button>
         <h1>🎓 Student Records Manager</h1>
         <button className="export-btn" onClick={handleExport}>
           📥 Export to CSV

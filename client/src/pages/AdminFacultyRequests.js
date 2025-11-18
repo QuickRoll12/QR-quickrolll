@@ -194,7 +194,12 @@ const AdminFacultyRequests = () => {
 
   return (
     <div className="faculty-requests-container">
-      <h2>Faculty Account Requests</h2>
+      <div className="faculty-requests-header">
+        <button className="back-to-dashboard-btn" onClick={() => navigate('/admin/dashboard')}>
+          ← Back to Dashboard
+        </button>
+        <h2>Faculty Account Requests</h2>
+      </div>
       
       <div className="admin-actions">
         <button 
