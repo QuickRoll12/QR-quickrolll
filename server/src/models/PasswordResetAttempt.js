@@ -22,7 +22,7 @@ const passwordResetAttemptSchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now,
-    expires: 3600 // Automatically expire documents after 1 hour
+    expires: 600 // Automatically expire documents after 10 minutes
   }
 });
 

@@ -288,19 +288,16 @@ exports.previewStudentData = async (req, res) => {
   }
 }
 
-// Upload and process student data from Excel file
 exports.uploadStudentData = async (req, res) => {
   let s3KeyToDelete = null;
-  
+
   try {
-    // Handle both S3 approach (with s3Key) and traditional approach (with file upload)
+    // --- STEP 1: Get File Buffer (No change) ---
     const { s3Key } = req.body;
     let fileBuffer;
     
     if (s3Key) {
-      // New S3 approach: download file from S3
-      s3KeyToDelete = s3Key; // Store for cleanup
-      
+      s3KeyToDelete = s3Key;
       try {
         fileBuffer = await downloadFile(s3Key);
       } catch (downloadError) {
@@ -308,97 +305,140 @@ exports.uploadStudentData = async (req, res) => {
         throw new Error('Failed to download file from S3: ' + downloadError.message);
       }
     } else if (req.file && req.file.buffer) {
-      // Traditional approach: use uploaded file buffer
       fileBuffer = req.file.buffer;
     } else {
       return res.status(400).json({ message: 'No file uploaded or S3 key provided' });
     }
-    
-    // Read Excel file from buffer
+
+    // --- STEP 2: Parse Excel (No change) ---
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
-    
+
     if (data.length === 0) {
       return res.status(400).json({ message: 'Excel file is empty' });
     }
-    
-    // Validate required fields
+
+    // --- STEP 3: OPTIMIZATION - First Pass & In-Memory Validation ---
     const requiredFields = ['name', 'email', 'studentId', 'course', 'section', 'semester', 'classRollNumber', 'universityRollNumber'];
     
-    // Process each record
     const results = {
       totalRecords: data.length,
       successCount: 0,
       errorCount: 0,
       errors: []
     };
-
-    // Create a default section ID to use for all students
-    // This is a workaround for the duplicate key error issue
-    const defaultSectionId = new mongoose.Types.ObjectId();
     
+    // To check for duplicates *within the file*
+    const emailsInFile = new Set();
+    const studentIdsInFile = new Set();
+    const univRollsInFile = new Set();
+
+    // To check for duplicates *in the database*
+    const emailsToQuery = [];
+    const studentIdsToQuery = [];
+    const univRollsToQuery = [];
+
+    // Rows that pass the first-pass in-memory validation
+    const rowsToProcess = [];
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNum = i + 2; // +2 because Excel is 1-indexed and we skip the header row
+      const rowNum = i + 2; // Excel row number
       
+      // 1. Check for missing fields
+      const missingFields = requiredFields.filter(field => !row.hasOwnProperty(field));
+      if (missingFields.length > 0) {
+        results.errors.push({ row: rowNum, message: `Missing required fields: ${missingFields.join(', ')}` });
+        continue; // Skip this row
+      }
+
+      // 2. Check for duplicates *within the file*
+      if (emailsInFile.has(row.email)) {
+        results.errors.push({ row: rowNum, message: `Duplicate email in file: ${row.email}` });
+        continue;
+      }
+      if (studentIdsInFile.has(row.studentId)) {
+        results.errors.push({ row: rowNum, message: `Duplicate Student ID in file: ${row.studentId}` });
+        continue;
+      }
+      if (univRollsInFile.has(row.universityRollNumber)) {
+        results.errors.push({ row: rowNum, message: `Duplicate University Roll Number in file: ${row.universityRollNumber}` });
+        continue;
+      }
+
+      // If valid so far, add to sets and arrays for DB checking
+      emailsInFile.add(row.email);
+      studentIdsInFile.add(row.studentId);
+      univRollsInFile.add(row.universityRollNumber);
+      
+      emailsToQuery.push(row.email);
+      studentIdsToQuery.push(row.studentId);
+      univRollsToQuery.push(row.universityRollNumber);
+
+      rowsToProcess.push({ row, rowNum });
+    }
+    
+    // --- STEP 4: OPTIMIZATION - Bulk Database Validation ---
+    
+    // Run all 3 queries in parallel
+    const [existingEmails, existingStudentIds, existingUnivRolls] = await Promise.all([
+      User.find({ email: { $in: emailsToQuery } }, 'email').lean(),
+      User.find({ studentId: { $in: studentIdsToQuery } }, 'studentId').lean(),
+      User.find({ universityRollNumber: { $in: univRollsToQuery } }, 'universityRollNumber').lean()
+    ]);
+
+    // Convert arrays to Sets for fast O(1) lookup
+    const existingEmailSet = new Set(existingEmails.map(u => u.email));
+    const existingStudentIdSet = new Set(existingStudentIds.map(u => u.studentId));
+    const existingUnivRollSet = new Set(existingUnivRolls.map(u => u.universityRollNumber));
+
+    // --- STEP 5: OPTIMIZATION - Final Processing & Row-by-Row Save ---
+
+    const defaultSectionId = new mongoose.Types.ObjectId();
+    const defaultPassword = 'quickroll';
+    
+    // Loop only over the rows that passed the first validation
+    for (const { row, rowNum } of rowsToProcess) {
       try {
-        // Check for missing fields
-        const missingFields = requiredFields.filter(field => !row.hasOwnProperty(field));
-        if (missingFields.length > 0) {
-          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+        // 1. Check against bulk DB results (now an in-memory check)
+        if (existingEmailSet.has(row.email)) {
+          throw new Error(`Email ${row.email} already exists in database`);
+        }
+        if (existingStudentIdSet.has(row.studentId)) {
+          throw new Error(`Student ID ${row.studentId} already exists in database`);
+        }
+        if (existingUnivRollSet.has(row.universityRollNumber)) {
+          throw new Error(`University Roll Number ${row.universityRollNumber} already exists in database`);
         }
         
-        // Check if email already exists
-        const existingUserByEmail = await User.findOne({ email: row.email });
-        if (existingUserByEmail) {
-          throw new Error(`Email ${row.email} already exists`);
-        }
-        
-        // Check if studentId already exists
-        const existingUserByStudentId = await User.findOne({ studentId: row.studentId });
-        if (existingUserByStudentId) {
-          throw new Error(`Student ID ${row.studentId} already exists`);
-        }
-        
-        // Check if universityRollNumber already exists
-        const existingUserByUniversityRoll = await User.findOne({ universityRollNumber: row.universityRollNumber });
-        if (existingUserByUniversityRoll) {
-          throw new Error(`University Roll Number ${row.universityRollNumber} already exists`);
-        }
-        
-        // Use 'quickroll' as the default password instead of generating a random one
-        const defaultPassword = 'quickroll';
-        
-        // Create new student user with the default sectionId
+        // 2. All checks passed, create and save the new student
         const newStudent = new User({
           name: row.name,
           email: row.email,
           password: defaultPassword, // Will be hashed by pre-save hook
-          role: 'student', // Always student for this upload
+          role: 'student',
           studentId: row.studentId,
-          facultyId: 'N/A', // Not applicable for students
+          facultyId: 'N/A',
           course: row.course,
           section: row.section,
           semester: row.semester,
           classRollNumber: row.classRollNumber,
           universityRollNumber: row.universityRollNumber,
-          photo_url: row.photo_url || '/default-student.png', // Use provided photo URL or default
-          sectionId: defaultSectionId, // Use the default section ID
-          isVerified: true, // Auto-verify student accounts
-          passwordChangeRequired: true, // Always require password change on first login
-          sectionsTeaching: [] // Empty for students
+          photo_url: row.photo_url || '/default-student.png',
+          sectionId: defaultSectionId,
+          isVerified: true,
+          passwordChangeRequired: true,
+          sectionsTeaching: []
         });
+
+        await newStudent.save(); // This is the only 'await' in the loop
         
-        // Save the new student user
-        await newStudent.save();
-        
-        // Increment success count
         results.successCount++;
+        
       } catch (error) {
-        // Record the error
-        results.errorCount++;
+        // Record any error from the DB checks or the .save() operation
         results.errors.push({
           row: rowNum,
           message: error.message
@@ -406,17 +446,20 @@ exports.uploadStudentData = async (req, res) => {
       }
     }
     
+    // --- STEP 6: Final Tally & S3 Cleanup (Modified) ---
+
+    // Final error count is just the length of the errors array
+    results.errorCount = results.errors.length;
+
     console.log(`\n✅ Processing complete!`);
     console.log(`📊 Summary: ${results.successCount} successful, ${results.errorCount} errors out of ${results.totalRecords} total records\n`);
-    
-    // If using S3 approach, delete the temporary file after processing
+
     if (s3Key) {
       try {
         await deleteFile(s3Key);
         console.log('🗑️  Temporary S3 file deleted after processing:', s3Key);
       } catch (deleteError) {
         console.error('Error deleting temporary S3 file:', deleteError);
-        // Don't fail the request if cleanup fails
       }
     }
     
@@ -424,14 +467,15 @@ exports.uploadStudentData = async (req, res) => {
       message: 'Student data processed',
       stats: results
     });
+
   } catch (error) {
     console.error('Error uploading student data:', error);
-    
-    // Cleanup S3 file even on error
-    if (s3Key) {
+
+    // Identical error cleanup (No change)
+    if (s3KeyToDelete) { // Use the variable from the top
       try {
-        await deleteFile(s3Key);
-        console.log('Temporary S3 file deleted after error:', s3Key);
+        await deleteFile(s3KeyToDelete);
+        console.log('Temporary S3 file deleted after error:', s3KeyToDelete);
       } catch (deleteError) {
         console.error('Error deleting temporary S3 file on error:', deleteError);
       }
