@@ -14,24 +14,27 @@ const CLOUDFRONT_DOMAIN = process.env.PROFILE_CLOUDFRONT_DOMAIN;
 class S3PhotoService {
   
   /**
-   * Generate S3 key for user profile photo with versioning
-   * @param {string} userId - User ID
+   * Generate S3 key for profile photo using studentId
+   * @param {string} studentId - Student ID (e.g., CS2021001)
    * @param {string} fileExtension - File extension (jpg, png, etc.)
    * @returns {string} S3 key
    */
-  generateProfilePhotoKey(userId, fileExtension = 'jpg') {
+  generateProfilePhotoKey(studentId, fileExtension = 'jpg') {
+    // Sanitize studentId to be URL-safe
+    const sanitizedStudentId = studentId.toLowerCase().replace(/[^a-z0-9]/g, '');
     const timestamp = Date.now();
-    return `profiles/${userId}/profile-v${timestamp}.${fileExtension}`;
+    return `profiles/${sanitizedStudentId}/profile-v${timestamp}.${fileExtension}`;
   }
 
   /**
    * Generate presigned URL for uploading profile photo
-   * @param {string} userId - User ID
+   * @param {string} studentId - Student ID (e.g., CS2021001)
+   * @param {string} userId - User ID (for metadata)
    * @param {string} contentType - MIME type (image/jpeg, image/png)
    * @param {number} expiresIn - URL expiry in seconds (default: 5 minutes)
    * @returns {Promise<Object>} Presigned URL and S3 key
    */
-  async generatePresignedUploadUrl(userId, contentType = 'image/jpeg', expiresIn = 300) {
+  async generatePresignedUploadUrl(studentId, userId, contentType = 'image/jpeg', expiresIn = 300) {
     try {
       // Validate content type
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -39,9 +42,9 @@ class S3PhotoService {
         throw new Error('Invalid content type. Only JPEG and PNG images are allowed.');
       }
 
-      // Generate S3 key
+      // Generate S3 key using studentId
       const fileExtension = contentType === 'image/png' ? 'png' : 'jpg';
-      const s3Key = this.generateProfilePhotoKey(userId, fileExtension);
+      const s3Key = this.generateProfilePhotoKey(studentId, fileExtension);
 
       // Generate presigned URL
       const uploadUrl = await s3.getSignedUrlPromise('putObject', {
@@ -52,6 +55,7 @@ class S3PhotoService {
         ACL: 'private', // Keep photos private
         Metadata: {
           'user-id': userId,
+          'student-id': studentId,
           'upload-type': 'profile-photo',
           'uploaded-at': new Date().toISOString()
         }
@@ -107,16 +111,19 @@ class S3PhotoService {
 
   /**
    * Delete old profile photos for a user (keep only the latest)
-   * @param {string} userId - User ID
+   * @param {string} studentId - Student ID
    * @param {string} currentPhotoKey - Current photo key to keep
    * @returns {Promise<void>}
    */
-  async cleanupOldPhotos(userId, currentPhotoKey) {
+  async cleanupOldPhotos(studentId, currentPhotoKey) {
     try {
+      // Sanitize studentId for consistency
+      const sanitizedStudentId = studentId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
       // List all photos for the user
       const listParams = {
         Bucket: BUCKET_NAME,
-        Prefix: `profiles/${userId}/`
+        Prefix: `profiles/${sanitizedStudentId}/`
       };
 
       const objects = await s3.listObjectsV2(listParams).promise();
@@ -138,7 +145,7 @@ class S3PhotoService {
           }
         }).promise();
 
-        console.log(`Cleaned up ${objectsToDelete.length} old photos for user ${userId}`);
+        console.log(`Cleaned up ${objectsToDelete.length} old photos for student ${studentId}`);
       }
     } catch (error) {
       console.error('Error cleaning up old photos:', error);

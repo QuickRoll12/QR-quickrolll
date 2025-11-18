@@ -31,8 +31,9 @@ class PhotoUploadController {
         });
       }
 
-      // Generate presigned URL
+      // Generate presigned URL using studentId
       const uploadData = await s3PhotoService.generatePresignedUploadUrl(
+        user.studentId,
         userId, 
         contentType, 
         300 // 5 minutes expiry
@@ -122,7 +123,7 @@ class PhotoUploadController {
       }
 
       // Cleanup old photos (async, don't wait)
-      s3PhotoService.cleanupOldPhotos(userId, s3Key).catch(err => {
+      s3PhotoService.cleanupOldPhotos(updatedUser.studentId, s3Key).catch(err => {
         console.error('Error cleaning up old photos:', err);
       });
 
@@ -130,14 +131,7 @@ class PhotoUploadController {
         success: true,
         data: {
           photo_url: cloudFrontUrl,
-          s3Key: s3Key,
-          user: {
-            id: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            photo_url: updatedUser.photo_url,
-            passwordChangeRequired: updatedUser.passwordChangeRequired
-          }
+          s3Key: s3Key
         },
         message: 'Photo URL updated successfully'
       });
