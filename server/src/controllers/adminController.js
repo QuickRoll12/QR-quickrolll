@@ -288,13 +288,6 @@ exports.previewStudentData = async (req, res) => {
   }
 }
 
-// --- Make sure you import bcrypt! ---
-const bcrypt = require('bcryptjs'); 
-const mongoose = require('mongoose');
-// const User = require('../models/User');
-// const { downloadFile, deleteFile } = require('../services/s3Service');
-// const xlsx = require('xlsx');
-
 exports.uploadStudentData = async (req, res) => {
   let s3KeyToDelete = null;
 
