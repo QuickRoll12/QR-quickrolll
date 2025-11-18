@@ -406,17 +406,17 @@ exports.uploadStudentData = async (req, res) => {
       
       // 2. All checks passed, create a plain object (NOT a model instance)
       const newStudentObject = {
-        name: row.name,
-        email: row.email,
-        password: hashedPassword, // Use the pre-hashed password
+        name: String(row.name), // Cast to String
+        email: String(row.email), // Cast to String
+        password: hashedPassword, 
         role: 'student',
-        studentId: row.studentId,
+        studentId: String(row.studentId), // Cast to String
         facultyId: 'N/A',
-        course: row.course,
-        section: row.section,
-        semester: row.semester,
-        classRollNumber: row.classRollNumber,
-        universityRollNumber: row.universityRollNumber,
+        course: String(row.course), // Cast to String
+        section: String(row.section), // Cast to String
+        semester: String(row.semester), // Cast to String
+        classRollNumber: String(row.classRollNumber), // Cast to String
+        universityRollNumber: String(row.universityRollNumber), // Cast to String
         photo_url: row.photo_url || '/default-student.png',
         sectionId: defaultSectionId,
         isVerified: true,
@@ -436,7 +436,7 @@ exports.uploadStudentData = async (req, res) => {
 
       } catch (insertError) {
         if (insertError.name === 'MongoBulkWriteError') {
-          results.successCount = insertError.result.nInserted;
+          results.successCount = studentsToInsert.length - insertError.writeErrors.length;
           insertError.writeErrors.forEach(err => {
             if (err.code === 11000) {
               const key = Object.keys(err.keyPattern)[0];
