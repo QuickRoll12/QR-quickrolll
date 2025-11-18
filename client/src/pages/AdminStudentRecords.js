@@ -18,17 +18,15 @@ const AdminStudentRecords = () => {
   
   // Filters
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('');
+  const [course, setCourse] = useState('');
   const [semester, setSemester] = useState('');
   const [section, setSection] = useState('');
-  const [course, setCourse] = useState('');
   
   // Filter options
   const [filterOptions, setFilterOptions] = useState({
-    departments: [],
+    courses: [],
     semesters: [],
-    sections: [],
-    courses: []
+    sections: []
   });
   
   // Edit modal
@@ -73,10 +71,9 @@ const AdminStudentRecords = () => {
         page: currentPage,
         limit: recordsPerPage,
         search: search,
-        department: department,
+        course: course,
         semester: semester,
-        section: section,
-        course: course
+        section: section
       });
 
       const response = await axios.get(`${API_URL}/api/admin/students?${params}`, {
@@ -91,12 +88,12 @@ const AdminStudentRecords = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, recordsPerPage, search, department, semester, section, course, API_URL]);
+  }, [currentPage, recordsPerPage, search, course, semester, section, API_URL]);
 
   // Fetch students when filters change
   useEffect(() => {
     fetchStudents();
-  }, [currentPage, recordsPerPage, department, semester, section, course]);
+  }, [currentPage, recordsPerPage, course, semester, section]);
 
   // Debounced search
   useEffect(() => {
@@ -186,10 +183,9 @@ const AdminStudentRecords = () => {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         role: 'student',
-        department: department,
+        course: course,
         semester: semester,
-        section: section,
-        course: course
+        section: section
       });
 
       const response = await axios.get(`${API_URL}/api/admin/export-users?${params}`, {
@@ -212,10 +208,9 @@ const AdminStudentRecords = () => {
   // Reset filters
   const resetFilters = () => {
     setSearch('');
-    setDepartment('');
+    setCourse('');
     setSemester('');
     setSection('');
-    setCourse('');
     setCurrentPage(1);
   };
 
@@ -248,17 +243,6 @@ const AdminStudentRecords = () => {
         </div>
 
         <div className="filter-row">
-          <select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Departments</option>
-            {filterOptions.departments.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
-          </select>
-
           <select
             value={course}
             onChange={(e) => setCourse(e.target.value)}
@@ -331,7 +315,6 @@ const AdminStudentRecords = () => {
                 <th>Student ID</th>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Department</th>
                 <th>Course</th>
                 <th>Sem/Sec</th>
                 <th>Roll No</th>
@@ -346,7 +329,6 @@ const AdminStudentRecords = () => {
                   <td><strong>{student.studentId}</strong></td>
                   <td>{student.name}</td>
                   <td>{student.email}</td>
-                  <td>{student.department}</td>
                   <td>{student.course}</td>
                   <td>{student.semester}/{student.section}</td>
                   <td>{student.classRollNumber}</td>
@@ -447,27 +429,17 @@ const AdminStudentRecords = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Department</label>
-                  <select
-                    value={editingStudent.department || ''}
-                    onChange={(e) => setEditingStudent({...editingStudent, department: e.target.value})}
-                    className="form-input"
-                  >
-                    <option value="">Select Department</option>
-                    {filterOptions.departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
                   <label>Course</label>
-                  <input
-                    type="text"
+                  <select
                     value={editingStudent.course || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, course: e.target.value})}
                     className="form-input"
-                  />
+                  >
+                    <option value="">Select Course</option>
+                    {filterOptions.courses.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group">

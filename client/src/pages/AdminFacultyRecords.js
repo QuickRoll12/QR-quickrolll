@@ -18,11 +18,11 @@ const AdminFacultyRecords = () => {
   
   // Filters
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('');
+  const [course, setCourse] = useState('');
   
   // Filter options
   const [filterOptions, setFilterOptions] = useState({
-    departments: []
+    courses: []
   });
   
   // Edit modal
@@ -67,7 +67,7 @@ const AdminFacultyRecords = () => {
         page: currentPage,
         limit: recordsPerPage,
         search: search,
-        department: department
+        course: course
       });
 
       const response = await axios.get(`${API_URL}/api/admin/faculty?${params}`, {
@@ -82,12 +82,12 @@ const AdminFacultyRecords = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, recordsPerPage, search, department, API_URL]);
+  }, [currentPage, recordsPerPage, search, course, API_URL]);
 
   // Fetch faculty when filters change
   useEffect(() => {
     fetchFaculty();
-  }, [currentPage, recordsPerPage, department]);
+  }, [currentPage, recordsPerPage, course]);
 
   // Debounced search
   useEffect(() => {
@@ -177,7 +177,7 @@ const AdminFacultyRecords = () => {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         role: 'faculty',
-        department: department
+        course: course
       });
 
       const response = await axios.get(`${API_URL}/api/admin/export-users?${params}`, {
@@ -200,7 +200,7 @@ const AdminFacultyRecords = () => {
   // Reset filters
   const resetFilters = () => {
     setSearch('');
-    setDepartment('');
+    setCourse('');
     setCurrentPage(1);
   };
 
@@ -234,13 +234,13 @@ const AdminFacultyRecords = () => {
 
         <div className="filter-row">
           <select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            value={course}
+            onChange={(e) => setCourse(e.target.value)}
             className="filter-select"
           >
-            <option value="">All Departments</option>
-            {filterOptions.departments.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
+            <option value="">All Courses</option>
+            {filterOptions.courses.map(c => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
@@ -283,7 +283,7 @@ const AdminFacultyRecords = () => {
                 <th>Faculty ID</th>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Department</th>
+                <th>Course</th>
                 <th>Assignments</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -296,7 +296,7 @@ const AdminFacultyRecords = () => {
                   <td><strong>{facultyMember.facultyId}</strong></td>
                   <td>{facultyMember.name}</td>
                   <td>{facultyMember.email}</td>
-                  <td>{facultyMember.department}</td>
+                  <td>{facultyMember.course}</td>
                   <td>
                     {facultyMember.teachingAssignments && facultyMember.teachingAssignments.length > 0 ? (
                       <span className="assignments-badge">
@@ -403,15 +403,15 @@ const AdminFacultyRecords = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Department</label>
+                  <label>Course</label>
                   <select
-                    value={editingFaculty.department || ''}
-                    onChange={(e) => setEditingFaculty({...editingFaculty, department: e.target.value})}
+                    value={editingFaculty.course || ''}
+                    onChange={(e) => setEditingFaculty({...editingFaculty, course: e.target.value})}
                     className="form-input"
                   >
-                    <option value="">Select Department</option>
-                    {filterOptions.departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
+                    <option value="">Select Course</option>
+                    {filterOptions.courses.map(c => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>

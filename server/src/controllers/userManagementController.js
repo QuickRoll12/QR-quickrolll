@@ -9,20 +9,18 @@ exports.getStudents = async (req, res) => {
       page = 1, 
       limit = 15, 
       search = '', 
-      department = '', 
+      course = '', 
       semester = '', 
-      section = '',
-      course = ''
+      section = ''
     } = req.query;
 
     // Build query
     const query = { role: 'student' };
 
     // Add filters
-    if (department) query.department = department;
+    if (course) query.course = course;
     if (semester) query.semester = parseInt(semester);
     if (section) query.section = section;
-    if (course) query.course = course;
 
     // Add search (studentId, name, email)
     if (search) {
@@ -69,14 +67,14 @@ exports.getFaculty = async (req, res) => {
       page = 1, 
       limit = 15, 
       search = '', 
-      department = ''
+      course = ''
     } = req.query;
 
     // Build query
     const query = { role: 'faculty' };
 
     // Add filters
-    if (department) query.department = department;
+    if (course) query.course = course;
 
     // Add search (facultyId, name, email)
     if (search) {
@@ -228,22 +226,20 @@ exports.getFilterOptions = async (req, res) => {
     const { role } = req.query;
 
     if (role === 'student') {
-      const departments = await User.distinct('department', { role: 'student' });
+      const courses = await User.distinct('course', { role: 'student' });
       const semesters = await User.distinct('semester', { role: 'student' });
       const sections = await User.distinct('section', { role: 'student' });
-      const courses = await User.distinct('course', { role: 'student' });
 
       res.json({
-        departments: departments.filter(d => d),
+        courses: courses.filter(c => c).sort(),
         semesters: semesters.filter(s => s).sort((a, b) => a - b),
-        sections: sections.filter(s => s).sort(),
-        courses: courses.filter(c => c)
+        sections: sections.filter(s => s).sort()
       });
     } else if (role === 'faculty') {
-      const departments = await User.distinct('department', { role: 'faculty' });
+      const courses = await User.distinct('course', { role: 'faculty' });
 
       res.json({
-        departments: departments.filter(d => d)
+        courses: courses.filter(c => c).sort()
       });
     } else {
       res.status(400).json({ message: 'Role parameter required (student or faculty)' });
@@ -257,15 +253,14 @@ exports.getFilterOptions = async (req, res) => {
 // Export users to CSV
 exports.exportUsers = async (req, res) => {
   try {
-    const { role, department, semester, section, course } = req.query;
+    const { role, course, semester, section } = req.query;
 
     // Build query
     const query = {};
     if (role) query.role = role;
-    if (department) query.department = department;
+    if (course) query.course = course;
     if (semester) query.semester = parseInt(semester);
     if (section) query.section = section;
-    if (course) query.course = course;
 
     // Fetch users
     const users = await User.find(query).select('-password').lean();
@@ -274,14 +269,14 @@ exports.exportUsers = async (req, res) => {
     let csv = '';
     
     if (role === 'student') {
-      csv = 'Student ID,Name,Email,Department,Course,Semester,Section,Roll Number,Verified,Created At\n';
+      csv = 'Student ID,Name,Email,Course,Semester,Section,Roll Number,Verified,Created At\n';
       users.forEach(user => {
-        csv += `${user.studentId || ''},${user.name || ''},${user.email || ''},${user.department || ''},${user.course || ''},${user.semester || ''},${user.section || ''},${user.classRollNumber || ''},${user.isVerified ? 'Yes' : 'No'},${user.createdAt || ''}\n`;
+        csv += `${user.studentId || ''},${user.name || ''},${user.email || ''},${user.course || ''},${user.semester || ''},${user.section || ''},${user.classRollNumber || ''},${user.isVerified ? 'Yes' : 'No'},${user.createdAt || ''}\n`;
       });
     } else if (role === 'faculty') {
-      csv = 'Faculty ID,Name,Email,Department,Verified,Created At\n';
+      csv = 'Faculty ID,Name,Email,Course,Verified,Created At\n';
       users.forEach(user => {
-        csv += `${user.facultyId || ''},${user.name || ''},${user.email || ''},${user.department || ''},${user.isVerified ? 'Yes' : 'No'},${user.createdAt || ''}\n`;
+        csv += `${user.facultyId || ''},${user.name || ''},${user.email || ''},${user.course || ''},${user.isVerified ? 'Yes' : 'No'},${user.createdAt || ''}\n`;
       });
     }
 
