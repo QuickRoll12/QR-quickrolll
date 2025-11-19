@@ -800,7 +800,6 @@ const ActionGroup = styled.div`
 `;
 
 const ActionButton = styled.button`
-  width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
@@ -834,7 +833,6 @@ const Pagination = styled.div`
 `;
 
 const PageButton = styled.button`
-  width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
