@@ -5,12 +5,12 @@ const User = require('../models/User');
 // Get all students with filters, search, and pagination
 exports.getStudents = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 15, 
-      search = '', 
-      course = '', 
-      semester = '', 
+    const {
+      page = 1,
+      limit = 15,
+      search = '',
+      course = '',
+      semester = '',
       section = ''
     } = req.query;
 
@@ -63,10 +63,10 @@ exports.getStudents = async (req, res) => {
 // Get all faculty with filters, search, and pagination
 exports.getFaculty = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 15, 
-      search = '', 
+    const {
+      page = 1,
+      limit = 15,
+      search = '',
       course = ''
     } = req.query;
 
@@ -142,31 +142,39 @@ exports.updateUser = async (req, res) => {
     delete updates.password;
     delete updates.role; // Prevent role changes
 
-    // Validate unique fields if they're being updated
+    // Get current user to check role
+    const currentUser = await User.findById(id);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Validate unique fields based on role
     if (updates.email) {
-      const existingUser = await User.findOne({ 
-        email: updates.email, 
-        _id: { $ne: id } 
+      const existingUser = await User.findOne({
+        email: updates.email,
+        _id: { $ne: id }
       });
       if (existingUser) {
         return res.status(400).json({ message: 'Email already exists' });
       }
     }
 
-    if (updates.studentId) {
-      const existingUser = await User.findOne({ 
-        studentId: updates.studentId, 
-        _id: { $ne: id } 
+    // Only check studentId if user is a student and studentId is being updated
+    if (currentUser.role === 'student' && updates.studentId) {
+      const existingUser = await User.findOne({
+        studentId: updates.studentId,
+        _id: { $ne: id }
       });
       if (existingUser) {
         return res.status(400).json({ message: 'Student ID already exists' });
       }
     }
 
-    if (updates.facultyId) {
-      const existingUser = await User.findOne({ 
-        facultyId: updates.facultyId, 
-        _id: { $ne: id } 
+    // Only check facultyId if user is a faculty and facultyId is being updated
+    if (currentUser.role === 'faculty' && updates.facultyId) {
+      const existingUser = await User.findOne({
+        facultyId: updates.facultyId,
+        _id: { $ne: id }
       });
       if (existingUser) {
         return res.status(400).json({ message: 'Faculty ID already exists' });
@@ -184,9 +192,9 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ 
-      message: 'User updated successfully', 
-      user 
+    res.json({
+      message: 'User updated successfully',
+      user
     });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -205,7 +213,7 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ 
+    res.json({
       message: 'User deleted successfully',
       deletedUser: {
         id: user._id,
@@ -267,7 +275,7 @@ exports.exportUsers = async (req, res) => {
 
     // Convert to CSV format
     let csv = '';
-    
+
     if (role === 'student') {
       csv = 'Student ID,Name,Email,Course,Semester,Section,Roll Number,Verified,Created At\n';
       users.forEach(user => {
