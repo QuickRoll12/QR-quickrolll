@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiFilter, FiDownload, FiEdit2, FiTrash2, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+import { FaSearch, FaDownload, FaPencilAlt, FaTrash, FaChevronLeft, FaChevronRight, FaTimes, FaCheck, FaExclamationCircle, FaRedo } from 'react-icons/fa';
 
 const AdminStudentRecords = () => {
   const navigate = useNavigate();
@@ -220,14 +220,14 @@ const AdminStudentRecords = () => {
     <PageContainer>
       <Header>
         <BackButton onClick={() => navigate('/admin/dashboard')}>
-          <FiChevronLeft /> Back to Dashboard
+          <FaChevronLeft /> Back to Dashboard
         </BackButton>
         <Title>
           <GradientText>Student Records</GradientText>
           <Subtitle>Manage and monitor student database</Subtitle>
         </Title>
         <ExportButton onClick={handleExport}>
-          <FiDownload /> Export CSV
+          <FaDownload /> Export CSV
         </ExportButton>
       </Header>
 
@@ -239,7 +239,7 @@ const AdminStudentRecords = () => {
             exit={{ opacity: 0, y: -20 }}
             type="error"
           >
-            <FiAlertCircle /> {error}
+            <FaExclamationCircle /> {error}
           </Alert>
         )}
         {success && (
@@ -249,14 +249,14 @@ const AdminStudentRecords = () => {
             exit={{ opacity: 0, y: -20 }}
             type="success"
           >
-            <FiCheck /> {success}
+            <FaCheck /> {success}
           </Alert>
         )}
       </AnimatePresence>
 
       <ControlsSection>
         <SearchContainer>
-          <FiSearch />
+          <FaSearch />
           <SearchInput
             type="text"
             placeholder="Search by ID, Name, or Email..."
@@ -282,7 +282,7 @@ const AdminStudentRecords = () => {
           </FilterSelect>
 
           <ResetButton onClick={resetFilters} title="Reset Filters">
-            <FiRefreshCw />
+            <FaRedo />
           </ResetButton>
         </FiltersContainer>
       </ControlsSection>
@@ -341,11 +341,11 @@ const AdminStudentRecords = () => {
                     </td>
                     <td>
                       <ActionGroup>
-                        <ActionButton onClick={() => handleEdit(student)} color="#4361ee">
-                          <FiEdit2 />
+                        <ActionButton onClick={() => handleEdit(student)} color="#4361ee" title="Edit Student">
+                          <FaPencilAlt />
                         </ActionButton>
-                        <ActionButton onClick={() => handleDelete(student)} color="#ef233c">
-                          <FiTrash2 />
+                        <ActionButton onClick={() => handleDelete(student)} color="#ef233c" title="Delete Student">
+                          <FaTrash />
                         </ActionButton>
                       </ActionGroup>
                     </td>
@@ -362,14 +362,14 @@ const AdminStudentRecords = () => {
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
             >
-              <FiChevronLeft />
+              <FaChevronLeft />
             </PageButton>
             <PageInfo>Page {currentPage} of {totalPages}</PageInfo>
             <PageButton
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
             >
-              <FiChevronRight />
+              <FaChevronRight />
             </PageButton>
           </Pagination>
         )}
@@ -391,7 +391,7 @@ const AdminStudentRecords = () => {
             >
               <ModalHeader>
                 <h3>Edit Student</h3>
-                <CloseButton onClick={() => setShowEditModal(false)}><FiX /></CloseButton>
+                <CloseButton onClick={() => setShowEditModal(false)}><FaTimes /></CloseButton>
               </ModalHeader>
               <ModalBody>
                 <FormGrid>
@@ -485,7 +485,7 @@ const AdminStudentRecords = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <DeleteIconWrapper>
-                <FiTrash2 />
+                <FaTrash />
               </DeleteIconWrapper>
               <h3>Delete Student?</h3>
               <p>Are you sure you want to delete <strong>{deletingStudent.name}</strong>? This action cannot be undone.</p>
@@ -528,7 +528,7 @@ const Title = styled.div`
 const GradientText = styled.h1`
   font-size: 2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6); /* Darker, more professional blue gradient */
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0;
@@ -536,7 +536,7 @@ const GradientText = styled.h1`
 `;
 
 const Subtitle = styled.p`
-  color: #4b5563; /* Darker gray */
+  color: #4b5563;
   margin: 0.5rem 0 0 0;
   font-size: 0.95rem;
 `;
@@ -568,7 +568,7 @@ const ExportButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #2563eb; /* Solid professional blue */
+  background: #2563eb;
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
@@ -665,12 +665,13 @@ const ResetButton = styled.button`
   color: #4b5563;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 1.2rem; /* Larger icon */
+  font-size: 1.25rem; /* Increased size */
 
   &:hover {
     color: #2563eb;
     background: #f3f4f6;
     border-color: #2563eb;
+    transform: rotate(180deg); /* Add rotation effect */
   }
 `;
 
@@ -723,7 +724,7 @@ const Table = styled.table`
   th {
     text-align: left;
     padding: 1rem 1.5rem;
-    color: #111827; /* Darker header text */
+    color: #111827;
     font-weight: 600;
     font-size: 0.8rem;
     text-transform: uppercase;
@@ -840,8 +841,8 @@ const ActionButton = styled.button`
   }
   
   svg {
-    width: 18px;
-    height: 18px;
+    width: 16px; /* Slightly adjusted for FA icons */
+    height: 16px;
   }
 `;
 
@@ -878,6 +879,11 @@ const PageButton = styled.button`
     border-color: #2563eb;
     color: #2563eb;
     background: #eff6ff;
+  }
+  
+  svg {
+    width: 14px;
+    height: 14px;
   }
 `;
 
