@@ -1121,6 +1121,7 @@ const SaveButton = styled.button`
 const DeleteModalContent = styled(ModalContent)`
   max-width: 400px;
   text-align: center;
+  padding: 2rem;
   
   h3 {
     margin: 1rem 0 0.5rem 0;
