@@ -39,7 +39,6 @@ const FacultyResetPassword = () => {
   };
 
   useEffect(() => {
-    // Get email and userId from location state if available
     if (location.state?.email && location.state?.userId) {
       setFormData(prev => ({
         ...prev,
@@ -63,7 +62,6 @@ const FacultyResetPassword = () => {
     setError('');
     setMessage('');
 
-    // Validate passwords match
     if (formData.newPassword !== formData.confirmPassword) {
       setError('Passwords do not match');
       showNotificationMessage('Passwords do not match', 'error');
@@ -71,7 +69,6 @@ const FacultyResetPassword = () => {
       return;
     }
 
-    // Validate password strength
     if (formData.newPassword.length < 6) {
       setError('Password must be at least 6 characters long');
       showNotificationMessage('Password must be at least 6 characters long', 'error');
@@ -91,7 +88,6 @@ const FacultyResetPassword = () => {
       setMessage(response.message);
       showNotificationMessage(response.message, 'success');
 
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login');
       }, 3000);
@@ -120,7 +116,6 @@ const FacultyResetPassword = () => {
     while (container.firstChild) container.removeChild(container.firstChild);
     container.appendChild(renderer.domElement);
 
-    // Particles & Animation
     const geometry = new THREE.BufferGeometry();
     const count = 2000;
     const positions = new Float32Array(count * 3);
@@ -195,16 +190,24 @@ const FacultyResetPassword = () => {
         @keyframes slide-in-down { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
         .animate-slide-in { animation: slide-in-down 0.3s ease-out forwards; }
         .input-focus-glow:focus-within { animation: pulse-glow 2s infinite; }
+        
+        /* Custom Scrollbar for Left Panel */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.7); }
       `}</style>
 
       <div className="fixed inset-0 w-full h-full flex bg-[#0f172a] text-white overflow-hidden z-[100]">
 
-        {/* LEFT PANEL */}
-        <div className="w-full lg:w-[45%] flex flex-col justify-center items-center px-6 lg:px-8 bg-[#0f172a] z-20 shadow-2xl relative h-full">
+        {/* LEFT PANEL - SCROLLABLE FORM */}
+        {/* Added: items-center, overflow-y-auto, custom-scrollbar, pt-10, pb-10. Removed: justify-center */}
+        <div className="w-full lg:w-[45%] flex flex-col items-center px-6 lg:px-8 bg-[#0f172a] z-20 shadow-2xl relative h-full overflow-y-auto custom-scrollbar pt-10 pb-10">
 
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-[#0f172a] to-[#0f172a] pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-[#0f172a] to-[#0f172a] pointer-events-none fixed"></div>
 
-          <div className="glass-panel w-full max-w-[420px] rounded-2xl p-6 md:p-8 relative overflow-hidden z-10">
+          {/* Form Wrapper: Added shrink-0 */}
+          <div className="glass-panel w-full max-w-[420px] rounded-2xl p-6 md:p-8 relative overflow-hidden z-10 shrink-0">
 
             {/* HEADER */}
             <div className="relative z-10 text-center mb-6">
@@ -220,10 +223,10 @@ const FacultyResetPassword = () => {
             {/* NOTIFICATION UI */}
             {showNotification && (
               <div className={`mb-5 p-3.5 rounded-xl flex items-center gap-4 animate-slide-in backdrop-blur-md shadow-lg border ${notificationType === 'success' ? 'bg-emerald-500/10 border-emerald-500/20' :
-                  'bg-red-500/10 border-red-500/20'
+                'bg-red-500/10 border-red-500/20'
                 }`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notificationType === 'success' ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]' :
-                    'bg-red-500/20 text-red-400 shadow-[0_0_10px_rgba(248,113,113,0.3)]'
+                  'bg-red-500/20 text-red-400 shadow-[0_0_10px_rgba(248,113,113,0.3)]'
                   }`}>
                   <i className={`fas ${notificationType === 'success' ? 'fa-check' : 'fa-exclamation'} text-sm`}></i>
                 </div>
