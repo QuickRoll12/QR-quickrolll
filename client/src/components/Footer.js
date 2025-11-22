@@ -11,7 +11,7 @@ const StyledFooter = styled(Box)(({ theme }) => ({
   position: 'fixed',
   bottom: 0,
   width: '100%',
-  height: '60px',
+  height: '40px',
   zIndex: 100,
   '@media (max-width: 600px)': {
     padding: theme.spacing(0.5, 0),
@@ -141,10 +141,10 @@ const Footer = () => {
     <>
       <StyledFooter>
         <Container maxWidth="lg">
-          <Stack 
-            direction="row" 
-            spacing={2} 
-            justifyContent="center" 
+          <Stack
+            direction="row"
+            spacing={2}
+            justifyContent="center"
             alignItems="center"
             height="100%"
             sx={{ pb: 3 }}
@@ -168,13 +168,13 @@ const Footer = () => {
         </Container>
       </StyledFooter>
 
-      <Overlay 
-        className={showGehuLinks ? 'visible' : ''} 
+      <Overlay
+        className={showGehuLinks ? 'visible' : ''}
         onClick={handleCloseGehuLinks}
       />
-      
+
       <GehuLinksContainer className={showGehuLinks ? 'visible' : ''}>
-        <CloseButton 
+        <CloseButton
           onClick={handleCloseGehuLinks}
           aria-label="close"
         >
